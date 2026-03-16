@@ -1,23 +1,58 @@
-/**
- * 簡易版 SGTIN-96 解碼器
- * 假設使用常見的 Partition 5 (Company Prefix 24 bits, Item Ref 20 bits)
- * 實務上 Partition 位元會決定切分點，此處為 PoC 簡化版。
- */
-export function decodeSGTIN96(hex) {
-  // 1. Hex 轉 BigInt 再轉為 96 位的二進位字串
-  const binary = BigInt('0x' + hex).toString(2).padStart(96, '0');
+import { createClient } from '@supabase/supabase-js';
+import { decodeSGTIN96 } from './sgtin96.js';
 
-  // 2. 根據 EPC 標準切分 (以 Partition 5 為例)
-  // Header (8), Filter (3), Partition (3), Company (24), Item (20), Serial (38)
-  const partition = parseInt(binary.substring(11, 14), 2); 
-  
-  // 這裡僅示範最常用的長度組合，實際應用需根據 partition 表對照
-  const companyPrefixBin = binary.substring(14, 38);
-  const itemReferenceBin = binary.substring(38, 58);
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY // 使用 Service Role 以繞過 RLS 或執行複雜查詢
+);
 
-  return {
-    companyPrefix: parseInt(companyPrefixBin, 2).toString(),
-    itemReference: parseInt(itemReferenceBin, 2).toString(),
-    serial: BigInt('0b' + binary.substring(58, 96)).toString()
-  };
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
+
+  const { epc_data, reader_id } = req.body;
+
+  try {
+    // 1. 解碼 EPC
+    const { companyPrefix, itemReference } = decodeSGTIN96(epc_data);
+
+    // 2. Debounce Check: 檢查過去 3 秒內是否有相同 Reader 讀到相同 EPC
+    const threeSecondsAgo = new Date(Date.now() - 3000).toISOString();
+
+    const { data: existingEvents, error: queryError } = await supabase
+      .from('rfid_events')
+      .select('id')
+      .eq('epc_data', epc_data)
+      .eq('reader_id', reader_id)
+      .gt('timestamp', threeSecondsAgo);
+
+    if (queryError) throw queryError;
+
+    // 如果 3 秒內已存在，則跳過不寫入
+    if (existingEvents && existingEvents.length > 0) {
+      return res.status(200).json({ status: 'ignored', reason: 'debounced' });
+    }
+
+    // 3. 寫入資料庫
+    const { error: insertError } = await supabase
+      .from('rfid_events')
+      .insert([
+        { 
+          epc_data, 
+          reader_id, 
+          state: 'detected',
+          timestamp: new Date().toISOString()
+        }
+      ]);
+
+    if (insertError) throw insertError;
+
+    return res.status(200).json({ 
+      status: 'success', 
+      product: { companyPrefix, itemReference } 
+    });
+
+  } catch (error) {
+    console.error('Webhook Error:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
 }
