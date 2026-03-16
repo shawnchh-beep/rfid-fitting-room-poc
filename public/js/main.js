@@ -44,6 +44,30 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
+async function parseApiResponse(response, tag) {
+  const contentType = response.headers.get('content-type') || '';
+  const rawText = await response.text();
+
+  console.log(`[api:${tag}] response`, {
+    status: response.status,
+    statusText: response.statusText,
+    contentType,
+    rawPreview: rawText.slice(0, 300)
+  });
+
+  if (!rawText) {
+    return { data: null, contentType, rawText };
+  }
+
+  try {
+    const data = JSON.parse(rawText);
+    return { data, contentType, rawText };
+  } catch (error) {
+    console.error(`[api:${tag}] JSON parse failed`, error);
+    throw new Error(`伺服器回應不是 JSON（HTTP ${response.status}）`);
+  }
+}
+
 function decodeSGTIN96(hex) {
   const normalized = String(hex || '').trim();
   if (!/^[a-fA-F0-9]{24}$/.test(normalized)) {
@@ -260,15 +284,23 @@ async function handleCsvImport(event) {
       throw new Error(`發現 ${badRows.length} 筆 EPC 格式不正確，請修正後再導入`);
     }
 
+    console.log('[csv] start import', {
+      rowsCount: rows.length,
+      firstRow: rows[0] || null
+    });
+
     const response = await fetch('/api/bulk-products', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rows })
     });
 
-    const result = await response.json();
+    const { data: result } = await parseApiResponse(response, 'bulk-products');
     if (!response.ok) {
       throw new Error(result?.error || '批量導入失敗');
+    }
+    if (!result) {
+      throw new Error('批量導入失敗：伺服器回傳空內容');
     }
 
     el.importResult.textContent = JSON.stringify(result, null, 2);
@@ -284,15 +316,22 @@ async function handleSimulateSubmit(event) {
   const epcData = el.simulateForm.epc_data.value.trim();
 
   try {
+    console.log('[simulate] send webhook', { readerId, epcData });
+
     const response = await fetch('/api/rfid-webhook', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reader_id: readerId, epc_data: epcData })
     });
-    const result = await response.json();
+
+    const { data: result } = await parseApiResponse(response, 'rfid-webhook');
     if (!response.ok) {
       throw new Error(result?.error || '事件送出失敗');
     }
+    if (!result) {
+      throw new Error('事件送出失敗：伺服器回傳空內容');
+    }
+
     el.simulateResult.textContent = JSON.stringify(result, null, 2);
     appendEventLog({ reader_id: readerId, epc_data: epcData, timestamp: new Date().toISOString() });
     await fetchAndRenderDashboard();

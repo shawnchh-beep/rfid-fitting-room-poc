@@ -64,6 +64,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'rows 不可為空' });
     }
 
+    console.log('[bulk-products] request received', { rowsCount: rows.length });
+
     const normalized = rows.map((row, index) => {
       try {
         return normalizeRow(row);
@@ -72,52 +74,68 @@ export default async function handler(req, res) {
       }
     });
 
-    let operationMode = 'upsert_epc_data';
-    let data = null;
+    const keyByPrefixItem = (item) => `${item.epc_company_prefix}::${item.item_reference}`;
+    const duplicateCounter = new Map();
+    const dedupedMap = new Map();
 
-    const firstTry = await supabase
-      .from('products')
-      .upsert(normalized, { onConflict: 'epc_data' })
-      .select('id, name, epc_data, epc_company_prefix, item_reference');
-
-    if (!firstTry.error) {
-      data = firstTry.data;
-    } else {
-      const fallbackRows = normalized.map((item) => ({
-        epc_company_prefix: item.epc_company_prefix,
-        item_reference: item.item_reference,
-        name: item.name,
-        image_url: item.image_url,
-        price: item.price
-      }));
-
-      const secondTry = await supabase
-        .from('products')
-        .upsert(fallbackRows, { onConflict: 'epc_company_prefix,item_reference' })
-        .select('id, name, epc_company_prefix, item_reference');
-
-      if (!secondTry.error) {
-        operationMode = 'upsert_prefix_item';
-        data = secondTry.data;
-      } else {
-        const thirdTry = await supabase
-          .from('products')
-          .insert(fallbackRows)
-          .select('id, name, epc_company_prefix, item_reference');
-
-        if (thirdTry.error) {
-          throw thirdTry.error;
-        }
-
-        operationMode = 'insert_prefix_item';
-        data = thirdTry.data;
+    for (const item of normalized) {
+      const key = keyByPrefixItem(item);
+      duplicateCounter.set(key, (duplicateCounter.get(key) || 0) + 1);
+      if (!dedupedMap.has(key)) {
+        dedupedMap.set(key, item);
       }
     }
 
+    const duplicates = [...duplicateCounter.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([key, count]) => ({ key, count }));
+
+    const normalizedUnique = [...dedupedMap.values()];
+
+    console.log('[bulk-products] normalized summary', {
+      rowsCount: normalized.length,
+      uniquePrefixItemCount: normalizedUnique.length,
+      duplicates
+    });
+
+    const summarizeError = (err) => ({
+      code: err?.code,
+      message: err?.message,
+      details: err?.details,
+      hint: err?.hint
+    });
+
+    const fallbackRows = normalizedUnique.map((item) => ({
+      epc_company_prefix: item.epc_company_prefix,
+      item_reference: item.item_reference,
+      name: item.name,
+      image_url: item.image_url,
+      price: item.price
+    }));
+
+    console.log('[bulk-products] upsert payload preview', {
+      sample: fallbackRows.slice(0, 3),
+      count: fallbackRows.length
+    });
+
+    const upsertResult = await supabase
+      .from('products')
+      .upsert(fallbackRows, { onConflict: 'epc_company_prefix,item_reference' })
+      .select('id, name, epc_company_prefix, item_reference');
+
+    if (upsertResult.error) {
+      console.error('[bulk-products] upsert failed', summarizeError(upsertResult.error));
+      throw upsertResult.error;
+    }
+
+    const operationMode = 'upsert_prefix_item';
+    const data = upsertResult.data;
+
     return res.status(200).json({
       status: 'success',
-      message: `已處理 ${normalized.length} 筆資料`,
+      message: `已處理 ${normalized.length} 筆資料（唯一商品鍵 ${normalizedUnique.length}）`,
       mode: operationMode,
+      duplicates_merged: duplicates,
       affected: data?.length || 0,
       items: data || []
     });
