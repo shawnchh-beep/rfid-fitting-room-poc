@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RFID 試衣間 PoC</title>
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <header class="page-header">
+    <h1>RFID 試衣間 PoC 後台</h1>
+    <p id="connectionStatus" class="status-badge">初始化中…</p>
+  </header>
+
+  <main class="layout">
+    <section class="panel" aria-labelledby="configTitle">
+      <h2 id="configTitle">Supabase 連線設定</h2>
+      <form id="configForm" class="stack-form">
+        <label>
+          Supabase URL
+          <input id="supabaseUrl" type="url" required placeholder="https://xxxx.supabase.co" />
+        </label>
+        <label>
+          Supabase Anon Key
+          <input id="supabaseAnonKey" type="password" required placeholder="eyJ..." />
+        </label>
+        <button type="submit">儲存設定並連線</button>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="dashboardTitle">
+      <div class="panel-title-row">
+        <h2 id="dashboardTitle">商品狀態看板</h2>
+        <button id="refreshButton" type="button">手動刷新</button>
+      </div>
+      <div id="dashboard" class="dashboard-grid"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="importTitle">
+      <h2 id="importTitle">CSV 批量導入商品</h2>
+      <p class="hint">欄位：<code>epc_data,product_name,sku,size,color,price</code></p>
+      <form id="csvImportForm" class="stack-form">
+        <input id="csvFile" type="file" accept=".csv,text/csv" required />
+        <button type="submit">上傳並導入</button>
+      </form>
+      <pre id="importResult" class="result-box">尚未導入</pre>
+    </section>
+
+    <section class="panel" aria-labelledby="simulateTitle">
+      <h2 id="simulateTitle">模擬 RFID 事件</h2>
+      <form id="simulateForm" class="stack-form">
+        <label>
+          Reader ID
+          <input id="readerId" name="reader_id" required placeholder="FITTING_ROOM_ANTENNA_1" />
+        </label>
+        <label>
+          EPC Data (24碼 Hex)
+          <input id="epcData" name="epc_data" required placeholder="3034257BF7194E4000001A85" />
+        </label>
+        <button type="submit">送出事件</button>
+      </form>
+      <pre id="simulateResult" class="result-box">尚未送出</pre>
+    </section>
+
+    <section class="panel" aria-labelledby="eventLogTitle">
+      <h2 id="eventLogTitle">最新事件記錄</h2>
+      <ul id="eventLog" class="event-log"></ul>
+    </section>
+  </main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
