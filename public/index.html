@@ -1,71 +1,169 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RFID 試衣間 PoC</title>
+  <title>RFID Fitting Room PoC</title>
   <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
   <header class="page-header">
-    <h1>RFID 試衣間 PoC 後台</h1>
-    <p id="connectionStatus" class="status-badge">初始化中…</p>
+    <h1 data-i18n="app.title">RFID Fitting Room PoC Dashboard</h1>
+    <div class="header-actions">
+      <label for="languageSelect" class="language-label" data-i18n="language.label">Language</label>
+      <select id="languageSelect" class="language-select" aria-label="Language"></select>
+      <p id="connectionStatus" class="status-badge">Initializing…</p>
+    </div>
   </header>
 
   <main class="layout">
-    <section class="panel" aria-labelledby="configTitle">
-      <h2 id="configTitle">Supabase 連線設定</h2>
-      <form id="configForm" class="stack-form">
-        <label>
-          Supabase URL
-          <input id="supabaseUrl" type="url" required placeholder="https://xxxx.supabase.co" />
-        </label>
-        <label>
-          Supabase Anon Key
-          <input id="supabaseAnonKey" type="password" required placeholder="eyJ..." />
-        </label>
-        <button type="submit">儲存設定並連線</button>
-      </form>
-    </section>
-
-    <section class="panel" aria-labelledby="dashboardTitle">
-      <div class="panel-title-row">
-        <h2 id="dashboardTitle">商品狀態看板</h2>
-        <button id="refreshButton" type="button">手動刷新</button>
+    <section class="panel panel--storefront" aria-labelledby="dashboardTitle">
+      <h2 id="dashboardTitle" data-i18n="board.title">Visual Simulation Board</h2>
+      <div class="kpi-grid kpi-grid--compact" aria-label="KPI">
+        <article class="kpi-card">
+          <p class="kpi-label" data-i18n="kpi.total">Total Items</p>
+          <p id="kpiTotal" class="kpi-value">0</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label" data-i18n="kpi.fitting">In Fitting</p>
+          <p id="kpiFitting" class="kpi-value">0</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label" data-i18n="kpi.abnormal">Abnormal Stay</p>
+          <p id="kpiAbnormal" class="kpi-value text-err">0</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label" data-i18n="kpi.checkout">At Checkout</p>
+          <p id="kpiCheckout" class="kpi-value">0</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label" data-i18n="kpi.sold">Sold</p>
+          <p id="kpiSold" class="kpi-value text-ok">0</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label" data-i18n="kpi.todayFitting">Today Fitting Sessions</p>
+          <p id="kpiTodayFitting" class="kpi-value">0</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label" data-i18n="kpi.todaySales">Today Sales</p>
+          <p id="kpiTodaySales" class="kpi-value">0</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label" data-i18n="kpi.conversionRate">Today Conversion Rate</p>
+          <p id="kpiConversionRate" class="kpi-value">0%</p>
+        </article>
       </div>
-      <div id="dashboard" class="dashboard-grid"></div>
-    </section>
 
-    <section class="panel" aria-labelledby="importTitle">
-      <h2 id="importTitle">CSV 批量導入商品</h2>
-      <p class="hint">欄位：<code>epc_data,product_name,sku,size,color,price</code></p>
-      <form id="csvImportForm" class="stack-form">
-        <input id="csvFile" type="file" accept=".csv,text/csv" required />
-        <button type="submit">上傳並導入</button>
-      </form>
-      <pre id="importResult" class="result-box">尚未導入</pre>
-    </section>
-
-    <section class="panel" aria-labelledby="simulateTitle">
-      <h2 id="simulateTitle">模擬 RFID 事件</h2>
-      <form id="simulateForm" class="stack-form">
+      <div class="mode-config" aria-label="Mode configuration">
         <label>
-          Reader ID
-          <input id="readerId" name="reader_id" required placeholder="FITTING_ROOM_ANTENNA_1" />
+          <span data-i18n="mode.label">Operation Mode</span>
+          <select id="modeSelect">
+            <option value="demo" data-i18n="mode.demo">Demo</option>
+            <option value="operational" data-i18n="mode.operational">Operational</option>
+          </select>
         </label>
         <label>
-          EPC Data (24碼 Hex)
-          <input id="epcData" name="epc_data" required placeholder="3034257BF7194E4000001A85" />
+          <span data-i18n="mode.thresholdLabel">Overstay Threshold (minutes)</span>
+          <input id="overstayThresholdMinutes" type="number" min="1" step="1" value="15" />
         </label>
-        <button type="submit">送出事件</button>
-      </form>
-      <pre id="simulateResult" class="result-box">尚未送出</pre>
+      </div>
+
+      <div class="panel-title-row">
+        <h3 class="board-lanes-title" data-i18n="board.lanes">Rack / Fitting / Checkout</h3>
+        <button id="refreshButton" type="button" data-i18n="dashboard.refresh">Refresh</button>
+      </div>
+      <div id="dashboard" class="storefront-scene"></div>
+
+      <section class="restock-panel" aria-labelledby="restockTitle">
+        <h3 id="restockTitle" data-i18n="restock.title">Restock Suggestions (Rule-based)</h3>
+        <ul id="restockList" class="event-log"></ul>
+      </section>
+
+      <div id="itemDetailOverlay" class="item-detail-overlay" hidden>
+        <article class="item-detail-card" aria-live="polite">
+          <header class="item-detail-header">
+            <h3 data-i18n="detail.title">Item Details</h3>
+            <button id="itemDetailClose" type="button" class="item-detail-close" data-i18n="detail.close">Close</button>
+          </header>
+          <div id="itemDetailBody" class="item-detail-body"></div>
+        </article>
+      </div>
     </section>
 
-    <section class="panel" aria-labelledby="eventLogTitle">
-      <h2 id="eventLogTitle">最新事件記錄</h2>
-      <ul id="eventLog" class="event-log"></ul>
-    </section>
+    <div class="secondary-panels">
+      <section class="panel" aria-labelledby="timelineTitle">
+        <h2 id="timelineTitle" data-i18n="timeline.title">Recent Actions</h2>
+        <ul id="activityTimeline" class="event-log"></ul>
+      </section>
+
+      <section class="panel" aria-labelledby="backupToolsTitle">
+        <h2 id="backupToolsTitle" data-i18n="backup.title">Backup / Testing Tools</h2>
+        <p class="hint" data-i18n="backup.hint">These tools are secondary and used for maintenance/testing.</p>
+
+        <details class="backup-tools">
+        <summary data-i18n="backup.summary">Open secondary tools</summary>
+        <div class="backup-tools-content">
+          <section aria-labelledby="configTitle">
+            <h3 id="configTitle" data-i18n="config.title">Supabase Connection</h3>
+            <form id="configForm" class="stack-form">
+              <label>
+                <span data-i18n="config.urlLabel">Supabase URL</span>
+                <input id="supabaseUrl" type="url" required placeholder="https://xxxx.supabase.co" />
+              </label>
+              <label>
+                <span data-i18n="config.anonKeyLabel">Supabase Publishable Key</span>
+                <input id="supabaseAnonKey" type="password" required placeholder="eyJ..." />
+              </label>
+              <label>
+                <span data-i18n="auth.apiTokenLabel">API Shared Token</span>
+                <input id="apiToken" type="password" placeholder="optional when auth disabled" />
+              </label>
+              <label>
+                <span data-i18n="auth.roleLabel">Role</span>
+                <select id="userRole" required>
+                  <option value="trial" data-i18n="auth.role.trial">Trial</option>
+                  <option value="user" data-i18n="auth.role.user">User</option>
+                  <option value="admin" data-i18n="auth.role.admin">Admin</option>
+                </select>
+              </label>
+              <button type="submit" data-i18n="config.saveAndConnect">Save & Connect</button>
+            </form>
+          </section>
+
+          <section aria-labelledby="importTitle">
+            <h3 id="importTitle" data-i18n="import.title">CSV Product Import</h3>
+            <p class="hint"><span data-i18n="import.fieldsHint">Fields:</span> <code>epc_data,product_name,name_en,description_en,name_zh_hant,description_zh_hant,name_zh_hans,description_zh_hans,name_ja,description_ja,sku,size,color,image_url,price</code></p>
+            <form id="csvImportForm" class="stack-form">
+              <input id="csvFile" type="file" accept=".csv,text/csv" required />
+              <button type="submit" data-i18n="import.submit">Upload & Import</button>
+            </form>
+            <pre id="importResult" class="result-box" data-i18n="import.notStarted">Not imported yet</pre>
+          </section>
+
+          <section aria-labelledby="simulateTitle">
+            <h3 id="simulateTitle" data-i18n="simulate.title">Simulate RFID Event</h3>
+            <form id="simulateForm" class="stack-form">
+              <label>
+                <span data-i18n="simulate.readerId">Reader ID</span>
+                <input id="readerId" name="reader_id" required placeholder="FITTING_ROOM_ANTENNA_1" />
+              </label>
+              <label>
+                <span data-i18n="simulate.epcData">EPC Data (24-char Hex)</span>
+                <input id="epcData" name="epc_data" required placeholder="3034257BF7194E4000001A85" />
+              </label>
+              <button type="submit" data-i18n="simulate.submit">Send Event</button>
+            </form>
+            <pre id="simulateResult" class="result-box" data-i18n="simulate.notSent">Not sent yet</pre>
+          </section>
+
+          <section aria-labelledby="eventLogTitle">
+            <h3 id="eventLogTitle" data-i18n="events.title">Latest Event Logs</h3>
+            <ul id="eventLog" class="event-log"></ul>
+          </section>
+        </div>
+        </details>
+      </section>
+    </div>
   </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script type="module" src="js/main.js"></script>
