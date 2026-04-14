@@ -1,22 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { authorizeBulkProducts } from './_auth.js';
+import { decodeSGTIN96 } from './sgtin96.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
-
-function decodeSGTIN96(hex) {
-  const normalized = String(hex || '').trim();
-  const binary = BigInt(`0x${normalized}`).toString(2).padStart(96, '0');
-  const companyPrefixBin = binary.substring(14, 38);
-  const itemReferenceBin = binary.substring(38, 58);
-
-  return {
-    companyPrefix: parseInt(companyPrefixBin, 2).toString(),
-    itemReference: parseInt(itemReferenceBin, 2).toString()
-  };
-}
 
 function normalizeRow(row = {}) {
   const epcData = String(row.epc_data || '').trim();

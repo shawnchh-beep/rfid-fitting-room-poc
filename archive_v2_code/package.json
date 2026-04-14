@@ -1,0 +1,24 @@
+{
+  "name": "rfid-fitting-room",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shawnchh-beep/rfid-fitting-room-poc.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/shawnchh-beep/rfid-fitting-room-poc/issues"
+  },
+  "homepage": "https://github.com/shawnchh-beep/rfid-fitting-room-poc#readme",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.99.1"
+  }
+}

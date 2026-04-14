@@ -24,6 +24,15 @@ const SUPPORTED_MODES = ['demo', 'operational'];
 const FITTING_EXIT_TIMEOUT_MS = 10_000;
 const STATES = ['RACK', 'FITTING_ROOM', 'CHECKOUT', 'SOLD'];
 const BOARD_STATES = ['RACK', 'FITTING_ROOM', 'CHECKOUT'];
+const SGTIN96_PARTITIONS = {
+  0: { companyPrefixBits: 40, itemReferenceBits: 4, companyPrefixDigits: 12, itemReferenceDigits: 1 },
+  1: { companyPrefixBits: 37, itemReferenceBits: 7, companyPrefixDigits: 11, itemReferenceDigits: 2 },
+  2: { companyPrefixBits: 34, itemReferenceBits: 10, companyPrefixDigits: 10, itemReferenceDigits: 3 },
+  3: { companyPrefixBits: 30, itemReferenceBits: 14, companyPrefixDigits: 9, itemReferenceDigits: 4 },
+  4: { companyPrefixBits: 27, itemReferenceBits: 17, companyPrefixDigits: 8, itemReferenceDigits: 5 },
+  5: { companyPrefixBits: 24, itemReferenceBits: 20, companyPrefixDigits: 7, itemReferenceDigits: 6 },
+  6: { companyPrefixBits: 20, itemReferenceBits: 24, companyPrefixDigits: 6, itemReferenceDigits: 7 }
+};
 
 function normalizeUserRole(value) {
   const role = String(value || '').trim();
@@ -59,6 +68,11 @@ const el = {
   csvImportForm: document.getElementById('csvImportForm'),
   csvFile: document.getElementById('csvFile'),
   importResult: document.getElementById('importResult'),
+  groupedCsvImportForm: document.getElementById('groupedCsvImportForm'),
+  groupedCsvFile: document.getElementById('groupedCsvFile'),
+  groupedPartition: document.getElementById('groupedPartition'),
+  groupedFilter: document.getElementById('groupedFilter'),
+  groupedImportResult: document.getElementById('groupedImportResult'),
   simulateForm: document.getElementById('simulateForm'),
   simulateResult: document.getElementById('simulateResult'),
   eventLog: document.getElementById('eventLog'),
@@ -126,6 +140,12 @@ const I18N = {
     'import.fieldsHint': 'Fields:',
     'import.submit': 'Upload & Import',
     'import.notStarted': 'Not imported yet',
+    'importGrouped.title': 'Grouped CSV Import (Auto SGTIN-96)',
+    'importGrouped.fieldsHint': 'Fields:',
+    'importGrouped.partitionLabel': 'Partition',
+    'importGrouped.filterLabel': 'Filter',
+    'importGrouped.submit': 'Generate EPC & Import',
+    'importGrouped.notStarted': 'Not imported yet',
     'simulate.title': 'Simulate RFID Event',
     'simulate.readerId': 'Reader ID',
     'simulate.epcData': 'EPC Data (24-char Hex)',
@@ -170,6 +190,7 @@ const I18N = {
     'error.simulateFailed': 'Send event failed',
     'error.simulateEmptyResponse': 'Send event failed: empty response from server',
     'error.importFailed': 'Import failed: {message}',
+    'error.groupedImportFailed': 'Grouped import failed: {message}',
     'error.trialImportForbidden': 'Trial role cannot import products',
     'error.eventSendFailed': 'Send failed: {message}',
     'state.RACK': 'RACK',
@@ -221,6 +242,12 @@ const I18N = {
     'import.fieldsHint': '欄位：',
     'import.submit': '上傳並導入',
     'import.notStarted': '尚未導入',
+    'importGrouped.title': 'Grouped CSV 導入（自動產生 SGTIN-96）',
+    'importGrouped.fieldsHint': '欄位：',
+    'importGrouped.partitionLabel': 'Partition',
+    'importGrouped.filterLabel': 'Filter',
+    'importGrouped.submit': '產生 EPC 並導入',
+    'importGrouped.notStarted': '尚未導入',
     'simulate.title': '模擬 RFID 事件',
     'simulate.epcData': 'EPC Data (24碼 Hex)',
     'simulate.submit': '送出事件',
@@ -262,6 +289,7 @@ const I18N = {
     'error.simulateFailed': '事件送出失敗',
     'error.simulateEmptyResponse': '事件送出失敗：伺服器回傳空內容',
     'error.importFailed': '導入失敗：{message}',
+    'error.groupedImportFailed': 'Grouped 導入失敗：{message}',
     'error.trialImportForbidden': 'trial 角色不可匯入商品',
     'error.eventSendFailed': '送出失敗：{message}'
   },
@@ -522,15 +550,169 @@ function decodeSGTIN96(hex) {
   }
 
   const binary = BigInt(`0x${normalized}`).toString(2).padStart(96, '0');
-  const companyPrefixBin = binary.substring(14, 38);
-  const itemReferenceBin = binary.substring(38, 58);
+  const partition = parseInt(binary.substring(11, 14), 2);
+  const spec = SGTIN96_PARTITIONS[partition];
+  if (!spec) {
+    throw new Error(`Unsupported partition: ${partition}`);
+  }
+
+  const companyStart = 14;
+  const companyEnd = companyStart + spec.companyPrefixBits;
+  const itemEnd = companyEnd + spec.itemReferenceBits;
+  const companyPrefixBin = binary.substring(companyStart, companyEnd);
+  const itemReferenceBin = binary.substring(companyEnd, itemEnd);
   const serialBin = binary.substring(58, 96);
 
   return {
-    companyPrefix: parseInt(companyPrefixBin, 2).toString(),
-    itemReference: parseInt(itemReferenceBin, 2).toString(),
-    serial: BigInt(`0b${serialBin}`).toString()
+    companyPrefix: BigInt(`0b${companyPrefixBin}`).toString().padStart(spec.companyPrefixDigits, '0'),
+    itemReference: BigInt(`0b${itemReferenceBin}`).toString().padStart(spec.itemReferenceDigits, '0'),
+    serial: BigInt(`0b${serialBin}`).toString(),
+    partition
   };
+}
+
+function toFixedBin(value, bits, fieldName) {
+  const num = BigInt(value);
+  if (num < 0n) throw new Error(`${fieldName} must be >= 0`);
+  const binary = num.toString(2);
+  if (binary.length > bits) {
+    throw new Error(`${fieldName} exceeds ${bits} bits`);
+  }
+  return binary.padStart(bits, '0');
+}
+
+function encodeSGTIN96({ companyPrefix, itemReference, serial, partition = 5, filter = 1 }) {
+  const partitionValue = Number(partition);
+  const filterValue = Number(filter);
+  const spec = SGTIN96_PARTITIONS[partitionValue];
+  if (!spec) throw new Error(`Unsupported partition: ${partitionValue}`);
+  if (!Number.isInteger(filterValue) || filterValue < 0 || filterValue > 7) {
+    throw new Error('Filter must be 0~7');
+  }
+
+  const cp = String(companyPrefix ?? '').trim();
+  const ir = String(itemReference ?? '').trim();
+  const serialText = String(serial ?? '').trim();
+  if (!/^\d+$/.test(cp)) throw new Error('companyPrefix must be numeric');
+  if (!/^\d+$/.test(ir)) throw new Error('itemReference must be numeric');
+  if (!/^\d+$/.test(serialText)) throw new Error('serial must be numeric');
+
+  const cpPadded = cp.padStart(spec.companyPrefixDigits, '0');
+  const irPadded = ir.padStart(spec.itemReferenceDigits, '0');
+
+  const binary = [
+    toFixedBin(48, 8, 'header'),
+    toFixedBin(filterValue, 3, 'filter'),
+    toFixedBin(partitionValue, 3, 'partition'),
+    toFixedBin(cpPadded, spec.companyPrefixBits, 'companyPrefix'),
+    toFixedBin(irPadded, spec.itemReferenceBits, 'itemReference'),
+    toFixedBin(serialText, 38, 'serial')
+  ].join('');
+
+  return BigInt(`0b${binary}`).toString(16).toUpperCase().padStart(24, '0');
+}
+
+function groupedCsvToRows(text) {
+  const rows = csvToRows(text);
+  const required = ['sku_ean13', 'product_name', 'color', 'size', 'quantity', 'price_usd'];
+  rows.forEach((row) => {
+    required.forEach((field) => {
+      if (!(field in row)) {
+        throw new Error(`Missing required field: ${field}`);
+      }
+    });
+  });
+  return rows;
+}
+
+function buildItemReferenceFromEan13(ean13, partition) {
+  const spec = SGTIN96_PARTITIONS[partition];
+  const base12 = String(ean13).slice(0, 12);
+  const cpDigits = spec.companyPrefixDigits;
+  const cp = base12.slice(0, cpDigits);
+  const rest = base12.slice(cpDigits);
+  // 若 partition 需要多 1 位，補 0 作為 indicator。
+  const itemReference = rest.padStart(spec.itemReferenceDigits, '0');
+  return { companyPrefix: cp, itemReference };
+}
+
+async function handleGroupedCsvImport(event) {
+  event.preventDefault();
+  const currentRole = normalizeUserRole(localStorage.getItem(USER_ROLE_KEY));
+  if (currentRole === 'trial') {
+    el.groupedImportResult.textContent = t('error.trialImportForbidden');
+    return;
+  }
+
+  const file = el.groupedCsvFile.files?.[0];
+  if (!file) return;
+
+  try {
+    const partition = Number(el.groupedPartition?.value ?? 5);
+    const filter = Number(el.groupedFilter?.value ?? 1);
+    if (!(partition in SGTIN96_PARTITIONS)) throw new Error('partition must be 0~6');
+    if (!Number.isInteger(filter) || filter < 0 || filter > 7) throw new Error('filter must be 0~7');
+
+    const text = await file.text();
+    const groupedRows = groupedCsvToRows(text);
+
+    let serial = 1;
+    const rows = [];
+    for (const row of groupedRows) {
+      const ean13 = String(row.sku_ean13 || '').trim();
+      const qty = Number(row.quantity);
+      const price = Number(row.price_usd);
+      if (!/^\d{13}$/.test(ean13)) throw new Error(`Invalid EAN13 at line ${row.__line}`);
+      if (!Number.isInteger(qty) || qty <= 0) throw new Error(`Invalid quantity at line ${row.__line}`);
+      if (!Number.isFinite(price)) throw new Error(`Invalid price_usd at line ${row.__line}`);
+
+      const { companyPrefix, itemReference } = buildItemReferenceFromEan13(ean13, partition);
+      for (let i = 0; i < qty; i += 1) {
+        const epc = encodeSGTIN96({
+          companyPrefix,
+          itemReference,
+          serial,
+          partition,
+          filter
+        });
+
+        rows.push({
+          epc_data: epc,
+          product_name: String(row.product_name || '').trim(),
+          name_en: String(row.product_name || '').trim(),
+          sku: ean13,
+          size: String(row.size || '').trim(),
+          color: String(row.color || '').trim(),
+          price: price
+        });
+        serial += 1;
+      }
+    }
+
+    const response = await fetch('/api/bulk-products', {
+      method: 'POST',
+      headers: buildJsonHeaders(),
+      body: JSON.stringify({ rows })
+    });
+
+    const { data: result } = await parseApiResponse(response, 'grouped-bulk-products');
+    if (!response.ok) {
+      throw new Error(getApiErrorMessage(result, t('error.bulkImportFailed')));
+    }
+
+    el.groupedImportResult.textContent = JSON.stringify({
+      grouped_rows: groupedRows.length,
+      expanded_rows: rows.length,
+      partition,
+      filter,
+      serial_range: rows.length > 0 ? { start: 1, end: rows.length } : null,
+      server_result: result
+    }, null, 2);
+
+    await fetchAndRenderDashboard();
+  } catch (error) {
+    el.groupedImportResult.textContent = t('error.groupedImportFailed', { message: error.message });
+  }
 }
 
 function csvToRows(text) {
@@ -1505,6 +1687,9 @@ function boot() {
 
   el.configForm.addEventListener('submit', handleConfigSubmit);
   el.csvImportForm.addEventListener('submit', handleCsvImport);
+  if (el.groupedCsvImportForm) {
+    el.groupedCsvImportForm.addEventListener('submit', handleGroupedCsvImport);
+  }
   el.simulateForm.addEventListener('submit', handleSimulateSubmit);
   bindBoardDnD();
   el.refreshButton.addEventListener('click', async () => {

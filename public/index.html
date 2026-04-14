@@ -140,6 +140,41 @@
             <pre id="importResult" class="result-box" data-i18n="import.notStarted">Not imported yet</pre>
           </section>
 
+          <section aria-labelledby="groupedImportTitle">
+            <h3 id="groupedImportTitle" data-i18n="importGrouped.title">Grouped CSV Import (Auto SGTIN-96)</h3>
+            <p class="hint"><span data-i18n="importGrouped.fieldsHint">Fields:</span> <code>sku_ean13,product_name,color,size,quantity,price_usd</code></p>
+            <form id="groupedCsvImportForm" class="stack-form">
+              <label>
+                <span data-i18n="importGrouped.partitionLabel">Partition</span>
+                <select id="groupedPartition">
+                  <option value="0">0</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5" selected>5</option>
+                  <option value="6">6</option>
+                </select>
+              </label>
+              <label>
+                <span data-i18n="importGrouped.filterLabel">Filter</span>
+                <select id="groupedFilter">
+                  <option value="0">0</option>
+                  <option value="1" selected>1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                  <option value="6">6</option>
+                  <option value="7">7</option>
+                </select>
+              </label>
+              <input id="groupedCsvFile" type="file" accept=".csv,text/csv" required />
+              <button type="submit" data-i18n="importGrouped.submit">Generate EPC & Import</button>
+            </form>
+            <pre id="groupedImportResult" class="result-box" data-i18n="importGrouped.notStarted">Not imported yet</pre>
+          </section>
+
           <section aria-labelledby="simulateTitle">
             <h3 id="simulateTitle" data-i18n="simulate.title">Simulate RFID Event</h3>
             <form id="simulateForm" class="stack-form">

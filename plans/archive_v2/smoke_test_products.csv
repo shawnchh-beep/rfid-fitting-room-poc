@@ -1,0 +1,4 @@
+epc_data,product_name,sku,size,color,price,image_url
+3034257BF7194E4000001A85,Classic Tee White,TEE-001,M,White,790,https://example.com/images/tee-white.jpg
+3034257BF7194E4000001A86,Slim Jeans Blue,JNS-010,L,Blue,1290,https://example.com/images/jeans-blue.jpg
+3034257BF7194E4000001A87,Overshirt Olive,OSH-120,XL,Olive,1690,https://example.com/images/overshirt-olive.jpg

@@ -908,3 +908,178 @@ A. 寫成「可直接執行的 PostgreSQL SQL 建表稿」
 
 B. 做「KPI 定義表 v1.0」
 把首頁、商品機會頁、AI 頁面的數字全部定清楚。
+
+⸻
+
+13. v3.1 增補：多語言與登入系統
+
+以下為在不破壞既有結構下，新增的最小可行 schema。
+
+13.1 多語言與語系設定
+
+```sql
+create type locale_code as enum (
+  'en',
+  'zh-Hant',
+  'zh-Hans'
+);
+```
+
+> 預設語言：`en`
+
+若需要集中管理語系，可新增語系設定表：
+
+```sql
+create table system_locales (
+  code locale_code primary key,
+  label text not null,
+  is_enabled boolean not null default true,
+  is_default boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint system_locales_default_single_check
+    check ((is_default in (true, false)))
+);
+
+insert into system_locales (code, label, is_enabled, is_default)
+values
+  ('en', 'English', true, true),
+  ('zh-Hant', '繁體中文', true, false),
+  ('zh-Hans', '简体中文', true, false);
+```
+
+13.2 多語言內容資料表
+
+將可翻譯欄位拆成主表（預設英文）+ i18n 子表：
+
+```sql
+create table product_style_i18n (
+  id uuid primary key default gen_random_uuid(),
+  style_id uuid not null references product_styles(id) on delete cascade,
+  locale locale_code not null,
+  name text not null,
+  short_description text,
+  long_description text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(style_id, locale)
+);
+
+create table sku_i18n (
+  id uuid primary key default gen_random_uuid(),
+  sku_id uuid not null references skus(id) on delete cascade,
+  locale locale_code not null,
+  display_name text not null,
+  description text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(sku_id, locale)
+);
+```
+
+建議規則：
+- `product_styles`、`skus` 主表保留英文欄位作為 fallback。
+- UI 讀取語系優先順序：`使用者偏好語言 -> en`。
+
+13.3 登入與角色管理
+
+```sql
+create type app_role as enum (
+  'admin',
+  'store_clerk',
+  'store_manager',
+  'guest'
+);
+```
+
+> 角色對應：
+> - 管理員：`admin`
+> - 店員：`store_clerk`
+> - 店經理：`store_manager`
+> - 訪客帳號：`guest`
+
+若採 Supabase Auth（建議），可建立使用者 profile 與角色映射：
+
+```sql
+create table user_profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  display_name text,
+  preferred_locale locale_code not null default 'en',
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table user_role_bindings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references user_profiles(id) on delete cascade,
+  role app_role not null,
+  store_id uuid null references stores(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(user_id, role, store_id)
+);
+```
+
+13.4 RLS/授權建議
+
+- `guest`：僅可讀取公開 demo 資料（不可寫入 events / outcomes / alerts）。
+- `store_clerk`：可讀門市資料、可寫入營運流程事件。
+- `store_manager`：含店員權限，另可讀取 KPI 與管理類設定。
+- `admin`：全域管理。
+
+RLS 建議採「從 JWT claim 解析 role + store scope」策略，避免將授權邏輯散落在 API。
+
+⸻
+
+14. SGTIN-96 解碼規則（v3 固定規格）
+
+14.1 EPC 格式與驗證
+
+- 輸入必須為 **24 碼 Hex**（96 bits）。
+- Header 固定驗證為 `00110000`（十進位 `48` / Hex `0x30`，SGTIN-96）。
+- 解析欄位：
+  - Header：8 bits（bit 0-7）
+  - Filter：3 bits（bit 8-10）
+  - Partition：3 bits（bit 11-13）
+  - Company Prefix：依 partition 決定 bit 長度
+  - Item Reference：依 partition 決定 bit 長度
+  - Serial：38 bits（bit 58-95）
+
+14.2 Partition 對照表（GS1）
+
+| Partition | Company Prefix Bits | Company Prefix Digits | Item Reference Bits | Item Reference Digits |
+|---|---:|---:|---:|---:|
+| 0 | 40 | 12 | 4 | 1 |
+| 1 | 37 | 11 | 7 | 2 |
+| 2 | 34 | 10 | 10 | 3 |
+| 3 | 30 | 9 | 14 | 4 |
+| 4 | 27 | 8 | 17 | 5 |
+| 5 | 24 | 7 | 20 | 6 |
+| 6 | 20 | 6 | 24 | 7 |
+
+14.3 輸出欄位規範
+
+- `companyPrefix`：十進位字串，需依 partition 對應 digit 數左補零。
+- `itemReference`：十進位字串，需依 partition 對應 digit 數左補零。
+- `serial`：十進位字串。
+- `partition`：0~6。
+- `filter`：0~7。
+- `header`：固定 48。
+
+14.4 DB 對應建議
+
+- `items.epc`：保留原始 24 碼 Hex（大寫或小寫需在 API 正規化）。
+- 可查詢欄位：
+  - `epc_company_prefix`（text）
+  - `item_reference`（text）
+  - `epc_serial`（text）
+  - `epc_partition`（smallint）
+  - `epc_filter`（smallint）
+
+14.5 實作一致性要求
+
+- 所有 API 僅可使用共用解碼模組 [`decodeSGTIN96()`](api/sgtin96.js:20)。
+- 不得在其他模組維護獨立 partition 切分邏輯。
+- 匯入流程與 webhook 流程必須使用同一解碼輸出。
