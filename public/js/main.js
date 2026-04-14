@@ -848,7 +848,18 @@ function renderProductDetailOverlay({ product, state, event }) {
     </div>
   `;
 
+  console.log('[overlay] open requested', {
+    at: new Date().toISOString(),
+    hiddenBeforeOpen: el.itemDetailOverlay.hidden,
+    sku,
+    state,
+    eventType: event?.event_type || null
+  });
   el.itemDetailOverlay.hidden = false;
+  console.log('[overlay] open applied', {
+    at: new Date().toISOString(),
+    hiddenAfterOpen: el.itemDetailOverlay.hidden
+  });
 }
 
 function appendActivityLog({ name, fromState, toState }) {
@@ -975,13 +986,29 @@ function bindBoardDnD() {
 
   el.dashboard.addEventListener('dragstart', (event) => {
     const card = event.target.closest('.product-card');
-    if (!card) return;
+    if (!card) {
+      console.log('[dnd] dragstart ignored: no .product-card target', {
+        at: new Date().toISOString(),
+        targetTag: event.target?.tagName || null
+      });
+      return;
+    }
     const productKey = card.dataset.productKey;
-    if (!productKey) return;
+    if (!productKey) {
+      console.log('[dnd] dragstart ignored: missing productKey', {
+        at: new Date().toISOString()
+      });
+      return;
+    }
     dragProductKey = productKey;
     card.classList.add('is-dragging');
     event.dataTransfer?.setData('text/plain', productKey);
     event.dataTransfer.effectAllowed = 'move';
+    console.log('[dnd] dragstart', {
+      at: new Date().toISOString(),
+      productKey,
+      fromState: card.dataset.currentState || null
+    });
   });
 
   el.dashboard.addEventListener('dragend', (event) => {
@@ -1014,16 +1041,45 @@ function bindBoardDnD() {
 
   el.dashboard.addEventListener('drop', async (event) => {
     const column = event.target.closest('.state-column');
-    if (!column) return;
+    if (!column) {
+      console.log('[dnd] drop ignored: no .state-column target', {
+        at: new Date().toISOString(),
+        targetTag: event.target?.tagName || null
+      });
+      return;
+    }
     event.preventDefault();
 
     const toState = column.dataset.state;
     const productKey = dragProductKey || event.dataTransfer?.getData('text/plain');
-    if (!toState || !productKey) return;
+    if (!toState || !productKey) {
+      console.log('[dnd] drop ignored: missing toState/productKey', {
+        at: new Date().toISOString(),
+        toState: toState || null,
+        productKey: productKey || null,
+        dragProductKey: dragProductKey || null
+      });
+      return;
+    }
 
     const card = el.dashboard.querySelector(`.product-card[data-product-key="${CSS.escape(productKey)}"]`);
     const fromState = card?.dataset.currentState || 'RACK';
-    if (fromState === toState) return;
+    if (fromState === toState) {
+      console.log('[dnd] drop ignored: fromState equals toState', {
+        at: new Date().toISOString(),
+        productKey,
+        fromState,
+        toState
+      });
+      return;
+    }
+
+    console.log('[dnd] drop accepted', {
+      at: new Date().toISOString(),
+      productKey,
+      fromState,
+      toState
+    });
 
     const product = (lastRenderContext?.products || []).find((item) => productKeyFromProduct(item) === productKey);
 
@@ -1033,9 +1089,27 @@ function bindBoardDnD() {
     rerenderFromCache();
 
     try {
+      console.log('[dnd] sync start', {
+        at: new Date().toISOString(),
+        productKey,
+        fromState,
+        toState
+      });
       await syncDragAction({ product, fromState, toState });
+      console.log('[dnd] sync success', {
+        at: new Date().toISOString(),
+        productKey,
+        toState
+      });
       await fetchAndRenderDashboard();
     } catch (error) {
+      console.log('[dnd] sync failed', {
+        at: new Date().toISOString(),
+        productKey,
+        fromState,
+        toState,
+        message: error?.message || String(error)
+      });
       localLaneOverrides.set(productKey, fromState);
       rerenderFromCache();
       setStatus(t('status.dragSyncFailed', { message: error.message }), 'err');
@@ -1396,13 +1470,36 @@ function boot() {
 
   if (el.itemDetailClose && el.itemDetailOverlay) {
     el.itemDetailClose.addEventListener('click', () => {
+      console.log('[overlay] close button clicked', {
+        at: new Date().toISOString(),
+        hiddenBeforeClose: el.itemDetailOverlay.hidden
+      });
       el.itemDetailOverlay.hidden = true;
+      console.log('[overlay] close button applied', {
+        at: new Date().toISOString(),
+        hiddenAfterClose: el.itemDetailOverlay.hidden
+      });
     });
 
     el.itemDetailOverlay.addEventListener('click', (event) => {
+      console.log('[overlay] backdrop click', {
+        at: new Date().toISOString(),
+        isBackdrop: event.target === el.itemDetailOverlay,
+        targetTag: event.target?.tagName || null,
+        hiddenBeforeBackdropClose: el.itemDetailOverlay.hidden
+      });
       if (event.target === el.itemDetailOverlay) {
         el.itemDetailOverlay.hidden = true;
+        console.log('[overlay] backdrop close applied', {
+          at: new Date().toISOString(),
+          hiddenAfterBackdropClose: el.itemDetailOverlay.hidden
+        });
       }
+    });
+
+    console.log('[overlay] listeners bound', {
+      at: new Date().toISOString(),
+      initialHidden: el.itemDetailOverlay.hidden
     });
   }
 

@@ -346,6 +346,10 @@ button:hover {
   padding: 20px;
 }
 
+.item-detail-overlay[hidden] {
+  display: none !important;
+}
+
 .item-detail-card {
   width: min(560px, 100%);
   background: #fff;
