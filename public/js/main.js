@@ -57,11 +57,20 @@ let lastRenderContext = null;
 const el = {
   loginView: document.getElementById('loginView'),
   appShell: document.getElementById('appShell'),
+  homeView: document.getElementById('homeView'),
+  dashboardView: document.getElementById('dashboardView'),
   loginForm: document.getElementById('loginForm'),
   loginUsername: document.getElementById('loginUsername'),
   loginPassword: document.getElementById('loginPassword'),
   loginError: document.getElementById('loginError'),
+  homeToDashboardTop: document.getElementById('homeToDashboardTop'),
+  homeCardDashboard: document.getElementById('homeCardDashboard'),
+  homeCardProduct: document.getElementById('homeCardProduct'),
+  homeCardSetting: document.getElementById('homeCardSetting'),
+  homeCardCsvImport: document.getElementById('homeCardCsvImport'),
+  backToHome: document.getElementById('backToHome'),
   logoutButton: document.getElementById('logoutButton'),
+  logoutButtonHome: document.getElementById('logoutButtonHome'),
   connectionStatus: document.getElementById('connectionStatus'),
   dashboard: document.getElementById('dashboard'),
   itemDetailOverlay: document.getElementById('itemDetailOverlay'),
@@ -117,6 +126,18 @@ const el = {
 const I18N = {
   en: {
     'app.title': 'RFID Fitting Room PoC Dashboard',
+    'home.title': 'Main Menu',
+    'home.cards.title': 'Select a module',
+    'home.cards.dashboard.title': 'Dashboard',
+    'home.cards.dashboard.desc': 'Open visual fitting-room dashboard',
+    'home.cards.product.title': 'Product',
+    'home.cards.product.desc': 'Go to product board area',
+    'home.cards.setting.title': 'Setting',
+    'home.cards.setting.desc': 'Open Supabase and system settings',
+    'home.cards.csv.title': 'CSV Import',
+    'home.cards.csv.desc': 'Open import tools and upload data',
+    'home.actions.openDashboard': 'Open Dashboard',
+    'home.actions.backHome': 'Back to Home',
     'login.title': 'Sign in to RFID Fitting Room PoC',
     'login.subtitle': 'Please sign in to continue to dashboard.',
     'login.username': 'Username',
@@ -261,6 +282,18 @@ const I18N = {
   },
   'zh-Hant': {
     'app.title': 'RFID 試衣間 PoC 後台',
+    'home.title': '主頁選單',
+    'home.cards.title': '請選擇功能模組',
+    'home.cards.dashboard.title': 'Dashboard',
+    'home.cards.dashboard.desc': '開啟試衣間視覺化看板',
+    'home.cards.product.title': 'Product',
+    'home.cards.product.desc': '前往商品看板區域',
+    'home.cards.setting.title': 'Setting',
+    'home.cards.setting.desc': '開啟 Supabase 與系統設定',
+    'home.cards.csv.title': 'CSV Import',
+    'home.cards.csv.desc': '開啟導入工具並上傳資料',
+    'home.actions.openDashboard': '開啟 Dashboard',
+    'home.actions.backHome': '返回主頁',
     'login.title': '登入 RFID 試衣間 PoC',
     'login.subtitle': '請先登入，再進入儀表板。',
     'login.username': '帳號',
@@ -562,6 +595,20 @@ function setAppVisibility(isAuthenticated) {
   if (el.appShell) el.appShell.hidden = !isAuthenticated;
 }
 
+function setMainView(view) {
+  const target = view === 'dashboard' ? 'dashboard' : 'home';
+  if (el.homeView) el.homeView.hidden = target !== 'home';
+  if (el.dashboardView) el.dashboardView.hidden = target !== 'dashboard';
+}
+
+function navigateToDashboard() {
+  setMainView('dashboard');
+}
+
+function navigateToHome() {
+  setMainView('home');
+}
+
 async function handleLoginSubmit(event) {
   event.preventDefault();
   if (el.loginError) {
@@ -592,6 +639,7 @@ async function handleLoginSubmit(event) {
     setSession(session);
     localStorage.setItem(USER_ROLE_KEY, normalizeUserRole(session.role));
     setAppVisibility(true);
+    navigateToHome();
 
     if (el.userRole) {
       el.userRole.value = normalizeUserRole(session.role);
@@ -623,6 +671,7 @@ function handleLogout() {
   }
   supabase = null;
   setAppVisibility(false);
+  setMainView('home');
   if (el.loginPassword) el.loginPassword.value = '';
   if (el.loginError) {
     el.loginError.hidden = true;
@@ -715,6 +764,13 @@ function openDemoControls() {
   }
 }
 
+function openDemoControlsAt(sectionId) {
+  openDemoControls();
+  if (!sectionId) return;
+  const node = document.getElementById(sectionId);
+  if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function closeDemoControls() {
   if (el.demoControlsDrawer) {
     el.demoControlsDrawer.classList.remove('is-open');
@@ -722,6 +778,27 @@ function closeDemoControls() {
   }
   if (el.demoControlsBackdrop) {
     el.demoControlsBackdrop.hidden = true;
+  }
+}
+
+function handleHomeCardNavigation(type) {
+  if (type === 'dashboard') {
+    navigateToDashboard();
+    return;
+  }
+  if (type === 'product') {
+    navigateToDashboard();
+    el.dashboard?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  if (type === 'setting') {
+    navigateToDashboard();
+    openDemoControlsAt('configTitle');
+    return;
+  }
+  if (type === 'csv') {
+    navigateToDashboard();
+    openDemoControlsAt('importTitle');
   }
 }
 
@@ -2105,6 +2182,7 @@ function boot() {
 
   const session = getSession();
   setAppVisibility(Boolean(session));
+  setMainView(session ? 'home' : 'home');
 
   if (el.loginForm) {
     el.loginForm.addEventListener('submit', handleLoginSubmit);
@@ -2112,6 +2190,30 @@ function boot() {
 
   if (el.logoutButton) {
     el.logoutButton.addEventListener('click', handleLogout);
+  }
+  if (el.logoutButtonHome) {
+    el.logoutButtonHome.addEventListener('click', handleLogout);
+  }
+  if (el.homeToDashboardTop) {
+    el.homeToDashboardTop.addEventListener('click', () => handleHomeCardNavigation('dashboard'));
+  }
+  if (el.homeCardDashboard) {
+    el.homeCardDashboard.addEventListener('click', () => handleHomeCardNavigation('dashboard'));
+  }
+  if (el.homeCardProduct) {
+    el.homeCardProduct.addEventListener('click', () => handleHomeCardNavigation('product'));
+  }
+  if (el.homeCardSetting) {
+    el.homeCardSetting.addEventListener('click', () => handleHomeCardNavigation('setting'));
+  }
+  if (el.homeCardCsvImport) {
+    el.homeCardCsvImport.addEventListener('click', () => handleHomeCardNavigation('csv'));
+  }
+  if (el.backToHome) {
+    el.backToHome.addEventListener('click', () => {
+      closeDemoControls();
+      navigateToHome();
+    });
   }
 
   if (el.languageSelect) {

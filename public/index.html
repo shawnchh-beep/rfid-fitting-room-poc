@@ -27,11 +27,46 @@
   </section>
 
   <div id="appShell" hidden>
+    <section id="homeView" class="home-view" hidden>
+      <header class="page-header">
+        <h1 data-i18n="home.title">Main Menu</h1>
+        <div class="header-actions">
+          <button id="homeToDashboardTop" type="button" data-i18n="home.actions.openDashboard">Open Dashboard</button>
+          <button id="logoutButtonHome" type="button" data-i18n="auth.logout">Logout</button>
+        </div>
+      </header>
+      <main class="home-layout">
+        <section class="panel" aria-labelledby="homeCardsTitle">
+          <h2 id="homeCardsTitle" data-i18n="home.cards.title">Select a module</h2>
+          <div class="home-card-grid">
+            <button id="homeCardDashboard" type="button" class="home-card">
+              <h3 data-i18n="home.cards.dashboard.title">Dashboard</h3>
+              <p data-i18n="home.cards.dashboard.desc">Open visual fitting-room dashboard</p>
+            </button>
+            <button id="homeCardProduct" type="button" class="home-card home-card--secondary">
+              <h3 data-i18n="home.cards.product.title">Product</h3>
+              <p data-i18n="home.cards.product.desc">Go to product board area</p>
+            </button>
+            <button id="homeCardSetting" type="button" class="home-card home-card--secondary">
+              <h3 data-i18n="home.cards.setting.title">Setting</h3>
+              <p data-i18n="home.cards.setting.desc">Open Supabase and system settings</p>
+            </button>
+            <button id="homeCardCsvImport" type="button" class="home-card home-card--secondary">
+              <h3 data-i18n="home.cards.csv.title">CSV Import</h3>
+              <p data-i18n="home.cards.csv.desc">Open import tools and upload data</p>
+            </button>
+          </div>
+        </section>
+      </main>
+    </section>
+
+    <section id="dashboardView" hidden>
     <header class="page-header">
       <h1 data-i18n="app.title">RFID Fitting Room PoC Dashboard</h1>
       <div class="header-actions">
         <label for="languageSelect" class="language-label" data-i18n="language.label">Language</label>
         <select id="languageSelect" class="language-select" aria-label="Language"></select>
+        <button id="backToHome" type="button" class="button-secondary" data-i18n="home.actions.backHome">Back to Home</button>
         <button id="logoutButton" type="button" data-i18n="auth.logout">Logout</button>
         <p id="connectionStatus" class="status-badge">Initializing…</p>
       </div>
@@ -306,6 +341,7 @@
   </aside>
 
   <div id="demoToastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+  </section>
   </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script type="module" src="js/main.js"></script>
