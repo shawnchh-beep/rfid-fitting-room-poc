@@ -91,7 +91,10 @@
 
       <div class="panel-title-row">
         <h3 class="board-lanes-title" data-i18n="board.lanes">Rack / Fitting / Checkout</h3>
-        <button id="refreshButton" type="button" data-i18n="dashboard.refresh">Refresh</button>
+        <div class="panel-actions">
+          <button id="demoControlsToggle" type="button" data-i18n="demoControls.openButton">Demo Controls</button>
+          <button id="refreshButton" type="button" data-i18n="dashboard.refresh">Refresh</button>
+        </div>
       </div>
       <div id="dashboard" class="storefront-scene"></div>
 
@@ -116,110 +119,193 @@
         <h2 id="timelineTitle" data-i18n="timeline.title">Recent Actions</h2>
         <ul id="activityTimeline" class="event-log"></ul>
       </section>
-
-      <section class="panel" aria-labelledby="backupToolsTitle">
-        <h2 id="backupToolsTitle" data-i18n="backup.title">Backup / Testing Tools</h2>
-
-        <details class="backup-tools" open>
-        <summary data-i18n="backup.summary">Open secondary tools</summary>
-        <div class="backup-tools-content">
-          <section aria-labelledby="configTitle">
-            <h3 id="configTitle" data-i18n="config.title">Supabase Connection</h3>
-            <form id="configForm" class="stack-form">
-              <label>
-                <span data-i18n="config.urlLabel">Supabase URL</span>
-                <input id="supabaseUrl" type="url" required placeholder="https://xxxx.supabase.co" />
-              </label>
-              <label>
-                <span data-i18n="config.anonKeyLabel">Supabase Publishable Key</span>
-                <input id="supabaseAnonKey" type="password" required placeholder="eyJ..." />
-              </label>
-              <label>
-                <span data-i18n="auth.apiTokenLabel">API Shared Token</span>
-                <input id="apiToken" type="password" placeholder="optional when auth disabled" />
-              </label>
-              <label>
-                <span data-i18n="auth.roleLabel">Role</span>
-                <select id="userRole" required>
-                  <option value="trial" data-i18n="auth.role.trial">Trial</option>
-                  <option value="user" data-i18n="auth.role.user">User</option>
-                  <option value="admin" data-i18n="auth.role.admin">Admin</option>
-                </select>
-              </label>
-              <button type="submit" data-i18n="config.saveAndConnect">Save & Connect</button>
-            </form>
-          </section>
-
-          <section aria-labelledby="importTitle">
-            <h3 id="importTitle" data-i18n="import.title">CSV Product Import</h3>
-            <p class="hint"><span data-i18n="import.fieldsHint">Fields:</span> <code>epc_data,product_name,name_en,description_en,name_zh_hant,description_zh_hant,name_zh_hans,description_zh_hans,name_ja,description_ja,sku,size,color,image_url,price</code></p>
-            <form id="csvImportForm" class="stack-form">
-              <input id="csvFile" type="file" accept=".csv,text/csv" required />
-              <button type="submit" data-i18n="import.submit">Upload & Import</button>
-            </form>
-            <pre id="importResult" class="result-box" data-i18n="import.notStarted">Not imported yet</pre>
-          </section>
-
-          <section aria-labelledby="groupedImportTitle">
-            <h3 id="groupedImportTitle" data-i18n="importGrouped.title">Grouped CSV Import (Auto SGTIN-96)</h3>
-            <p class="hint"><span data-i18n="importGrouped.fieldsHint">Fields:</span> <code>sku_ean13,product_name,color,size,quantity,price_usd</code></p>
-            <form id="groupedCsvImportForm" class="stack-form">
-              <label>
-                <span data-i18n="importGrouped.partitionLabel">Partition</span>
-                <select id="groupedPartition">
-                  <option value="0">0</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                  <option value="5" selected>5</option>
-                  <option value="6">6</option>
-                </select>
-              </label>
-              <label>
-                <span data-i18n="importGrouped.filterLabel">Filter</span>
-                <select id="groupedFilter">
-                  <option value="0">0</option>
-                  <option value="1" selected>1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                  <option value="5">5</option>
-                  <option value="6">6</option>
-                  <option value="7">7</option>
-                </select>
-              </label>
-              <input id="groupedCsvFile" type="file" accept=".csv,text/csv" required />
-              <button type="submit" data-i18n="importGrouped.submit">Generate EPC & Import</button>
-            </form>
-            <pre id="groupedImportResult" class="result-box" data-i18n="importGrouped.notStarted">Not imported yet</pre>
-          </section>
-
-          <section aria-labelledby="simulateTitle">
-            <h3 id="simulateTitle" data-i18n="simulate.title">Simulate RFID Event</h3>
-            <form id="simulateForm" class="stack-form">
-              <label>
-                <span data-i18n="simulate.readerId">Reader ID</span>
-                <input id="readerId" name="reader_id" required placeholder="FITTING_ROOM_ANTENNA_1" />
-              </label>
-              <label>
-                <span data-i18n="simulate.epcData">EPC Data (24-char Hex)</span>
-                <input id="epcData" name="epc_data" required placeholder="3034257BF7194E4000001A85" />
-              </label>
-              <button type="submit" data-i18n="simulate.submit">Send Event</button>
-            </form>
-            <pre id="simulateResult" class="result-box" data-i18n="simulate.notSent">Not sent yet</pre>
-          </section>
-
-          <section aria-labelledby="eventLogTitle">
-            <h3 id="eventLogTitle" data-i18n="events.title">Latest Event Logs</h3>
-            <ul id="eventLog" class="event-log"></ul>
-          </section>
-        </div>
-        </details>
-      </section>
     </div>
   </main>
+
+  <div id="demoControlsBackdrop" class="demo-controls-backdrop" hidden></div>
+  <aside id="demoControlsDrawer" class="demo-controls-drawer" aria-hidden="true">
+    <header class="demo-controls-header">
+      <div>
+        <h2 data-i18n="demoControls.title">Demo Controls</h2>
+        <p data-i18n="demoControls.subtitle">Simulation & data actions</p>
+      </div>
+      <button id="demoControlsClose" type="button" class="demo-controls-close" aria-label="Close">×</button>
+    </header>
+
+    <section class="demo-section" aria-labelledby="quickActionsTitle">
+      <h3 id="quickActionsTitle" data-i18n="demoControls.quickActions.title">Quick Actions</h3>
+      <p class="hint" data-i18n="demoControls.quickActions.subtitle">Run a single simulated event</p>
+      <form id="quickActionForm" class="stack-form">
+        <label>
+          <span data-i18n="demoControls.quickActions.product">Product</span>
+          <select id="quickActionProduct"></select>
+        </label>
+        <label>
+          <span data-i18n="demoControls.quickActions.room">Fitting Room</span>
+          <select id="quickActionRoom">
+            <option value="">Select a room</option>
+            <option value="1">Room 1</option>
+            <option value="2">Room 2</option>
+            <option value="3">Room 3</option>
+            <option value="4">Room 4</option>
+          </select>
+        </label>
+        <label>
+          <span data-i18n="demoControls.quickActions.action">Action</span>
+          <select id="quickActionType">
+            <option value="">Select an action</option>
+            <option value="enter">Enter Room</option>
+            <option value="exit">Exit Room</option>
+            <option value="sale">Mark Sale</option>
+            <option value="alert">Trigger Alert</option>
+            <option value="resolve">Resolve Alert</option>
+          </select>
+        </label>
+        <label>
+          <span data-i18n="demoControls.quickActions.note">Note</span>
+          <input id="quickActionNote" placeholder="Optional note" />
+        </label>
+        <p id="quickActionError" class="hint text-err" hidden></p>
+        <button id="quickActionRun" type="submit" data-i18n="demoControls.quickActions.run">Run Action</button>
+      </form>
+      <p class="hint" data-i18n="demoControls.quickActions.helper">Each action creates an event record and updates session status.</p>
+    </section>
+
+    <section class="demo-section" aria-labelledby="scenarioTitle">
+      <h3 id="scenarioTitle" data-i18n="demoControls.scenarios.title">Scenario Presets</h3>
+      <p class="hint" data-i18n="demoControls.scenarios.subtitle">Run prebuilt demo scenarios</p>
+      <div class="scenario-list">
+        <article class="scenario-card">
+          <h4 data-i18n="demoControls.scenarios.normal.title">Normal Try-On</h4>
+          <p data-i18n="demoControls.scenarios.normal.desc">Item enters and exits within normal dwell time.</p>
+          <button type="button" class="scenario-run" data-scenario="normal" data-i18n="demoControls.scenarios.run">Run Scenario</button>
+        </article>
+        <article class="scenario-card">
+          <h4 data-i18n="demoControls.scenarios.longDwell.title">Long Dwell</h4>
+          <p data-i18n="demoControls.scenarios.longDwell.desc">Item stays in fitting room and triggers an alert.</p>
+          <button type="button" class="scenario-run" data-scenario="longDwell" data-i18n="demoControls.scenarios.run">Run Scenario</button>
+        </article>
+        <article class="scenario-card">
+          <h4 data-i18n="demoControls.scenarios.purchase.title">Try-On to Purchase</h4>
+          <p data-i18n="demoControls.scenarios.purchase.desc">Item is tried on and sold within conversion window.</p>
+          <button type="button" class="scenario-run" data-scenario="purchase" data-i18n="demoControls.scenarios.run">Run Scenario</button>
+        </article>
+        <article class="scenario-card">
+          <h4 data-i18n="demoControls.scenarios.multi.title">Multi-Item Try-On</h4>
+          <p data-i18n="demoControls.scenarios.multi.desc">Multiple items enter one room; one item converts to sale.</p>
+          <button type="button" class="scenario-run" data-scenario="multi" data-i18n="demoControls.scenarios.run">Run Scenario</button>
+        </article>
+      </div>
+    </section>
+
+    <section class="demo-section" aria-labelledby="dataUtilsTitle">
+      <h3 id="dataUtilsTitle" data-i18n="demoControls.dataUtils.title">Data Utilities</h3>
+      <p class="hint" data-i18n="demoControls.dataUtils.subtitle">Manage demo data and environment</p>
+      <div class="stack-form">
+        <button id="seedTodayData" type="button" data-i18n="demoControls.dataUtils.seed">Seed Today’s Data</button>
+        <button id="clearActiveAlerts" type="button" class="button-secondary" data-i18n="demoControls.dataUtils.clearAlerts">Clear Active Alerts</button>
+        <button id="resetDemoData" type="button" class="button-danger" data-i18n="demoControls.dataUtils.reset">Reset Demo Data</button>
+      </div>
+    </section>
+
+    <details class="backup-tools">
+      <summary data-i18n="backup.summary">Open secondary tools</summary>
+      <div class="backup-tools-content">
+        <section aria-labelledby="configTitle">
+          <h3 id="configTitle" data-i18n="config.title">Supabase Connection</h3>
+          <form id="configForm" class="stack-form">
+            <label>
+              <span data-i18n="config.urlLabel">Supabase URL</span>
+              <input id="supabaseUrl" type="url" required placeholder="https://xxxx.supabase.co" />
+            </label>
+            <label>
+              <span data-i18n="config.anonKeyLabel">Supabase Publishable Key</span>
+              <input id="supabaseAnonKey" type="password" required placeholder="eyJ..." />
+            </label>
+            <label>
+              <span data-i18n="auth.apiTokenLabel">API Shared Token</span>
+              <input id="apiToken" type="password" placeholder="optional when auth disabled" />
+            </label>
+            <label>
+              <span data-i18n="auth.roleLabel">Role</span>
+              <select id="userRole" required>
+                <option value="trial" data-i18n="auth.role.trial">Trial</option>
+                <option value="user" data-i18n="auth.role.user">User</option>
+                <option value="admin" data-i18n="auth.role.admin">Admin</option>
+              </select>
+            </label>
+            <button type="submit" data-i18n="config.saveAndConnect">Save & Connect</button>
+          </form>
+        </section>
+
+        <section aria-labelledby="importTitle">
+          <h3 id="importTitle" data-i18n="import.title">CSV Product Import</h3>
+          <form id="csvImportForm" class="stack-form">
+            <input id="csvFile" type="file" accept=".csv,text/csv" required />
+            <button type="submit" data-i18n="import.submit">Upload & Import</button>
+          </form>
+          <pre id="importResult" class="result-box" data-i18n="import.notStarted">Not imported yet</pre>
+        </section>
+
+        <section aria-labelledby="groupedImportTitle">
+          <h3 id="groupedImportTitle" data-i18n="importGrouped.title">Grouped CSV Import (Auto SGTIN-96)</h3>
+          <form id="groupedCsvImportForm" class="stack-form">
+            <label>
+              <span data-i18n="importGrouped.partitionLabel">Partition</span>
+              <select id="groupedPartition">
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5" selected>5</option>
+                <option value="6">6</option>
+              </select>
+            </label>
+            <label>
+              <span data-i18n="importGrouped.filterLabel">Filter</span>
+              <select id="groupedFilter">
+                <option value="0">0</option>
+                <option value="1" selected>1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+              </select>
+            </label>
+            <input id="groupedCsvFile" type="file" accept=".csv,text/csv" required />
+            <button type="submit" data-i18n="importGrouped.submit">Generate EPC & Import</button>
+          </form>
+          <pre id="groupedImportResult" class="result-box" data-i18n="importGrouped.notStarted">Not imported yet</pre>
+        </section>
+
+        <section aria-labelledby="simulateTitle">
+          <h3 id="simulateTitle" data-i18n="simulate.title">Simulate RFID Event</h3>
+          <form id="simulateForm" class="stack-form">
+            <label>
+              <span data-i18n="simulate.readerId">Reader ID</span>
+              <input id="readerId" name="reader_id" required placeholder="FITTING_ROOM_ANTENNA_1" />
+            </label>
+            <label>
+              <span data-i18n="simulate.epcData">EPC Data (24-char Hex)</span>
+              <input id="epcData" name="epc_data" required placeholder="3034257BF7194E4000001A85" />
+            </label>
+            <button type="submit" data-i18n="simulate.submit">Send Event</button>
+          </form>
+          <pre id="simulateResult" class="result-box" data-i18n="simulate.notSent">Not sent yet</pre>
+        </section>
+
+        <section aria-labelledby="eventLogTitle">
+          <h3 id="eventLogTitle" data-i18n="events.title">Latest Event Logs</h3>
+          <ul id="eventLog" class="event-log"></ul>
+        </section>
+      </div>
+    </details>
+  </aside>
+
+  <div id="demoToastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
   </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script type="module" src="js/main.js"></script>

@@ -67,6 +67,21 @@ const el = {
   itemDetailOverlay: document.getElementById('itemDetailOverlay'),
   itemDetailBody: document.getElementById('itemDetailBody'),
   itemDetailClose: document.getElementById('itemDetailClose'),
+  demoControlsToggle: document.getElementById('demoControlsToggle'),
+  demoControlsDrawer: document.getElementById('demoControlsDrawer'),
+  demoControlsBackdrop: document.getElementById('demoControlsBackdrop'),
+  demoControlsClose: document.getElementById('demoControlsClose'),
+  quickActionForm: document.getElementById('quickActionForm'),
+  quickActionProduct: document.getElementById('quickActionProduct'),
+  quickActionRoom: document.getElementById('quickActionRoom'),
+  quickActionType: document.getElementById('quickActionType'),
+  quickActionNote: document.getElementById('quickActionNote'),
+  quickActionError: document.getElementById('quickActionError'),
+  quickActionRun: document.getElementById('quickActionRun'),
+  seedTodayData: document.getElementById('seedTodayData'),
+  clearActiveAlerts: document.getElementById('clearActiveAlerts'),
+  resetDemoData: document.getElementById('resetDemoData'),
+  demoToastContainer: document.getElementById('demoToastContainer'),
   refreshButton: document.getElementById('refreshButton'),
   configForm: document.getElementById('configForm'),
   supabaseUrl: document.getElementById('supabaseUrl'),
@@ -147,6 +162,33 @@ const I18N = {
     'mode.thresholdLabel': 'Overstay Threshold (minutes)',
     'timeline.title': 'Recent Actions',
     'timeline.dragAction': '{name}: {from} → {to}',
+    'demoControls.openButton': 'Demo Controls',
+    'demoControls.title': 'Demo Controls',
+    'demoControls.subtitle': 'Simulation & data actions',
+    'demoControls.quickActions.title': 'Quick Actions',
+    'demoControls.quickActions.subtitle': 'Run a single simulated event',
+    'demoControls.quickActions.product': 'Product',
+    'demoControls.quickActions.room': 'Fitting Room',
+    'demoControls.quickActions.action': 'Action',
+    'demoControls.quickActions.note': 'Note',
+    'demoControls.quickActions.run': 'Run Action',
+    'demoControls.quickActions.helper': 'Each action creates an event record and updates session status.',
+    'demoControls.scenarios.title': 'Scenario Presets',
+    'demoControls.scenarios.subtitle': 'Run prebuilt demo scenarios',
+    'demoControls.scenarios.normal.title': 'Normal Try-On',
+    'demoControls.scenarios.normal.desc': 'Item enters and exits within normal dwell time.',
+    'demoControls.scenarios.longDwell.title': 'Long Dwell',
+    'demoControls.scenarios.longDwell.desc': 'Item stays in fitting room and triggers an alert.',
+    'demoControls.scenarios.purchase.title': 'Try-On to Purchase',
+    'demoControls.scenarios.purchase.desc': 'Item is tried on and sold within conversion window.',
+    'demoControls.scenarios.multi.title': 'Multi-Item Try-On',
+    'demoControls.scenarios.multi.desc': 'Multiple items enter one room; one item converts to sale.',
+    'demoControls.scenarios.run': 'Run Scenario',
+    'demoControls.dataUtils.title': 'Data Utilities',
+    'demoControls.dataUtils.subtitle': 'Manage demo data and environment',
+    'demoControls.dataUtils.seed': 'Seed Today’s Data',
+    'demoControls.dataUtils.clearAlerts': 'Clear Active Alerts',
+    'demoControls.dataUtils.reset': 'Reset Demo Data',
     'backup.title': 'Backup / Testing Tools',
     'backup.hint': 'These tools are secondary and used for maintenance/testing.',
     'backup.summary': 'Open secondary tools',
@@ -207,6 +249,10 @@ const I18N = {
     'error.groupedImportFailed': 'Grouped import failed: {message}',
     'error.trialImportForbidden': 'Trial role cannot import products',
     'error.loginFailed': 'Login failed: {message}',
+    'error.quickActionRequiredProduct': 'Please select a product',
+    'error.quickActionRequiredRoom': 'Please select a fitting room',
+    'error.quickActionRequiredAction': 'Please select an action',
+    'error.resolveAlertNeedActive': 'Resolve Alert requires an active alert on selected product',
     'error.eventSendFailed': 'Send failed: {message}',
     'state.RACK': 'RACK',
     'state.FITTING_ROOM': 'FITTING_ROOM',
@@ -256,6 +302,33 @@ const I18N = {
     'mode.thresholdLabel': '異常停留門檻（分鐘）',
     'timeline.title': '最近動作',
     'timeline.dragAction': '{name}: {from} → {to}',
+    'demoControls.openButton': 'Demo Controls',
+    'demoControls.title': 'Demo Controls',
+    'demoControls.subtitle': 'Simulation & data actions',
+    'demoControls.quickActions.title': 'Quick Actions',
+    'demoControls.quickActions.subtitle': '執行單一模擬事件',
+    'demoControls.quickActions.product': '商品',
+    'demoControls.quickActions.room': '試衣間',
+    'demoControls.quickActions.action': '動作',
+    'demoControls.quickActions.note': '備註',
+    'demoControls.quickActions.run': 'Run Action',
+    'demoControls.quickActions.helper': '每次動作都會建立事件紀錄並更新 session 狀態。',
+    'demoControls.scenarios.title': 'Scenario Presets',
+    'demoControls.scenarios.subtitle': '執行預建展示情境',
+    'demoControls.scenarios.normal.title': 'Normal Try-On',
+    'demoControls.scenarios.normal.desc': '商品進入並在正常停留時間內離開。',
+    'demoControls.scenarios.longDwell.title': 'Long Dwell',
+    'demoControls.scenarios.longDwell.desc': '商品停留超時並觸發警示。',
+    'demoControls.scenarios.purchase.title': 'Try-On to Purchase',
+    'demoControls.scenarios.purchase.desc': '商品試穿後在轉化窗內成交。',
+    'demoControls.scenarios.multi.title': 'Multi-Item Try-On',
+    'demoControls.scenarios.multi.desc': '多件商品進同一試衣間，其中一件成交。',
+    'demoControls.scenarios.run': 'Run Scenario',
+    'demoControls.dataUtils.title': 'Data Utilities',
+    'demoControls.dataUtils.subtitle': '管理 demo 資料與環境',
+    'demoControls.dataUtils.seed': 'Seed Today’s Data',
+    'demoControls.dataUtils.clearAlerts': 'Clear Active Alerts',
+    'demoControls.dataUtils.reset': 'Reset Demo Data',
     'backup.title': '備援 / 測試工具',
     'backup.hint': '以下工具為二級介面，提供維運與測試使用。',
     'backup.summary': '展開二級工具',
@@ -313,6 +386,10 @@ const I18N = {
     'error.groupedImportFailed': 'Grouped 導入失敗：{message}',
     'error.trialImportForbidden': 'trial 角色不可匯入商品',
     'error.loginFailed': '登入失敗：{message}',
+    'error.quickActionRequiredProduct': '請先選擇商品',
+    'error.quickActionRequiredRoom': '請先選擇試衣間',
+    'error.quickActionRequiredAction': '請先選擇動作',
+    'error.resolveAlertNeedActive': 'Resolve Alert 需要該商品目前有 active alert',
     'error.eventSendFailed': '送出失敗：{message}'
   },
   'zh-Hans': {
@@ -611,6 +688,300 @@ function setStatus(text, level = 'warn') {
   el.connectionStatus.textContent = text;
   el.connectionStatus.classList.remove('text-ok', 'text-warn', 'text-err');
   el.connectionStatus.classList.add(`text-${level}`);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function showToast(message, level = 'ok') {
+  if (!el.demoToastContainer) return;
+  const node = document.createElement('div');
+  node.className = `toast toast--${level}`;
+  node.textContent = String(message || '');
+  el.demoToastContainer.appendChild(node);
+  setTimeout(() => {
+    node.remove();
+  }, 2600);
+}
+
+function openDemoControls() {
+  if (el.demoControlsDrawer) {
+    el.demoControlsDrawer.classList.add('is-open');
+    el.demoControlsDrawer.setAttribute('aria-hidden', 'false');
+  }
+  if (el.demoControlsBackdrop) {
+    el.demoControlsBackdrop.hidden = false;
+  }
+}
+
+function closeDemoControls() {
+  if (el.demoControlsDrawer) {
+    el.demoControlsDrawer.classList.remove('is-open');
+    el.demoControlsDrawer.setAttribute('aria-hidden', 'true');
+  }
+  if (el.demoControlsBackdrop) {
+    el.demoControlsBackdrop.hidden = true;
+  }
+}
+
+function getRoomReaderId(room, fallback = 'FITTING_ROOM_ANTENNA_1') {
+  const n = Number(room);
+  if (Number.isInteger(n) && n >= 1 && n <= 4) return `FITTING_ROOM_ANTENNA_${n}`;
+  return fallback;
+}
+
+async function sendRfidEvent({ epcData, readerId, eventType, fromZone, toZone, note }) {
+  const response = await fetch('/api/rfid-webhook', {
+    method: 'POST',
+    headers: buildJsonHeaders(),
+    body: JSON.stringify({
+      epc_data: epcData,
+      reader_id: readerId,
+      event_type: eventType,
+      from_zone: fromZone,
+      to_zone: toZone,
+      metadata: note ? { note } : undefined
+    })
+  });
+  const { data } = await parseApiResponse(response, 'demo-controls-webhook');
+  if (!response.ok) {
+    throw new Error(getApiErrorMessage(data, t('error.eventSendFailed', { message: 'api failed' })));
+  }
+  return data;
+}
+
+function populateQuickActionProducts(products = lastRenderContext?.products || []) {
+  if (!el.quickActionProduct) return;
+  const rows = Array.isArray(products) ? products : [];
+  const options = rows
+    .filter((p) => p?.epc_data)
+    .map((p) => {
+      const sku = String(p.sku || '-');
+      const name = String(p.display_name || p.name_en || p.name || t('dashboard.unnamedProduct'));
+      const epcSuffix = String(p.epc_data || '').slice(-4);
+      const label = `${sku} / ${name} / EPC-${epcSuffix}`;
+      return `<option value="${escapeHtml(p.epc_data)}">${escapeHtml(label)}</option>`;
+    })
+    .join('');
+
+  el.quickActionProduct.innerHTML = `<option value="">Select a product</option>${options}`;
+}
+
+function getQuickActionProduct() {
+  const selectedEpc = String(el.quickActionProduct?.value || '').trim();
+  if (!selectedEpc) return null;
+  return (lastRenderContext?.products || []).find((p) => String(p.epc_data || '').trim() === selectedEpc) || null;
+}
+
+function hasActiveAlert(product) {
+  if (!product) return false;
+  const key = productKeyFromProduct(product);
+  const latestEvent = key ? lastRenderContext?.latestEventMap?.get(key) : null;
+  const presence = key ? lastRenderContext?.presenceMap?.get(key) : null;
+  const { abnormal } = deriveStateByPresence(key, latestEvent, presence, Date.now(), getCurrentOverstayThresholdMs());
+  return Boolean(abnormal);
+}
+
+async function runQuickAction({ product, room, action, note }) {
+  const epcData = product?.epc_data;
+  const fittingReader = getRoomReaderId(room);
+  if (!epcData) throw new Error(t('error.quickActionRequiredProduct'));
+
+  if (action === 'enter') {
+    await sendRfidEvent({ epcData, readerId: fittingReader, eventType: 'enter_fitting_room', fromZone: 'sales_floor', toZone: 'fitting_room', note });
+    return;
+  }
+  if (action === 'exit') {
+    await sendRfidEvent({ epcData, readerId: 'RACK_ANTENNA_1', eventType: 'left_fitting_room', fromZone: 'fitting_room', toZone: 'sales_floor', note });
+    return;
+  }
+  if (action === 'sale') {
+    await sendRfidEvent({ epcData, readerId: 'SOLD_ANTENNA_1', eventType: 'sale_completed', fromZone: 'checkout', toZone: 'sold', note });
+    return;
+  }
+  if (action === 'alert') {
+    await sendRfidEvent({ epcData, readerId: fittingReader, eventType: 'enter_fitting_room', fromZone: 'sales_floor', toZone: 'fitting_room', note });
+    return;
+  }
+  if (action === 'resolve') {
+    if (!hasActiveAlert(product)) {
+      throw new Error(t('error.resolveAlertNeedActive'));
+    }
+    await sendRfidEvent({ epcData, readerId: 'RACK_ANTENNA_1', eventType: 'left_fitting_room', fromZone: 'fitting_room', toZone: 'sales_floor', note });
+    return;
+  }
+}
+
+async function handleQuickActionSubmit(event) {
+  event.preventDefault();
+  if (el.quickActionError) {
+    el.quickActionError.hidden = true;
+    el.quickActionError.textContent = '';
+  }
+
+  const product = getQuickActionProduct();
+  const action = String(el.quickActionType?.value || '').trim();
+  const room = String(el.quickActionRoom?.value || '').trim();
+  const note = String(el.quickActionNote?.value || '').trim();
+
+  try {
+    if (!product) throw new Error(t('error.quickActionRequiredProduct'));
+    if (!action) throw new Error(t('error.quickActionRequiredAction'));
+
+    if ((action === 'enter' || action === 'exit' || action === 'alert') && !room) {
+      throw new Error(t('error.quickActionRequiredRoom'));
+    }
+
+    const button = el.quickActionRun;
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Running...';
+    }
+    await runQuickAction({ product, room, action, note });
+    showToast('Action completed', 'ok');
+    await fetchAndRenderDashboard();
+  } catch (error) {
+    if (el.quickActionError) {
+      el.quickActionError.hidden = false;
+      el.quickActionError.textContent = error.message;
+    }
+    showToast('Failed to execute action', 'err');
+  } finally {
+    const button = el.quickActionRun;
+    if (button) {
+      button.disabled = false;
+      button.textContent = t('demoControls.quickActions.run');
+    }
+  }
+}
+
+function pickScenarioProducts(count = 1) {
+  const rows = (lastRenderContext?.products || []).filter((p) => p?.epc_data);
+  return rows.slice(0, count);
+}
+
+async function runScenario(name) {
+  const one = pickScenarioProducts(1)[0];
+  if (!one) throw new Error(t('error.quickActionRequiredProduct'));
+
+  if (name === 'normal') {
+    await runQuickAction({ product: one, room: '1', action: 'enter', note: 'scenario:normal' });
+    await sleep(700);
+    await runQuickAction({ product: one, room: '1', action: 'exit', note: 'scenario:normal' });
+    return;
+  }
+  if (name === 'longDwell') {
+    await runQuickAction({ product: one, room: '2', action: 'alert', note: 'scenario:longDwell' });
+    return;
+  }
+  if (name === 'purchase') {
+    await runQuickAction({ product: one, room: '1', action: 'enter', note: 'scenario:purchase' });
+    await sleep(500);
+    await runQuickAction({ product: one, room: '1', action: 'exit', note: 'scenario:purchase' });
+    await sleep(500);
+    await runQuickAction({ product: one, room: '1', action: 'sale', note: 'scenario:purchase' });
+    return;
+  }
+  if (name === 'multi') {
+    const items = pickScenarioProducts(3);
+    if (items.length < 2) throw new Error(t('error.quickActionRequiredProduct'));
+    await runQuickAction({ product: items[0], room: '3', action: 'enter', note: 'scenario:multi' });
+    await runQuickAction({ product: items[1], room: '3', action: 'enter', note: 'scenario:multi' });
+    await sleep(500);
+    await runQuickAction({ product: items[1], room: '3', action: 'exit', note: 'scenario:multi' });
+    await runQuickAction({ product: items[0], room: '3', action: 'sale', note: 'scenario:multi' });
+  }
+}
+
+async function handleScenarioRun(event) {
+  const button = event.currentTarget;
+  const scenario = String(button?.dataset?.scenario || '').trim();
+  if (!scenario) return;
+  const original = button.textContent;
+  try {
+    button.disabled = true;
+    button.textContent = 'Running...';
+    await runScenario(scenario);
+    showToast('Scenario executed', 'ok');
+    await fetchAndRenderDashboard();
+  } catch (error) {
+    showToast(`Failed to execute scenario: ${error.message}`, 'err');
+  } finally {
+    button.disabled = false;
+    button.textContent = original || t('demoControls.scenarios.run');
+  }
+}
+
+async function handleSeedTodayData() {
+  try {
+    if (el.seedTodayData) {
+      el.seedTodayData.disabled = true;
+      el.seedTodayData.textContent = 'Seeding...';
+    }
+    await runScenario('normal');
+    await runScenario('purchase');
+    showToast('Demo data generated', 'ok');
+    await fetchAndRenderDashboard();
+  } catch (error) {
+    showToast(`Unable to generate demo data: ${error.message}`, 'err');
+  } finally {
+    if (el.seedTodayData) {
+      el.seedTodayData.disabled = false;
+      el.seedTodayData.textContent = t('demoControls.dataUtils.seed');
+    }
+  }
+}
+
+async function handleClearActiveAlerts() {
+  try {
+    if (el.clearActiveAlerts) {
+      el.clearActiveAlerts.disabled = true;
+      el.clearActiveAlerts.textContent = 'Clearing...';
+    }
+    const products = (lastRenderContext?.products || []).filter((p) => hasActiveAlert(p)).slice(0, 6);
+    for (const product of products) {
+      await runQuickAction({ product, room: '1', action: 'resolve', note: 'utility:clear-alerts' });
+    }
+    showToast('Alerts cleared', 'ok');
+    await fetchAndRenderDashboard();
+  } catch (error) {
+    showToast(`Unable to clear alerts: ${error.message}`, 'err');
+  } finally {
+    if (el.clearActiveAlerts) {
+      el.clearActiveAlerts.disabled = false;
+      el.clearActiveAlerts.textContent = t('demoControls.dataUtils.clearAlerts');
+    }
+  }
+}
+
+async function handleResetDemoData() {
+  const ok = window.confirm('This will reset the current demo environment.');
+  if (!ok) return;
+  try {
+    if (el.resetDemoData) {
+      el.resetDemoData.disabled = true;
+      el.resetDemoData.textContent = 'Resetting...';
+    }
+    localLaneOverrides.clear();
+    const products = (lastRenderContext?.products || []).slice(0, 8);
+    for (const product of products) {
+      try {
+        await runQuickAction({ product, room: '1', action: 'exit', note: 'utility:reset' });
+      } catch {
+        // ignore per-item failure in reset flow
+      }
+    }
+    showToast('Demo environment reset', 'warn');
+    await fetchAndRenderDashboard();
+  } catch (error) {
+    showToast(`Reset failed: ${error.message}`, 'err');
+  } finally {
+    if (el.resetDemoData) {
+      el.resetDemoData.disabled = false;
+      el.resetDemoData.textContent = t('demoControls.dataUtils.reset');
+    }
+  }
 }
 
 function escapeHtml(value) {
@@ -1828,6 +2199,34 @@ function boot() {
     });
   }
 
+  if (el.demoControlsToggle) {
+    el.demoControlsToggle.addEventListener('click', () => {
+      populateQuickActionProducts(lastRenderContext?.products || []);
+      openDemoControls();
+    });
+  }
+  if (el.demoControlsClose) {
+    el.demoControlsClose.addEventListener('click', closeDemoControls);
+  }
+  if (el.demoControlsBackdrop) {
+    el.demoControlsBackdrop.addEventListener('click', closeDemoControls);
+  }
+  if (el.quickActionForm) {
+    el.quickActionForm.addEventListener('submit', handleQuickActionSubmit);
+  }
+  document.querySelectorAll('.scenario-run').forEach((button) => {
+    button.addEventListener('click', handleScenarioRun);
+  });
+  if (el.seedTodayData) {
+    el.seedTodayData.addEventListener('click', handleSeedTodayData);
+  }
+  if (el.clearActiveAlerts) {
+    el.clearActiveAlerts.addEventListener('click', handleClearActiveAlerts);
+  }
+  if (el.resetDemoData) {
+    el.resetDemoData.addEventListener('click', handleResetDemoData);
+  }
+
   el.configForm.addEventListener('submit', handleConfigSubmit);
   el.csvImportForm.addEventListener('submit', handleCsvImport);
   if (el.groupedCsvImportForm) {
@@ -1884,6 +2283,8 @@ function boot() {
   if (session) {
     setStatus(t('status.needSupabaseConfig'), 'warn');
   }
+
+  populateQuickActionProducts(lastRenderContext?.products || []);
 }
 
 boot();
