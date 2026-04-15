@@ -22,6 +22,31 @@ body {
   color: var(--text);
 }
 
+.login-screen {
+  min-height: calc(100vh - 40px);
+  display: grid;
+  place-items: center;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.login-card h1 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
+#appShell[hidden],
+#loginView[hidden] {
+  display: none !important;
+}
+
 .page-header {
   display: flex;
   flex-wrap: wrap;

@@ -9,6 +9,7 @@ const OVERSTAY_DEMO_KEY = 'rfid_poc_overstay_demo_minutes_v1';
 const OVERSTAY_OPERATIONAL_KEY = 'rfid_poc_overstay_operational_minutes_v1';
 const API_TOKEN_KEY = 'rfid_poc_api_token_v1';
 const USER_ROLE_KEY = 'rfid_poc_user_role_v1';
+const SESSION_KEY = 'rfid_poc_login_session_v1';
 const USER_ROLE_DEFAULT = 'trial';
 const USER_ROLE_OPTIONS = ['trial', 'user', 'admin'];
 const DEFAULT_SUPABASE_URL = 'https://trgxtbqjkhydvbfndmhk.supabase.co';
@@ -54,6 +55,13 @@ const localLaneOverrides = new Map();
 let lastRenderContext = null;
 
 const el = {
+  loginView: document.getElementById('loginView'),
+  appShell: document.getElementById('appShell'),
+  loginForm: document.getElementById('loginForm'),
+  loginUsername: document.getElementById('loginUsername'),
+  loginPassword: document.getElementById('loginPassword'),
+  loginError: document.getElementById('loginError'),
+  logoutButton: document.getElementById('logoutButton'),
   connectionStatus: document.getElementById('connectionStatus'),
   dashboard: document.getElementById('dashboard'),
   itemDetailOverlay: document.getElementById('itemDetailOverlay'),
@@ -94,6 +102,12 @@ const el = {
 const I18N = {
   en: {
     'app.title': 'RFID Fitting Room PoC Dashboard',
+    'login.title': 'Sign in to RFID Fitting Room PoC',
+    'login.subtitle': 'Please sign in to continue to dashboard.',
+    'login.username': 'Username',
+    'login.password': 'Password',
+    'login.submit': 'Sign in',
+    'auth.logout': 'Logout',
     'language.label': 'Language',
     'config.title': 'Supabase Connection',
     'config.urlLabel': 'Supabase URL',
@@ -192,6 +206,7 @@ const I18N = {
     'error.importFailed': 'Import failed: {message}',
     'error.groupedImportFailed': 'Grouped import failed: {message}',
     'error.trialImportForbidden': 'Trial role cannot import products',
+    'error.loginFailed': 'Login failed: {message}',
     'error.eventSendFailed': 'Send failed: {message}',
     'state.RACK': 'RACK',
     'state.FITTING_ROOM': 'FITTING_ROOM',
@@ -200,6 +215,12 @@ const I18N = {
   },
   'zh-Hant': {
     'app.title': 'RFID 試衣間 PoC 後台',
+    'login.title': '登入 RFID 試衣間 PoC',
+    'login.subtitle': '請先登入，再進入儀表板。',
+    'login.username': '帳號',
+    'login.password': '密碼',
+    'login.submit': '登入',
+    'auth.logout': '登出',
     'language.label': '語言',
     'config.title': 'Supabase 連線設定',
     'auth.apiTokenLabel': 'API 共用 Token',
@@ -291,10 +312,17 @@ const I18N = {
     'error.importFailed': '導入失敗：{message}',
     'error.groupedImportFailed': 'Grouped 導入失敗：{message}',
     'error.trialImportForbidden': 'trial 角色不可匯入商品',
+    'error.loginFailed': '登入失敗：{message}',
     'error.eventSendFailed': '送出失敗：{message}'
   },
   'zh-Hans': {
     'app.title': 'RFID 试衣间 PoC 后台',
+    'login.title': '登录 RFID 试衣间 PoC',
+    'login.subtitle': '请先登录，再进入仪表板。',
+    'login.username': '账号',
+    'login.password': '密码',
+    'login.submit': '登录',
+    'auth.logout': '登出',
     'language.label': '语言',
     'config.title': 'Supabase 连接设置',
     'config.saveAndConnect': '保存设置并连接',
@@ -343,6 +371,12 @@ const I18N = {
   },
   ja: {
     'app.title': 'RFID試着室 PoC ダッシュボード',
+    'login.title': 'RFID試着室 PoC にサインイン',
+    'login.subtitle': 'ダッシュボードに進むにはサインインしてください。',
+    'login.username': 'ユーザー名',
+    'login.password': 'パスワード',
+    'login.submit': 'サインイン',
+    'auth.logout': 'ログアウト',
     'language.label': '言語',
     'config.title': 'Supabase 接続設定',
     'config.saveAndConnect': '保存して接続',
@@ -419,6 +453,104 @@ function getCurrentLang() {
 function getCurrentMode() {
   const stored = localStorage.getItem(MODE_KEY) || DEFAULT_MODE;
   return SUPPORTED_MODES.includes(stored) ? stored : DEFAULT_MODE;
+}
+
+function getSession() {
+  const raw = localStorage.getItem(SESSION_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed?.token || !parsed?.role || !parsed?.expiresAt) return null;
+    if (Date.parse(parsed.expiresAt) <= Date.now()) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    localStorage.removeItem(SESSION_KEY);
+    return null;
+  }
+}
+
+function setSession(session) {
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+}
+
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
+
+function setAppVisibility(isAuthenticated) {
+  if (el.loginView) el.loginView.hidden = isAuthenticated;
+  if (el.appShell) el.appShell.hidden = !isAuthenticated;
+}
+
+async function handleLoginSubmit(event) {
+  event.preventDefault();
+  if (el.loginError) {
+    el.loginError.hidden = true;
+    el.loginError.textContent = '';
+  }
+
+  const username = String(el.loginUsername?.value || '').trim();
+  const password = String(el.loginPassword?.value || '');
+
+  try {
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    const { data } = await parseApiResponse(response, 'login');
+    if (!response.ok) {
+      throw new Error(getApiErrorMessage(data, 'Login failed'));
+    }
+
+    const session = data?.session;
+    if (!session?.token || !session?.role || !session?.expiresAt) {
+      throw new Error('Invalid session payload');
+    }
+
+    setSession(session);
+    localStorage.setItem(USER_ROLE_KEY, normalizeUserRole(session.role));
+    setAppVisibility(true);
+
+    if (el.userRole) {
+      el.userRole.value = normalizeUserRole(session.role);
+    }
+
+    const url = localStorage.getItem(URL_KEY) || DEFAULT_SUPABASE_URL;
+    const anonKey = localStorage.getItem(ANON_KEY) || DEFAULT_SUPABASE_ANON_KEY;
+    el.supabaseUrl.value = url;
+    el.supabaseAnonKey.value = anonKey;
+
+    if (url && anonKey) {
+      await connectSupabase(url, anonKey);
+    } else {
+      setStatus(t('status.needSupabaseConfig'), 'warn');
+    }
+  } catch (error) {
+    if (el.loginError) {
+      el.loginError.hidden = false;
+      el.loginError.textContent = t('error.loginFailed', { message: error.message });
+    }
+  }
+}
+
+function handleLogout() {
+  clearSession();
+  if (subscription) {
+    subscription.unsubscribe().catch(() => {});
+    subscription = null;
+  }
+  supabase = null;
+  setAppVisibility(false);
+  if (el.loginPassword) el.loginPassword.value = '';
+  if (el.loginError) {
+    el.loginError.hidden = true;
+    el.loginError.textContent = '';
+  }
 }
 
 function modeThresholdStorageKey(mode) {
@@ -1595,9 +1727,20 @@ function boot() {
     connectionStatus: !!el.connectionStatus
   });
 
-  if (!el.dashboard || !el.eventLog || !el.connectionStatus) {
+  if (!el.dashboard || !el.eventLog || !el.connectionStatus || !el.loginForm || !el.loginView || !el.appShell) {
     console.error('[dom-check] required elements missing, abort boot');
     return;
+  }
+
+  const session = getSession();
+  setAppVisibility(Boolean(session));
+
+  if (el.loginForm) {
+    el.loginForm.addEventListener('submit', handleLoginSubmit);
+  }
+
+  if (el.logoutButton) {
+    el.logoutButton.addEventListener('click', handleLogout);
   }
 
   if (el.languageSelect) {
@@ -1730,13 +1873,17 @@ function boot() {
   }
 
   if (url && anonKey) {
-    connectSupabase(url, anonKey).catch((error) => {
-      setStatus(t('status.autoConnectFailed', { message: error.message }), 'err');
-    });
+    if (session) {
+      connectSupabase(url, anonKey).catch((error) => {
+        setStatus(t('status.autoConnectFailed', { message: error.message }), 'err');
+      });
+    }
     return;
   }
 
-  setStatus(t('status.needSupabaseConfig'), 'warn');
+  if (session) {
+    setStatus(t('status.needSupabaseConfig'), 'warn');
+  }
 }
 
 boot();

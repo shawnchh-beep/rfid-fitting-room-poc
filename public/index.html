@@ -7,14 +7,35 @@
   <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
-  <header class="page-header">
-    <h1 data-i18n="app.title">RFID Fitting Room PoC Dashboard</h1>
-    <div class="header-actions">
-      <label for="languageSelect" class="language-label" data-i18n="language.label">Language</label>
-      <select id="languageSelect" class="language-select" aria-label="Language"></select>
-      <p id="connectionStatus" class="status-badge">Initializing…</p>
-    </div>
-  </header>
+  <section id="loginView" class="login-screen" aria-labelledby="loginTitle">
+    <article class="login-card">
+      <h1 id="loginTitle" data-i18n="login.title">Sign in to RFID Fitting Room PoC</h1>
+      <p class="hint" data-i18n="login.subtitle">Please sign in to continue to dashboard.</p>
+      <form id="loginForm" class="stack-form">
+        <label>
+          <span data-i18n="login.username">Username</span>
+          <input id="loginUsername" name="username" autocomplete="username" required />
+        </label>
+        <label>
+          <span data-i18n="login.password">Password</span>
+          <input id="loginPassword" name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <button type="submit" data-i18n="login.submit">Sign in</button>
+      </form>
+      <p id="loginError" class="status-badge text-err" hidden></p>
+    </article>
+  </section>
+
+  <div id="appShell" hidden>
+    <header class="page-header">
+      <h1 data-i18n="app.title">RFID Fitting Room PoC Dashboard</h1>
+      <div class="header-actions">
+        <label for="languageSelect" class="language-label" data-i18n="language.label">Language</label>
+        <select id="languageSelect" class="language-select" aria-label="Language"></select>
+        <button id="logoutButton" type="button" data-i18n="auth.logout">Logout</button>
+        <p id="connectionStatus" class="status-badge">Initializing…</p>
+      </div>
+    </header>
 
   <main class="layout">
     <section class="panel panel--storefront" aria-labelledby="dashboardTitle">
@@ -199,6 +220,7 @@
       </section>
     </div>
   </main>
+  </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script type="module" src="js/main.js"></script>
 </body>
