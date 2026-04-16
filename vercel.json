@@ -2,6 +2,30 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
+      "source": "/product.html",
+      "destination": "/public/product.html"
+    },
+    {
+      "source": "/product",
+      "destination": "/public/product.html"
+    },
+    {
+      "source": "/csv-import.html",
+      "destination": "/public/csv-import.html"
+    },
+    {
+      "source": "/csv-import",
+      "destination": "/public/csv-import.html"
+    },
+    {
+      "source": "/setting.html",
+      "destination": "/public/setting.html"
+    },
+    {
+      "source": "/setting",
+      "destination": "/public/setting.html"
+    },
+    {
       "source": "/",
       "destination": "/public/index.html"
     },

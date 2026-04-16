@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/shawnchh-beep/rfid-fitting-room-poc#readme",
   "dependencies": {
-    "@supabase/supabase-js": "^2.99.1"
+    "@supabase/supabase-js": "^2.99.1",
+    "vercel": "^51.2.1"
   }
 }

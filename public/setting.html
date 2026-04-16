@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RFID Fitting Room PoC - Setting</title>
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <header class="page-header">
+    <h1 data-i18n="home.cards.setting.title">Setting</h1>
+    <div class="header-actions">
+      <nav class="top-nav" aria-label="Primary">
+        <a href="/" class="top-nav-link">Home</a>
+        <a href="/product.html" class="top-nav-link">Product</a>
+        <a href="/csv-import.html" class="top-nav-link">CSV Import</a>
+        <a href="/setting" class="top-nav-link is-active" aria-current="page">Setting</a>
+      </nav>
+      <label for="languageSelect" class="language-label" data-i18n="language.label">Language</label>
+      <select id="languageSelect" class="language-select" aria-label="Language"></select>
+      <p id="connectionStatus" class="status-badge">Initializing…</p>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel" aria-labelledby="configTitle">
+      <h2 id="configTitle" data-i18n="config.title">Supabase Connection</h2>
+      <form id="configForm" class="stack-form">
+        <label>
+          <span data-i18n="config.urlLabel">Supabase URL</span>
+          <input id="supabaseUrl" type="url" required placeholder="https://xxxx.supabase.co" />
+        </label>
+        <label>
+          <span data-i18n="config.anonKeyLabel">Supabase Publishable Key</span>
+          <input id="supabaseAnonKey" type="password" required placeholder="eyJ..." />
+        </label>
+        <label>
+          <span data-i18n="auth.apiTokenLabel">API Shared Token</span>
+          <input id="apiToken" type="password" placeholder="optional when auth disabled" />
+        </label>
+        <label>
+          <span data-i18n="auth.roleLabel">Role</span>
+          <select id="userRole" required>
+            <option value="trial" data-i18n="auth.role.trial">Trial</option>
+            <option value="user" data-i18n="auth.role.user">User</option>
+            <option value="admin" data-i18n="auth.role.admin">Admin</option>
+          </select>
+        </label>
+        <button type="submit" data-i18n="config.saveAndConnect">Save & Connect</button>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="eventLogTitle">
+      <h2 id="eventLogTitle" data-i18n="events.title">Latest Event Logs</h2>
+      <ul id="eventLog" class="event-log"></ul>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

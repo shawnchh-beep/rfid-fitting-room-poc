@@ -27,8 +27,15 @@ function getToken(req) {
 function checkAuth(req, allowedRoles) {
   const rawRole = getRole(req);
   const role = normalizeRole(rawRole);
+  const method = String(req?.method || 'UNKNOWN');
+  const path = String(req?.url || req?.headers?.['x-vercel-id'] || 'UNKNOWN_PATH');
 
   if (!isAuthEnabled()) {
+    console.log('[auth] bypass (disabled)', {
+      method,
+      path,
+      role: role || 'anonymous'
+    });
     return {
       ok: true,
       role: role || 'anonymous',
@@ -39,11 +46,26 @@ function checkAuth(req, allowedRoles) {
 
   const expectedToken = String(process.env.API_SHARED_TOKEN || '').trim();
   const providedToken = getToken(req);
+  console.log('[auth] enforce mode', {
+    method,
+    path,
+    role: role || 'anonymous',
+    expectedTokenLength: expectedToken.length,
+    providedTokenLength: providedToken.length,
+    providedTokenPreview: providedToken ? `${providedToken.slice(0, 4)}***` : null
+  });
   if (!expectedToken) {
     return { ok: false, status: 500, error: 'API_SHARED_TOKEN is required when API_AUTH_ENABLED=true' };
   }
 
   if (!providedToken || providedToken !== expectedToken) {
+    console.warn('[auth] unauthorized token mismatch', {
+      method,
+      path,
+      role: role || 'anonymous',
+      expectedTokenLength: expectedToken.length,
+      providedTokenLength: providedToken.length
+    });
     return { ok: false, status: 401, error: 'Unauthorized' };
   }
 

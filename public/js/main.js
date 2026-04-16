@@ -65,6 +65,7 @@ const el = {
   loginError: document.getElementById('loginError'),
   homeToDashboardTop: document.getElementById('homeToDashboardTop'),
   homeCardDashboard: document.getElementById('homeCardDashboard'),
+  homeCardFittingDemo: document.getElementById('homeCardFittingDemo'),
   homeCardProduct: document.getElementById('homeCardProduct'),
   homeCardSetting: document.getElementById('homeCardSetting'),
   homeCardCsvImport: document.getElementById('homeCardCsvImport'),
@@ -104,6 +105,7 @@ const el = {
   groupedCsvFile: document.getElementById('groupedCsvFile'),
   groupedPartition: document.getElementById('groupedPartition'),
   groupedFilter: document.getElementById('groupedFilter'),
+  groupedPreviewResult: document.getElementById('groupedPreviewResult'),
   groupedImportResult: document.getElementById('groupedImportResult'),
   simulateForm: document.getElementById('simulateForm'),
   simulateResult: document.getElementById('simulateResult'),
@@ -117,6 +119,7 @@ const el = {
   kpiTodayFitting: document.getElementById('kpiTodayFitting'),
   kpiTodaySales: document.getElementById('kpiTodaySales'),
   kpiConversionRate: document.getElementById('kpiConversionRate'),
+  productSkuSummary: document.getElementById('productSkuSummary'),
   restockList: document.getElementById('restockList'),
   modeSelect: document.getElementById('modeSelect'),
   overstayThresholdMinutes: document.getElementById('overstayThresholdMinutes'),
@@ -130,6 +133,8 @@ const I18N = {
     'home.cards.title': 'Select a module',
     'home.cards.dashboard.title': 'Dashboard',
     'home.cards.dashboard.desc': 'Open visual fitting-room dashboard',
+    'home.cards.fittingDemo.title': 'Fitting Room Demo',
+    'home.cards.fittingDemo.desc': 'Open demo controls for fitting-room simulation',
     'home.cards.product.title': 'Product',
     'home.cards.product.desc': 'Go to product board area',
     'home.cards.setting.title': 'Setting',
@@ -162,6 +167,26 @@ const I18N = {
     'dashboard.refresh': 'Refresh',
     'dashboard.empty': 'No data',
     'dashboard.unnamedProduct': 'Unnamed Product',
+    'product.summary.title': 'Products by SKU',
+    'product.summary.desc': 'Click each SKU row to expand all items, EPC and current location',
+    'product.summary.empty': 'No product items found',
+    'product.summary.sku': 'SKU',
+    'product.summary.productName': 'Product Name',
+    'product.summary.size': 'Size',
+    'product.summary.color': 'Color',
+    'product.summary.price': 'Price',
+    'product.summary.inventoryCount': 'Inventory',
+    'product.summary.soldCount': 'Sold',
+    'product.summary.totalCount': 'Total Items',
+    'product.summary.items': 'Items',
+    'product.summary.itemNo': '#',
+    'product.summary.epc': 'EPC',
+    'product.summary.location': 'Current Location',
+    'product.summary.locationUnknown': 'UNKNOWN',
+    'product.summary.skuUnknown': 'UNKNOWN_SKU',
+    'product.summary.conflictTitle': 'SKU data conflicts detected',
+    'product.summary.conflictItem': 'SKU {sku} / {field}: {values}',
+    'product.summary.errorValue': 'ERROR',
     'dashboard.sku': 'SKU',
     'dashboard.epc': 'EPC',
     'dashboard.gtinSegment': 'GTIN Segment',
@@ -219,8 +244,33 @@ const I18N = {
     'import.notStarted': 'Not imported yet',
     'importGrouped.title': 'Grouped CSV Import (Auto SGTIN-96)',
     'importGrouped.fieldsHint': 'Fields:',
+    'importGrouped.specHint': 'Required columns: sku_ean13, product_name, color, size, quantity, price_usd',
     'importGrouped.partitionLabel': 'Partition',
     'importGrouped.filterLabel': 'Filter',
+    'importGrouped.previewTitle': 'Validation & Preview',
+    'importGrouped.previewEmpty': 'No file parsed yet',
+    'importGrouped.preview.summary': 'Summary',
+    'importGrouped.preview.sample': 'Sample EPC (max 20)',
+    'importGrouped.preview.detail': 'Grouped Rows Preview',
+    'importGrouped.preview.error': 'Validation Error',
+    'importGrouped.preview.field': 'Field',
+    'importGrouped.preview.value': 'Value',
+    'importGrouped.preview.line': 'Line',
+    'importGrouped.preview.sku': 'SKU (EAN13)',
+    'importGrouped.preview.productName': 'Product Name',
+    'importGrouped.preview.color': 'Color',
+    'importGrouped.preview.size': 'Size',
+    'importGrouped.preview.price': 'Price',
+    'importGrouped.preview.quantity': 'Quantity',
+    'importGrouped.preview.serial': 'Serial',
+    'importGrouped.preview.epc': 'EPC',
+    'importGrouped.preview.conflictTitle': 'SKU conflicts detected in file',
+    'importGrouped.preview.conflictItem': 'SKU {sku} / {field}: {values}',
+    'importGrouped.preview.noConflict': 'No in-file SKU conflict detected',
+    'importGrouped.preview.dbConflictTitle': 'SKU conflicts detected against database',
+    'importGrouped.preview.dbConflictItem': 'SKU {sku} / {field}: {values}',
+    'importGrouped.preview.dbCheckPassed': 'No database conflict detected',
+    'importGrouped.preview.dbCheckFailed': 'Database conflict check failed: {message}',
     'importGrouped.submit': 'Generate EPC & Import',
     'importGrouped.notStarted': 'Not imported yet',
     'simulate.title': 'Simulate RFID Event',
@@ -286,6 +336,8 @@ const I18N = {
     'home.cards.title': '請選擇功能模組',
     'home.cards.dashboard.title': 'Dashboard',
     'home.cards.dashboard.desc': '開啟試衣間視覺化看板',
+    'home.cards.fittingDemo.title': 'Fitting Room Demo',
+    'home.cards.fittingDemo.desc': '開啟試衣間模擬 Demo 控制面板',
     'home.cards.product.title': 'Product',
     'home.cards.product.desc': '前往商品看板區域',
     'home.cards.setting.title': 'Setting',
@@ -316,6 +368,26 @@ const I18N = {
     'dashboard.refresh': '手動刷新',
     'dashboard.empty': '無資料',
     'dashboard.unnamedProduct': '未命名商品',
+    'product.summary.title': 'SKU 商品總覽',
+    'product.summary.desc': '點擊各 SKU 列可展開查看所有 item 的 EPC 與目前位置',
+    'product.summary.empty': '目前無商品資料',
+    'product.summary.sku': 'SKU',
+    'product.summary.productName': '產品名稱',
+    'product.summary.size': '尺寸',
+    'product.summary.color': '顏色',
+    'product.summary.price': '價格',
+    'product.summary.inventoryCount': '庫存數量',
+    'product.summary.soldCount': '已銷售數量',
+    'product.summary.totalCount': '總件數',
+    'product.summary.items': '件',
+    'product.summary.itemNo': '序號',
+    'product.summary.epc': 'EPC',
+    'product.summary.location': '目前位置',
+    'product.summary.locationUnknown': '未知',
+    'product.summary.skuUnknown': '未知 SKU',
+    'product.summary.conflictTitle': '偵測到 SKU 資料衝突',
+    'product.summary.conflictItem': 'SKU {sku} / {field}：{values}',
+    'product.summary.errorValue': 'ERROR',
     'dashboard.gtinSegment': 'GTIN片段',
     'dashboard.price': '價格',
     'dashboard.description': '描述',
@@ -371,8 +443,33 @@ const I18N = {
     'import.notStarted': '尚未導入',
     'importGrouped.title': 'Grouped CSV 導入（自動產生 SGTIN-96）',
     'importGrouped.fieldsHint': '欄位：',
+    'importGrouped.specHint': '必要欄位：sku_ean13、product_name、color、size、quantity、price_usd',
     'importGrouped.partitionLabel': 'Partition',
     'importGrouped.filterLabel': 'Filter',
+    'importGrouped.previewTitle': '驗證與預覽',
+    'importGrouped.previewEmpty': '尚未解析檔案',
+    'importGrouped.preview.summary': '摘要',
+    'importGrouped.preview.sample': 'EPC 範例（最多 20 筆）',
+    'importGrouped.preview.detail': '分組資料預覽',
+    'importGrouped.preview.error': '驗證錯誤',
+    'importGrouped.preview.field': '欄位',
+    'importGrouped.preview.value': '值',
+    'importGrouped.preview.line': '行號',
+    'importGrouped.preview.sku': 'SKU（EAN13）',
+    'importGrouped.preview.productName': '產品名稱',
+    'importGrouped.preview.color': '顏色',
+    'importGrouped.preview.size': '尺寸',
+    'importGrouped.preview.price': '價格',
+    'importGrouped.preview.quantity': '數量',
+    'importGrouped.preview.serial': '序號',
+    'importGrouped.preview.epc': 'EPC',
+    'importGrouped.preview.conflictTitle': '檔內偵測到 SKU 衝突',
+    'importGrouped.preview.conflictItem': 'SKU {sku} / {field}：{values}',
+    'importGrouped.preview.noConflict': '未偵測到檔內 SKU 衝突',
+    'importGrouped.preview.dbConflictTitle': '偵測到與資料庫既有 SKU 衝突',
+    'importGrouped.preview.dbConflictItem': 'SKU {sku} / {field}：{values}',
+    'importGrouped.preview.dbCheckPassed': '未偵測到資料庫衝突',
+    'importGrouped.preview.dbCheckFailed': '資料庫衝突檢查失敗：{message}',
     'importGrouped.submit': '產生 EPC 並導入',
     'importGrouped.notStarted': '尚未導入',
     'simulate.title': '模擬 RFID 事件',
@@ -444,11 +541,61 @@ const I18N = {
     'dashboard.refresh': '手动刷新',
     'dashboard.empty': '无数据',
     'dashboard.unnamedProduct': '未命名商品',
+    'product.summary.title': 'SKU 商品总览',
+    'product.summary.desc': '点击各 SKU 行可展开查看所有 item 的 EPC 与当前位置',
+    'product.summary.empty': '当前无商品数据',
+    'product.summary.sku': 'SKU',
+    'product.summary.productName': '产品名称',
+    'product.summary.size': '尺码',
+    'product.summary.color': '颜色',
+    'product.summary.price': '价格',
+    'product.summary.inventoryCount': '库存数量',
+    'product.summary.soldCount': '已销售数量',
+    'product.summary.totalCount': '总件数',
+    'product.summary.itemNo': '序号',
+    'product.summary.epc': 'EPC',
+    'product.summary.location': '当前位置',
+    'product.summary.locationUnknown': '未知',
+    'product.summary.skuUnknown': '未知 SKU',
+    'product.summary.conflictTitle': '检测到 SKU 数据冲突',
+    'product.summary.conflictItem': 'SKU {sku} / {field}：{values}',
+    'product.summary.errorValue': 'ERROR',
     'dashboard.abnormalStay': '异常停留',
     'import.title': 'CSV 批量导入商品',
     'import.fieldsHint': '字段：',
     'import.submit': '上传并导入',
     'import.notStarted': '尚未导入',
+    'importGrouped.title': 'Grouped CSV 导入（自动生成 SGTIN-96）',
+    'importGrouped.fieldsHint': '字段：',
+    'importGrouped.specHint': '必要字段：sku_ean13、product_name、color、size、quantity、price_usd',
+    'importGrouped.partitionLabel': 'Partition',
+    'importGrouped.filterLabel': 'Filter',
+    'importGrouped.previewTitle': '校验与预览',
+    'importGrouped.previewEmpty': '尚未解析文件',
+    'importGrouped.preview.summary': '摘要',
+    'importGrouped.preview.sample': 'EPC 示例（最多 20 条）',
+    'importGrouped.preview.detail': '分组数据预览',
+    'importGrouped.preview.error': '校验错误',
+    'importGrouped.preview.field': '字段',
+    'importGrouped.preview.value': '值',
+    'importGrouped.preview.line': '行号',
+    'importGrouped.preview.sku': 'SKU（EAN13）',
+    'importGrouped.preview.productName': '产品名称',
+    'importGrouped.preview.color': '颜色',
+    'importGrouped.preview.size': '尺码',
+    'importGrouped.preview.price': '价格',
+    'importGrouped.preview.quantity': '数量',
+    'importGrouped.preview.serial': '序号',
+    'importGrouped.preview.epc': 'EPC',
+    'importGrouped.preview.conflictTitle': '文件内检测到 SKU 冲突',
+    'importGrouped.preview.conflictItem': 'SKU {sku} / {field}：{values}',
+    'importGrouped.preview.noConflict': '未检测到文件内 SKU 冲突',
+    'importGrouped.preview.dbConflictTitle': '检测到与数据库既有 SKU 冲突',
+    'importGrouped.preview.dbConflictItem': 'SKU {sku} / {field}：{values}',
+    'importGrouped.preview.dbCheckPassed': '未检测到数据库冲突',
+    'importGrouped.preview.dbCheckFailed': '数据库冲突检查失败：{message}',
+    'importGrouped.submit': '生成 EPC 并导入',
+    'importGrouped.notStarted': '尚未导入',
     'simulate.title': '模拟 RFID 事件',
     'simulate.submit': '发送事件',
     'simulate.notSent': '尚未发送',
@@ -498,11 +645,61 @@ const I18N = {
     'dashboard.refresh': '更新',
     'dashboard.empty': 'データなし',
     'dashboard.unnamedProduct': '未命名商品',
+    'product.summary.title': 'SKU 商品サマリー',
+    'product.summary.desc': 'SKU 行をクリックすると item の EPC と現在位置を展開表示します',
+    'product.summary.empty': '商品データがありません',
+    'product.summary.sku': 'SKU',
+    'product.summary.productName': '商品名',
+    'product.summary.size': 'サイズ',
+    'product.summary.color': 'カラー',
+    'product.summary.price': '価格',
+    'product.summary.inventoryCount': '在庫数',
+    'product.summary.soldCount': '販売数',
+    'product.summary.totalCount': '総件数',
+    'product.summary.itemNo': '番号',
+    'product.summary.epc': 'EPC',
+    'product.summary.location': '現在位置',
+    'product.summary.locationUnknown': '不明',
+    'product.summary.skuUnknown': '不明 SKU',
+    'product.summary.conflictTitle': 'SKU データの不整合を検出しました',
+    'product.summary.conflictItem': 'SKU {sku} / {field}: {values}',
+    'product.summary.errorValue': 'ERROR',
     'dashboard.abnormalStay': '異常滞在',
     'import.title': 'CSV 商品一括インポート',
     'import.fieldsHint': '項目:',
     'import.submit': 'アップロードしてインポート',
     'import.notStarted': '未インポート',
+    'importGrouped.title': 'Grouped CSV インポート（SGTIN-96 自動生成）',
+    'importGrouped.fieldsHint': '項目：',
+    'importGrouped.specHint': '必須列：sku_ean13、product_name、color、size、quantity、price_usd',
+    'importGrouped.partitionLabel': 'Partition',
+    'importGrouped.filterLabel': 'Filter',
+    'importGrouped.previewTitle': '検証とプレビュー',
+    'importGrouped.previewEmpty': 'まだファイル未解析',
+    'importGrouped.preview.summary': 'サマリー',
+    'importGrouped.preview.sample': 'EPC サンプル（最大 20 件）',
+    'importGrouped.preview.detail': 'グループ行プレビュー',
+    'importGrouped.preview.error': '検証エラー',
+    'importGrouped.preview.field': '項目',
+    'importGrouped.preview.value': '値',
+    'importGrouped.preview.line': '行番号',
+    'importGrouped.preview.sku': 'SKU（EAN13）',
+    'importGrouped.preview.productName': '商品名',
+    'importGrouped.preview.color': 'カラー',
+    'importGrouped.preview.size': 'サイズ',
+    'importGrouped.preview.price': '価格',
+    'importGrouped.preview.quantity': '数量',
+    'importGrouped.preview.serial': 'シリアル',
+    'importGrouped.preview.epc': 'EPC',
+    'importGrouped.preview.conflictTitle': 'ファイル内 SKU 衝突を検出',
+    'importGrouped.preview.conflictItem': 'SKU {sku} / {field}: {values}',
+    'importGrouped.preview.noConflict': 'ファイル内 SKU 衝突はありません',
+    'importGrouped.preview.dbConflictTitle': 'DB 既存 SKU との衝突を検出',
+    'importGrouped.preview.dbConflictItem': 'SKU {sku} / {field}: {values}',
+    'importGrouped.preview.dbCheckPassed': 'DB 衝突は検出されませんでした',
+    'importGrouped.preview.dbCheckFailed': 'DB 衝突チェック失敗: {message}',
+    'importGrouped.submit': 'EPC 生成してインポート',
+    'importGrouped.notStarted': '未インポート',
     'simulate.title': 'RFIDイベント模擬送信',
     'simulate.submit': 'イベント送信',
     'simulate.notSent': '未送信',
@@ -571,7 +768,15 @@ function getSession() {
   try {
     const parsed = JSON.parse(raw);
     if (!parsed?.token || !parsed?.role || !parsed?.expiresAt) return null;
+    if (!parsed?.supabaseAccessToken || !parsed?.supabaseTokenExpiresAt) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
     if (Date.parse(parsed.expiresAt) <= Date.now()) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    if (Date.parse(parsed.supabaseTokenExpiresAt) <= Date.now()) {
       localStorage.removeItem(SESSION_KEY);
       return null;
     }
@@ -636,22 +841,42 @@ async function handleLoginSubmit(event) {
       throw new Error('Invalid session payload');
     }
 
-    setSession(session);
-    localStorage.setItem(USER_ROLE_KEY, normalizeUserRole(session.role));
+    const supabaseAccessToken = String(
+      session?.supabaseAccessToken
+      || data?.supabase_access_token
+      || ''
+    ).trim();
+    const supabaseTokenExpiresAt = String(
+      session?.supabaseTokenExpiresAt
+      || data?.supabase_token_expires_at
+      || ''
+    ).trim();
+    if (!supabaseAccessToken || !supabaseTokenExpiresAt) {
+      throw new Error('Invalid Supabase token payload');
+    }
+
+    const mergedSession = {
+      ...session,
+      supabaseAccessToken,
+      supabaseTokenExpiresAt
+    };
+
+    setSession(mergedSession);
+    localStorage.setItem(USER_ROLE_KEY, normalizeUserRole(mergedSession.role));
     setAppVisibility(true);
     navigateToHome();
 
     if (el.userRole) {
-      el.userRole.value = normalizeUserRole(session.role);
+      el.userRole.value = normalizeUserRole(mergedSession.role);
     }
 
     const url = localStorage.getItem(URL_KEY) || DEFAULT_SUPABASE_URL;
     const anonKey = localStorage.getItem(ANON_KEY) || DEFAULT_SUPABASE_ANON_KEY;
-    el.supabaseUrl.value = url;
-    el.supabaseAnonKey.value = anonKey;
+    if (el.supabaseUrl) el.supabaseUrl.value = url;
+    if (el.supabaseAnonKey) el.supabaseAnonKey.value = anonKey;
 
     if (url && anonKey) {
-      await connectSupabase(url, anonKey);
+      await connectSupabase(url, anonKey, supabaseAccessToken);
     } else {
       setStatus(t('status.needSupabaseConfig'), 'warn');
     }
@@ -727,11 +952,28 @@ function populateLanguageSelect() {
   el.languageSelect.value = currentLang;
 }
 
+function syncTopNavActiveState() {
+  const navLinks = Array.from(document.querySelectorAll('.top-nav-link'));
+  if (!navLinks.length) return;
+
+  const currentPath = window.location.pathname;
+  navLinks.forEach((link) => {
+    const href = link.getAttribute('href') || '';
+    const url = new URL(href, window.location.origin);
+    const isActive = url.pathname === currentPath;
+    link.classList.toggle('is-active', isActive);
+    if (isActive) {
+      link.setAttribute('aria-current', 'page');
+    } else {
+      link.removeAttribute('aria-current');
+    }
+  });
+}
+
 console.log('[boot] main.js loaded');
 
 function setStatus(text, level = 'warn') {
   if (!el.connectionStatus) {
-    console.error('[dom] #connectionStatus not found');
     return;
   }
   el.connectionStatus.textContent = text;
@@ -786,19 +1028,20 @@ function handleHomeCardNavigation(type) {
     navigateToDashboard();
     return;
   }
+  if (type === 'fittingDemo') {
+    window.location.href = '/product.html';
+    return;
+  }
   if (type === 'product') {
-    navigateToDashboard();
-    el.dashboard?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.location.href = '/product.html';
     return;
   }
   if (type === 'setting') {
-    navigateToDashboard();
-    openDemoControlsAt('configTitle');
+    window.location.href = '/setting';
     return;
   }
   if (type === 'csv') {
-    navigateToDashboard();
-    openDemoControlsAt('importTitle');
+    window.location.href = '/csv-import.html';
   }
 }
 
@@ -917,7 +1160,9 @@ async function handleQuickActionSubmit(event) {
     }
     await runQuickAction({ product, room, action, note });
     showToast('Action completed', 'ok');
-    await fetchAndRenderDashboard();
+    if (el.dashboard) {
+      await fetchAndRenderDashboard();
+    }
   } catch (error) {
     if (el.quickActionError) {
       el.quickActionError.hidden = false;
@@ -1099,6 +1344,48 @@ function getApiErrorMessage(data, fallbackMessage) {
   return fallbackMessage;
 }
 
+function normalizeConflictDisplayValue(value) {
+  if (value == null) return 'null';
+  if (Array.isArray(value)) {
+    return `[${value.map((v) => normalizeConflictDisplayValue(v)).join(', ')}]`;
+  }
+  if (typeof value === 'string') return value;
+  return String(value);
+}
+
+function formatSkuConflictDetails(errorData) {
+  if (!errorData || typeof errorData !== 'object') return null;
+  if (errorData.error_code !== 'SKU_CONFLICT') return null;
+
+  const scope = String(errorData.scope || '').trim() || 'unknown';
+  const scopeLabel = scope === 'in_file' ? '檔內衝突' : (scope === 'against_db' ? '與資料庫衝突' : scope);
+  const conflicts = Array.isArray(errorData.conflicts) ? errorData.conflicts : [];
+
+  const lines = [
+    `錯誤代碼：${errorData.error_code}`,
+    `衝突範圍：${scopeLabel}`
+  ];
+
+  if (conflicts.length === 0) {
+    lines.push('衝突明細：無');
+    return lines.join('\n');
+  }
+
+  lines.push('衝突明細：');
+  conflicts.forEach((conflict, index) => {
+    const sku = String(conflict?.sku || '').trim() || 'UNKNOWN_SKU';
+    lines.push(`${index + 1}. SKU=${sku}`);
+    const fields = conflict?.fields && typeof conflict.fields === 'object' ? conflict.fields : {};
+    Object.entries(fields).forEach(([field, diff]) => {
+      lines.push(
+        `   - ${field}: incoming=${normalizeConflictDisplayValue(diff?.incoming)} / existing=${normalizeConflictDisplayValue(diff?.existing)}`
+      );
+    });
+  });
+
+  return lines.join('\n');
+}
+
 async function parseApiResponse(response, tag) {
   const contentType = response.headers.get('content-type') || '';
   const rawText = await response.text();
@@ -1205,6 +1492,316 @@ function groupedCsvToRows(text) {
   return rows;
 }
 
+function detectGroupedCsvSkuConflicts(groupedRows = []) {
+  const baselineBySku = new Map();
+  const conflictsBySku = new Map();
+  const fieldsToCheck = ['product_name', 'color', 'size', 'price_usd'];
+
+  const normalizeValue = (field, value) => {
+    const text = String(value ?? '').trim();
+    if (!text) return null;
+    if (field === 'price_usd') {
+      const num = Number(text);
+      return Number.isFinite(num) ? String(num) : text;
+    }
+    return text;
+  };
+
+  groupedRows.forEach((row) => {
+    const sku = String(row?.sku_ean13 || '').trim();
+    if (!sku) return;
+
+    const current = {
+      product_name: normalizeValue('product_name', row?.product_name),
+      color: normalizeValue('color', row?.color),
+      size: normalizeValue('size', row?.size),
+      price_usd: normalizeValue('price_usd', row?.price_usd)
+    };
+
+    if (!baselineBySku.has(sku)) {
+      baselineBySku.set(sku, current);
+      return;
+    }
+
+    const baseline = baselineBySku.get(sku);
+    const fieldConflicts = {};
+    fieldsToCheck.forEach((field) => {
+      if (baseline[field] !== current[field]) {
+        fieldConflicts[field] = [baseline[field], current[field]].filter((v) => v != null);
+      }
+    });
+
+    if (Object.keys(fieldConflicts).length > 0) {
+      const existing = conflictsBySku.get(sku) || { sku, fields: {} };
+      Object.entries(fieldConflicts).forEach(([field, values]) => {
+        const set = existing.fields[field] || new Set();
+        values.forEach((v) => set.add(v));
+        existing.fields[field] = set;
+      });
+      conflictsBySku.set(sku, existing);
+    }
+  });
+
+  return [...conflictsBySku.values()].map((row) => ({
+    sku: row.sku,
+    fields: Object.fromEntries(Object.entries(row.fields).map(([field, set]) => [field, [...set]]))
+  }));
+}
+
+async function previewGroupedCsvFile() {
+  if (!el.groupedPreviewResult) return;
+
+  const file = el.groupedCsvFile?.files?.[0];
+  if (!file) {
+    el.groupedPreviewResult.textContent = t('importGrouped.previewEmpty');
+    return;
+  }
+
+  try {
+    const partition = Number(el.groupedPartition?.value ?? 5);
+    const filter = Number(el.groupedFilter?.value ?? 0);
+    if (!(partition in SGTIN96_PARTITIONS)) throw new Error('partition must be 0~6');
+    if (!Number.isInteger(filter) || filter < 0 || filter > 7) throw new Error('filter must be 0~7');
+
+    const text = await file.text();
+    const groupedRows = groupedCsvToRows(text);
+
+    const serialStart = 1000001;
+    let serial = serialStart;
+    const sample = [];
+    let expandedRows = 0;
+
+    for (const row of groupedRows) {
+      const ean13 = String(row.sku_ean13 || '').trim();
+      const qty = Number(row.quantity);
+      const price = Number(row.price_usd);
+      if (!/^\d{13}$/.test(ean13)) throw new Error(`Invalid EAN13 at line ${row.__line}`);
+      if (!Number.isInteger(qty) || qty <= 0) throw new Error(`Invalid quantity at line ${row.__line}`);
+      if (!Number.isFinite(price)) throw new Error(`Invalid price_usd at line ${row.__line}`);
+
+      const { companyPrefix, itemReference } = buildItemReferenceFromEan13(ean13, partition);
+      for (let i = 0; i < qty; i += 1) {
+        const epc = encodeSGTIN96({ companyPrefix, itemReference, serial, partition, filter });
+        expandedRows += 1;
+        if (sample.length < 20) {
+          sample.push({ line: row.__line, sku: ean13, serial, epc });
+        }
+        serial += 1;
+      }
+    }
+
+    const serialEnd = expandedRows > 0 ? (serialStart + expandedRows - 1) : null;
+    const conflicts = detectGroupedCsvSkuConflicts(groupedRows);
+    const detailRows = groupedRows.slice(0, 50);
+
+    const validationRows = [];
+    groupedRows.forEach((row) => {
+      const ean13 = String(row.sku_ean13 || '').trim();
+      const qty = Number(row.quantity);
+      const price = Number(row.price_usd);
+      if (!/^[\d]{13}$/.test(ean13)) return;
+      if (!Number.isInteger(qty) || qty <= 0) return;
+      if (!Number.isFinite(price)) return;
+
+      const { companyPrefix, itemReference } = buildItemReferenceFromEan13(ean13, partition);
+      const epc = encodeSGTIN96({ companyPrefix, itemReference, serial: 1000001, partition, filter });
+      validationRows.push({
+        epc_data: epc,
+        product_name: String(row.product_name || '').trim(),
+        name_en: String(row.product_name || '').trim(),
+        sku: ean13,
+        size: String(row.size || '').trim(),
+        color: String(row.color || '').trim(),
+        price
+      });
+    });
+
+    let dbConflicts = [];
+    let dbCheckError = null;
+    try {
+      const response = await fetch('/api/bulk-products', {
+        method: 'POST',
+        headers: buildJsonHeaders(),
+        body: JSON.stringify({ rows: validationRows, validate_only: true })
+      });
+      const { data: result } = await parseApiResponse(response, 'grouped-preview-validate-only');
+      if (!response.ok) {
+        if (result?.error_code === 'SKU_CONFLICT' && result?.scope === 'against_db') {
+          dbConflicts = Array.isArray(result?.conflicts) ? result.conflicts : [];
+        } else {
+          dbCheckError = getApiErrorMessage(result, t('error.bulkImportFailed'));
+        }
+      }
+    } catch (error) {
+      dbCheckError = error?.message || 'unknown error';
+    }
+
+    const summaryRows = [
+      ['file_name', file.name],
+      ['grouped_rows', String(groupedRows.length)],
+      ['expanded_rows', String(expandedRows)],
+      ['partition', String(partition)],
+      ['filter', String(filter)],
+      ['serial_start', serialEnd == null ? '-' : String(serialStart)],
+      ['serial_end', serialEnd == null ? '-' : String(serialEnd)],
+      ['sku_conflicts', String(conflicts.length)],
+      ['db_conflicts', String(dbConflicts.length)]
+    ];
+
+    const summaryTable = `
+      <h4>${escapeHtml(t('importGrouped.preview.summary'))}</h4>
+      <table class="preview-table">
+        <thead>
+          <tr>
+            <th>${escapeHtml(t('importGrouped.preview.field'))}</th>
+            <th>${escapeHtml(t('importGrouped.preview.value'))}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${summaryRows.map(([field, value]) => `
+            <tr>
+              <td>${escapeHtml(field)}</td>
+              <td>${escapeHtml(value)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+
+    const sampleTable = `
+      <h4>${escapeHtml(t('importGrouped.preview.sample'))}</h4>
+      <table class="preview-table">
+        <thead>
+          <tr>
+            <th>${escapeHtml(t('importGrouped.preview.line'))}</th>
+            <th>${escapeHtml(t('importGrouped.preview.sku'))}</th>
+            <th>${escapeHtml(t('importGrouped.preview.serial'))}</th>
+            <th>${escapeHtml(t('importGrouped.preview.epc'))}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sample.map((row) => `
+            <tr>
+              <td>${escapeHtml(String(row.line))}</td>
+              <td>${escapeHtml(row.sku)}</td>
+              <td>${escapeHtml(String(row.serial))}</td>
+              <td><code>${escapeHtml(row.epc)}</code></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+
+    const detailTable = `
+      <h4>${escapeHtml(t('importGrouped.preview.detail'))}</h4>
+      <div class="preview-table-wrap">
+        <table class="preview-table">
+          <thead>
+            <tr>
+              <th>${escapeHtml(t('importGrouped.preview.line'))}</th>
+              <th>${escapeHtml(t('importGrouped.preview.sku'))}</th>
+              <th>${escapeHtml(t('importGrouped.preview.productName'))}</th>
+              <th>${escapeHtml(t('importGrouped.preview.color'))}</th>
+              <th>${escapeHtml(t('importGrouped.preview.size'))}</th>
+              <th>${escapeHtml(t('importGrouped.preview.price'))}</th>
+              <th>${escapeHtml(t('importGrouped.preview.quantity'))}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${detailRows.map((row) => `
+              <tr>
+                <td>${escapeHtml(String(row.__line ?? '-'))}</td>
+                <td>${escapeHtml(String(row.sku_ean13 || ''))}</td>
+                <td>${escapeHtml(String(row.product_name || ''))}</td>
+                <td>${escapeHtml(String(row.color || ''))}</td>
+                <td>${escapeHtml(String(row.size || ''))}</td>
+                <td>${escapeHtml(String(row.price_usd || ''))}</td>
+                <td>${escapeHtml(String(row.quantity || ''))}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    const hasAnyConflict = conflicts.length > 0 || dbConflicts.length > 0 || Boolean(dbCheckError);
+    const conflictSummaryTable = hasAnyConflict
+      ? `
+        <div class="preview-conflicts" role="alert">
+          ${conflicts.length > 0
+            ? `
+              <h4>${escapeHtml(t('importGrouped.preview.conflictTitle'))}</h4>
+              <ul>
+                ${conflicts.map((conflict) => Object.entries(conflict.fields).map(([field, values]) => `
+                  <li>${escapeHtml(t('importGrouped.preview.conflictItem', {
+                    sku: conflict.sku,
+                    field,
+                    values: (values || []).join(', ')
+                  }))}</li>
+                `).join('')).join('')}
+              </ul>
+            `
+            : ''}
+          ${dbCheckError
+            ? `
+              <h4>${escapeHtml(t('importGrouped.preview.dbConflictTitle'))}</h4>
+              <div>${escapeHtml(t('importGrouped.preview.dbCheckFailed', { message: dbCheckError }))}</div>
+            `
+            : ''}
+          ${!dbCheckError && dbConflicts.length > 0
+            ? `
+              <h4>${escapeHtml(t('importGrouped.preview.dbConflictTitle'))}</h4>
+              <ul>
+                ${dbConflicts.map((conflict) => Object.entries(conflict.fields || {}).map(([field, detail]) => {
+                  const values = Array.isArray(detail?.existing)
+                    ? detail.existing
+                    : [detail?.existing, detail?.incoming].filter((v) => v != null);
+                  return `
+                    <li>${escapeHtml(t('importGrouped.preview.dbConflictItem', {
+                      sku: conflict.sku,
+                      field,
+                      values: values.join(', ')
+                    }))}</li>
+                  `;
+                }).join('')).join('')}
+              </ul>
+            `
+            : ''}
+        </div>
+      `
+      : `
+        <div class="preview-ok">${escapeHtml(t('importGrouped.preview.noConflict'))}</div>
+      `;
+
+    el.groupedPreviewResult.innerHTML = `
+      <div class="preview-block">${summaryTable}</div>
+      <div class="preview-block">${conflictSummaryTable}</div>
+      <div class="preview-block">${detailTable}</div>
+      <div class="preview-block">${sampleTable}</div>
+    `;
+  } catch (error) {
+    el.groupedPreviewResult.innerHTML = `
+      <div class="preview-block">
+        <h4>${escapeHtml(t('importGrouped.preview.error'))}</h4>
+        <table class="preview-table">
+          <thead>
+            <tr>
+              <th>${escapeHtml(t('importGrouped.preview.field'))}</th>
+              <th>${escapeHtml(t('importGrouped.preview.value'))}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>message</td>
+              <td>${escapeHtml(t('error.groupedImportFailed', { message: error.message }))}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+}
+
 function buildItemReferenceFromEan13(ean13, partition) {
   const spec = SGTIN96_PARTITIONS[partition];
   const base12 = String(ean13).slice(0, 12);
@@ -1218,14 +1815,35 @@ function buildItemReferenceFromEan13(ean13, partition) {
 
 async function handleGroupedCsvImport(event) {
   event.preventDefault();
+  console.log('[grouped-import] submit triggered', {
+    at: new Date().toISOString(),
+    hasForm: !!el.groupedCsvImportForm,
+    hasFileInput: !!el.groupedCsvFile,
+    hasResultBox: !!el.groupedImportResult,
+    fileSelected: !!el.groupedCsvFile?.files?.[0],
+    role: normalizeUserRole(localStorage.getItem(USER_ROLE_KEY))
+  });
+
   const currentRole = normalizeUserRole(localStorage.getItem(USER_ROLE_KEY));
   if (currentRole === 'trial') {
-    el.groupedImportResult.textContent = t('error.trialImportForbidden');
+    console.warn('[grouped-import] blocked by role policy', {
+      at: new Date().toISOString(),
+      role: currentRole
+    });
+    el.groupedImportResult.textContent = [
+      '匯入失敗',
+      '原因：trial 角色無匯入權限',
+      '資料筆數（inventory_items）：0',
+      '產品總數（products）：0'
+    ].join('\n');
     return;
   }
 
   const file = el.groupedCsvFile.files?.[0];
-  if (!file) return;
+  if (!file) {
+    console.warn('[grouped-import] no file selected');
+    return;
+  }
 
   try {
     const partition = Number(el.groupedPartition?.value ?? 5);
@@ -1236,7 +1854,7 @@ async function handleGroupedCsvImport(event) {
     const text = await file.text();
     const groupedRows = groupedCsvToRows(text);
 
-    let serial = 1;
+    let serial = 1000001;
     const rows = [];
     for (const row of groupedRows) {
       const ean13 = String(row.sku_ean13 || '').trim();
@@ -1277,21 +1895,28 @@ async function handleGroupedCsvImport(event) {
 
     const { data: result } = await parseApiResponse(response, 'grouped-bulk-products');
     if (!response.ok) {
-      throw new Error(getApiErrorMessage(result, t('error.bulkImportFailed')));
+      const skuConflictDetails = formatSkuConflictDetails(result);
+      const baseMessage = getApiErrorMessage(result, t('error.bulkImportFailed'));
+      throw new Error(skuConflictDetails ? `${baseMessage}\n${skuConflictDetails}` : baseMessage);
     }
 
-    el.groupedImportResult.textContent = JSON.stringify({
-      grouped_rows: groupedRows.length,
-      expanded_rows: rows.length,
-      partition,
-      filter,
-      serial_range: rows.length > 0 ? { start: 1, end: rows.length } : null,
-      server_result: result
-    }, null, 2);
+    const productCount = Number(result?.affected);
+    const inventoryCount = Number(result?.inventory_items_upserted);
+    el.groupedImportResult.textContent = [
+      '匯入成功',
+      `資料筆數（inventory_items）：${Number.isFinite(inventoryCount) ? inventoryCount : rows.length}`,
+      `產品總數（products）：${Number.isFinite(productCount) ? productCount : '-'}`
+    ].join('\n');
 
     await fetchAndRenderDashboard();
   } catch (error) {
-    el.groupedImportResult.textContent = t('error.groupedImportFailed', { message: error.message });
+    console.error('[grouped-import] failed', error);
+    el.groupedImportResult.textContent = [
+      '匯入失敗',
+      `原因：${error?.message || '未知錯誤'}`,
+      '資料筆數（inventory_items）：0',
+      '產品總數（products）：0'
+    ].join('\n');
   }
 }
 
@@ -1376,6 +2001,27 @@ function buildLatestStateMap(events = []) {
   return map;
 }
 
+function buildLatestEventByEpc(events = []) {
+  const map = new Map();
+  events.forEach((event) => {
+    const epc = String(event?.epc_data || '').trim();
+    if (!epc) return;
+    const current = map.get(epc);
+    if (!current || new Date(event.timestamp).getTime() > new Date(current.timestamp).getTime()) {
+      map.set(epc, event);
+    }
+  });
+  return map;
+}
+
+function resolveSkuValue(...candidates) {
+  for (const candidate of candidates) {
+    const value = String(candidate ?? '').trim();
+    if (value) return value;
+  }
+  return '';
+}
+
 function buildPresenceMap(rows = []) {
   const map = new Map();
   rows.forEach((row) => {
@@ -1402,6 +2048,303 @@ function deriveStateByPresence(productKey, latestEvent, presence, nowMs, oversta
   const stateFromEvent = latestEvent ? normalizeStateFromEvent(latestEvent) : 'RACK';
   const state = stateFromEvent === 'FITTING_ROOM' ? 'RACK' : stateFromEvent;
   return { state, abnormal: false };
+}
+
+function getProductKeyFromInventoryItem(row = {}, productById = new Map()) {
+  const productId = row?.product_id;
+  const product = productById.get(productId) || null;
+  if (product) {
+    const keyFromProduct = productKeyFromProduct(product);
+    if (keyFromProduct) return keyFromProduct;
+  }
+
+  const epc = String(row?.epc_data || '').trim();
+  if (!epc) return null;
+  const decoded = safeDecode(epc);
+  if (!decoded) return null;
+  return normalizeProductKey(decoded.companyPrefix, decoded.itemReference);
+}
+
+function buildSkuSummaryRows(products = [], events = [], presenceRows = [], inventoryRows = []) {
+  const productById = new Map((products || []).map((p) => [p.id, p]));
+  const latestEventByEpc = buildLatestEventByEpc(events || []);
+  const presenceMap = buildPresenceMap(presenceRows || []);
+  const nowMs = Date.now();
+  const overstayMs = getCurrentOverstayThresholdMs();
+
+  const skuMap = new Map();
+  const seenIdentity = new Set();
+  const skuResolutionStats = {
+    fromInventoryItemSku: 0,
+    fromProductSku: 0,
+    unknownSku: 0
+  };
+
+  const normalizeSummaryField = (value) => {
+    const text = String(value ?? '').trim();
+    return text || null;
+  };
+
+  const normalizeSummaryPrice = (value) => {
+    if (value === '' || value == null) return null;
+    const num = Number(value);
+    if (!Number.isFinite(num)) return null;
+    return String(num);
+  };
+
+  const sourceRows = Array.isArray(inventoryRows) && inventoryRows.length > 0
+    ? inventoryRows
+    : (products || []).map((product) => ({
+      epc_data: product?.epc_data || product?.epc,
+      product_id: product?.id,
+      sku: resolveSkuValue(product?.sku),
+      __fromProductsFallback: true
+    }));
+
+  console.log('[product-summary] source selection', {
+    productsCount: (products || []).length,
+    inventoryRowsCount: (inventoryRows || []).length,
+    usingInventoryRows: Array.isArray(inventoryRows) && inventoryRows.length > 0,
+    sourceRowsCount: sourceRows.length,
+    sourceRowsWithProductId: sourceRows.filter((row) => row?.product_id != null).length,
+    sourceRowsWithoutProductId: sourceRows.filter((row) => row?.product_id == null).length,
+    fallbackRowsWithEpc: sourceRows.filter((row) => String(row?.epc_data || '').trim()).length,
+    fallbackRowsWithoutEpc: sourceRows.filter((row) => !String(row?.epc_data || '').trim()).length,
+    sourceRowsWithSku: sourceRows.filter((row) => String(row?.sku || '').trim()).length,
+    sourceRowsWithoutSku: sourceRows.filter((row) => !String(row?.sku || '').trim()).length
+  });
+
+  sourceRows.forEach((item, index) => {
+    const epc = String(item?.epc_data || '').trim();
+    const product = productById.get(item?.product_id) || null;
+    const rawItemSku = resolveSkuValue(item?.sku);
+    const rawProductSku = resolveSkuValue(product?.sku);
+    const sku = resolveSkuValue(rawItemSku, rawProductSku, t('product.summary.skuUnknown'));
+
+    if (rawItemSku) {
+      skuResolutionStats.fromInventoryItemSku += 1;
+    } else if (rawProductSku) {
+      skuResolutionStats.fromProductSku += 1;
+    } else {
+      skuResolutionStats.unknownSku += 1;
+    }
+
+    const identity = epc || `${item?.product_id || 'no_product'}::${sku}::${index}`;
+    if (seenIdentity.has(identity)) return;
+    seenIdentity.add(identity);
+
+    const latestEvent = latestEventByEpc.get(epc) || null;
+    const productKey = getProductKeyFromInventoryItem(item, productById);
+    const presence = productKey ? presenceMap.get(productKey) : null;
+    const { state } = epc
+      ? deriveStateByPresence(productKey, latestEvent, presence, nowMs, overstayMs)
+      : { state: String(item?.status || '').toUpperCase() === 'SOLD' ? 'SOLD' : 'UNKNOWN' };
+    const location = STATES.includes(state) ? state : 'UNKNOWN';
+
+    if (!skuMap.has(sku)) {
+      skuMap.set(sku, {
+        sku,
+        productNameCandidates: new Set(),
+        sizeCandidates: new Set(),
+        colorCandidates: new Set(),
+        priceCandidates: new Set(),
+        inventoryCount: 0,
+        soldCount: 0,
+        totalCount: 0,
+        items: []
+      });
+    }
+
+    const bucket = skuMap.get(sku);
+    const productName = normalizeSummaryField(
+      product?.display_name || product?.name_en || product?.name || item?.name_en || item?.product_name
+    );
+    const size = normalizeSummaryField(item?.size || product?.size);
+    const color = normalizeSummaryField(item?.color || product?.color);
+    const price = normalizeSummaryPrice(item?.price ?? product?.price);
+
+    if (productName) bucket.productNameCandidates.add(productName);
+    if (size) bucket.sizeCandidates.add(size);
+    if (color) bucket.colorCandidates.add(color);
+    if (price) bucket.priceCandidates.add(price);
+
+    bucket.totalCount += 1;
+    if (location === 'SOLD') {
+      bucket.soldCount += 1;
+    } else {
+      bucket.inventoryCount += 1;
+    }
+
+    bucket.items.push({
+      epc: epc || '-',
+      location
+    });
+  });
+
+  console.log('[product-summary] aggregation result', {
+    uniqueSkuCount: skuMap.size,
+    uniqueIdentityCount: seenIdentity.size,
+    skuResolutionStats,
+    bucketWithProductNameCandidate: [...skuMap.values()].filter((row) => row.productNameCandidates?.size > 0).length,
+    bucketWithSizeCandidate: [...skuMap.values()].filter((row) => row.sizeCandidates?.size > 0).length,
+    bucketWithColorCandidate: [...skuMap.values()].filter((row) => row.colorCandidates?.size > 0).length,
+    rowsWithUnknownLocation: [...skuMap.values()].reduce((acc, row) => acc + row.items.filter((it) => it.location === 'UNKNOWN').length, 0),
+    unknownSkuCount: (skuMap.get(t('product.summary.skuUnknown'))?.items || []).length,
+    unknownSkuSample: sourceRows
+      .filter((row) => !String(row?.sku || '').trim())
+      .slice(0, 5)
+      .map((row) => {
+        const p = productById.get(row?.product_id) || {};
+        return {
+          product_id: row?.product_id ?? null,
+          item_sku: row?.sku ?? null,
+          product_sku: p?.sku ?? null,
+          epc_data: row?.epc_data ?? null
+        };
+      })
+  });
+
+  const conflicts = [];
+  const resolveDisplayValue = (candidates, sku, fieldKey) => {
+    const values = [...candidates];
+    if (values.length === 0) return '-';
+    if (values.length === 1) return values[0];
+    conflicts.push({ sku, field: fieldKey, candidates: values });
+    return t('product.summary.errorValue');
+  };
+
+  const rows = [...skuMap.values()]
+    .sort((a, b) => String(a.sku).localeCompare(String(b.sku)))
+    .map((row) => ({
+      sku: row.sku,
+      productName: resolveDisplayValue(row.productNameCandidates, row.sku, 'product.summary.productName'),
+      size: resolveDisplayValue(row.sizeCandidates, row.sku, 'product.summary.size'),
+      color: resolveDisplayValue(row.colorCandidates, row.sku, 'product.summary.color'),
+      price: resolveDisplayValue(row.priceCandidates, row.sku, 'product.summary.price'),
+      inventoryCount: row.inventoryCount,
+      soldCount: row.soldCount,
+      totalCount: row.totalCount,
+      items: row.items.sort((a, b) => String(a.epc).localeCompare(String(b.epc)))
+    }));
+
+  const rowsWithDashSizeOrColor = rows
+    .filter((row) => row.size === '-' || row.color === '-')
+    .slice(0, 10)
+    .map((row) => ({
+      sku: row.sku,
+      size: row.size,
+      color: row.color,
+      totalCount: row.totalCount
+    }));
+
+  console.log('[product-summary] rendered-value snapshot', {
+    rowsCount: rows.length,
+    rowsWithDashSize: rows.filter((row) => row.size === '-').length,
+    rowsWithDashColor: rows.filter((row) => row.color === '-').length,
+    rowsWithErrorSize: rows.filter((row) => row.size === t('product.summary.errorValue')).length,
+    rowsWithErrorColor: rows.filter((row) => row.color === t('product.summary.errorValue')).length,
+    rowsWithDashSizeOrColor
+  });
+
+  return { rows, conflicts };
+}
+
+function renderProductSkuSummary(summarySummary = { rows: [], conflicts: [] }) {
+  if (!el.productSkuSummary) return;
+
+  const formatPriceDisplay = (value) => {
+    const text = String(value ?? '').trim();
+    if (!text) return '-';
+    if (text === '-' || text === t('product.summary.errorValue')) return text;
+    const num = Number(text);
+    if (!Number.isFinite(num)) return text;
+    return `$${num.toFixed(2)}`;
+  };
+
+  const summaryRows = Array.isArray(summarySummary)
+    ? summarySummary
+    : (Array.isArray(summarySummary?.rows) ? summarySummary.rows : []);
+  const conflicts = Array.isArray(summarySummary?.conflicts) ? summarySummary.conflicts : [];
+
+  if (!Array.isArray(summaryRows) || summaryRows.length === 0) {
+    el.productSkuSummary.innerHTML = `<p class="hint">${escapeHtml(t('product.summary.empty'))}</p>`;
+    return;
+  }
+
+  const conflictHtml = conflicts.length > 0
+    ? `
+      <div class="product-sku-conflicts" role="alert">
+        <strong>${escapeHtml(t('product.summary.conflictTitle'))}</strong>
+        <ul>
+          ${conflicts.map((conflict) => `
+            <li>${escapeHtml(t('product.summary.conflictItem', {
+              sku: conflict.sku,
+              field: t(conflict.field),
+              values: conflict.candidates.join(', ')
+            }))}</li>
+          `).join('')}
+        </ul>
+      </div>
+    `
+    : '';
+
+  const cardsHtml = summaryRows
+    .map((row) => {
+      const detailRows = row.items
+        .map((item, idx) => `
+          <tr>
+            <td>${idx + 1}</td>
+            <td><code>${escapeHtml(item.epc)}</code></td>
+            <td>${escapeHtml(STATES.includes(item.location) ? t(`state.${item.location}`) : t('product.summary.locationUnknown'))}</td>
+          </tr>
+        `)
+        .join('');
+
+      return `
+        <details class="product-sku-card">
+          <summary class="product-sku-summary-row">
+            <span class="product-sku-col product-sku-col--sku">${escapeHtml(row.sku)}</span>
+            <span class="product-sku-col">${escapeHtml(row.productName)}</span>
+            <span class="product-sku-col">${escapeHtml(row.size)}</span>
+            <span class="product-sku-col">${escapeHtml(row.color)}</span>
+            <span class="product-sku-col">${escapeHtml(formatPriceDisplay(row.price))}</span>
+            <span class="product-sku-col">${escapeHtml(String(row.inventoryCount))}</span>
+            <span class="product-sku-col">${escapeHtml(String(row.soldCount))}</span>
+            <span class="product-sku-col">${escapeHtml(String(row.totalCount))}</span>
+          </summary>
+          <div class="product-sku-detail">
+            <table class="preview-table">
+              <thead>
+                <tr>
+                  <th>${escapeHtml(t('product.summary.itemNo'))}</th>
+                  <th>${escapeHtml(t('product.summary.epc'))}</th>
+                  <th>${escapeHtml(t('product.summary.location'))}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${detailRows}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      `;
+    })
+    .join('');
+
+  el.productSkuSummary.innerHTML = `
+    ${conflictHtml}
+    <div class="product-sku-head" role="row">
+      <span class="product-sku-col product-sku-col--sku">${escapeHtml(t('product.summary.sku'))}</span>
+      <span class="product-sku-col">${escapeHtml(t('product.summary.productName'))}</span>
+      <span class="product-sku-col">${escapeHtml(t('product.summary.size'))}</span>
+      <span class="product-sku-col">${escapeHtml(t('product.summary.color'))}</span>
+      <span class="product-sku-col">${escapeHtml(t('product.summary.price'))}</span>
+      <span class="product-sku-col">${escapeHtml(t('product.summary.inventoryCount'))}</span>
+      <span class="product-sku-col">${escapeHtml(t('product.summary.soldCount'))}</span>
+      <span class="product-sku-col">${escapeHtml(t('product.summary.totalCount'))}</span>
+    </div>
+    ${cardsHtml}
+  `;
 }
 
 function computeKpiMetrics({ grouped, sessions, saleEvents }) {
@@ -1546,6 +2489,8 @@ function renderDashboard(products, latestEventMap, presenceMap, todaySessions = 
         .join('');
     }
   }
+
+  if (!el.dashboard) return;
 
   el.dashboard.innerHTML = BOARD_STATES.map((state) => {
     const cards = grouped[state]
@@ -1918,8 +2863,8 @@ async function fetchAndRenderDashboard() {
     return;
   }
 
-  if (!el.dashboard) {
-    console.error('[dom] #dashboard not found, skip render');
+  if (!el.dashboard && !el.productSkuSummary) {
+    console.debug('[dom] #dashboard/#productSkuSummary not found on current page, skip render');
     return;
   }
 
@@ -1929,19 +2874,41 @@ async function fetchAndRenderDashboard() {
   const sevenDaysAgoIso = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000)).toISOString();
 
   const [productsRes, eventsRes, translationsRes, presenceRes, todaySessionsRes, todaySalesRes, sales7dRes, inventoryRes] = await Promise.all([
-    supabase.from('products').select('*').order('id', { ascending: true }),
+    supabase.from('products').select('id,name,name_en,description_en,image_url,price,size,color,sku,epc_data,epc_company_prefix,item_reference').order('id', { ascending: true }),
     supabase.from('rfid_events').select('epc_data,reader_id,timestamp,event_type,event_source,from_zone,to_zone').order('timestamp', { ascending: false }).limit(500),
     supabase.from('product_translations').select('product_id,locale,name,description').eq('locale', currentLang),
     supabase.from('fitting_room_presence').select('product_key,entered_at,last_seen_at,last_reader_id'),
     supabase.from('fitting_room_sessions').select('id,converted_to_sale').gte('entered_at', todayStartIso()),
     supabase.from('rfid_events').select('id').eq('event_type', 'sale_completed').gte('timestamp', todayStartIso()),
     supabase.from('rfid_events').select('epc_data').eq('event_type', 'sale_completed').gte('timestamp', sevenDaysAgoIso),
-    supabase.from('inventory_items').select('product_id,status,epc_data')
+    supabase.from('inventory_items').select('product_id,sku,status,epc_data')
   ]);
 
+  if (inventoryRes?.error) {
+    console.warn('[dashboard] inventory_items query failed, sku summary will fallback to products if needed', {
+      code: inventoryRes.error.code,
+      message: inventoryRes.error.message,
+      hint: inventoryRes.error.hint,
+      details: inventoryRes.error.details
+    });
+  }
+
   if (productsRes.error) {
-    console.error('[dashboard] products query failed:', productsRes.error);
-    throw productsRes.error;
+    console.warn('[dashboard] products primary query failed, fallback to select(*)', {
+      code: productsRes.error.code,
+      message: productsRes.error.message,
+      details: productsRes.error.details,
+      hint: productsRes.error.hint
+    });
+    const fallbackProductsRes = await supabase
+      .from('products')
+      .select('*')
+      .order('id', { ascending: true });
+    if (fallbackProductsRes.error) {
+      console.error('[dashboard] products fallback query failed:', fallbackProductsRes.error);
+      throw fallbackProductsRes.error;
+    }
+    productsRes.data = fallbackProductsRes.data;
   }
   if (eventsRes.error) {
     if (eventsRes.error.code === '42703') {
@@ -1986,17 +2953,68 @@ async function fetchAndRenderDashboard() {
     };
   });
 
+  console.log('[dashboard] products sku snapshot', {
+    totalProducts: localizedProducts.length,
+    productsWithSku: localizedProducts.filter((p) => resolveSkuValue(p?.sku)).length,
+    productsWithoutSku: localizedProducts.filter((p) => !resolveSkuValue(p?.sku)).length,
+    productsWithSize: localizedProducts.filter((p) => String(p?.size ?? '').trim()).length,
+    productsWithColor: localizedProducts.filter((p) => String(p?.color ?? '').trim()).length,
+    productsWithoutSkuSample: localizedProducts
+      .filter((p) => !resolveSkuValue(p?.sku))
+      .slice(0, 5)
+      .map((p) => ({
+        id: p?.id ?? null,
+        name: p?.display_name || p?.name_en || p?.name || null,
+        sku: p?.sku ?? null,
+        epc_company_prefix: p?.epc_company_prefix ?? null,
+        item_reference: p?.item_reference ?? null
+      }))
+  });
+
   const latestMap = buildLatestStateMap(eventsRes.data || []);
   const presenceMap = buildPresenceMap(safePresenceRows);
   const safeTodaySessions = todaySessionsRes?.error ? [] : (todaySessionsRes?.data || []);
   const safeTodaySales = todaySalesRes?.error ? [] : (todaySalesRes?.data || []);
   const safeSales7d = sales7dRes?.error ? [] : (sales7dRes?.data || []);
   const safeInventoryRows = inventoryRes?.error ? [] : (inventoryRes?.data || []);
+
+  if (!inventoryRes?.error && safeInventoryRows.length === 0 && (productsRes.data || []).length > 0) {
+    console.warn('[dashboard] inventory_items returned 0 rows while products exist; possible RLS/no-select-policy or wrong project data source', {
+      productsCount: (productsRes.data || []).length,
+      inventoryCount: safeInventoryRows.length
+    });
+  }
+
+  console.log('[product-summary] query snapshot', {
+    productsCount: (localizedProducts || []).length,
+    eventsCount: (eventsRes?.data || []).length,
+    presenceCount: (safePresenceRows || []).length,
+    inventoryCount: safeInventoryRows.length,
+    inventoryWithProductId: safeInventoryRows.filter((r) => r?.product_id != null).length,
+    inventoryWithoutProductId: safeInventoryRows.filter((r) => r?.product_id == null).length,
+    productsWithEpc: (localizedProducts || []).filter((p) => String(p?.epc_data || '').trim() || (String(p?.epc_company_prefix || '').trim() && String(p?.item_reference || '').trim())).length,
+    inventoryWithEpc: safeInventoryRows.filter((r) => String(r?.epc_data || '').trim()).length,
+    productsWithAnySku: (localizedProducts || []).filter((p) => resolveSkuValue(p?.sku)).length,
+    inventoryWithSku: safeInventoryRows.filter((r) => String(r?.sku || '').trim()).length
+  });
+
+  if (el.productSkuSummary) {
+    const skuSummaryRows = buildSkuSummaryRows(
+      localizedProducts,
+      eventsRes.data || [],
+      safePresenceRows,
+      safeInventoryRows
+    );
+    renderProductSkuSummary(skuSummaryRows);
+  }
+
   console.log('[dashboard] key matching preview', {
     productKeySample: (productsRes.data || []).slice(0, 5).map((p) => productKeyFromProduct(p)),
     eventKeySample: (eventsRes.data || []).slice(0, 5).map((e) => productKeyFromEvent(e))
   });
-  renderDashboard(localizedProducts, latestMap, presenceMap, safeTodaySessions, safeTodaySales, safeSales7d, safeInventoryRows);
+  if (el.dashboard) {
+    renderDashboard(localizedProducts, latestMap, presenceMap, safeTodaySessions, safeTodaySales, safeSales7d, safeInventoryRows);
+  }
   console.log('[dashboard] render success', {
     products: localizedProducts.length,
     events: (eventsRes.data || []).length
@@ -2007,13 +3025,20 @@ async function fetchAndRenderDashboard() {
 // backward compatibility for existing call sites
 const loadDashboardData = fetchAndRenderDashboard;
 
-async function connectSupabase(url, anonKey) {
+async function connectSupabase(url, anonKey, accessToken = null) {
   if (subscription) {
     await subscription.unsubscribe();
     subscription = null;
   }
 
-  supabase = createClient(url, anonKey);
+  const authHeader = String(accessToken || '').trim();
+  supabase = createClient(url, anonKey, {
+    global: {
+      headers: authHeader
+        ? { Authorization: `Bearer ${authHeader}` }
+        : {}
+    }
+  });
   console.log('[supabase] client created', {
     urlHost: (() => {
       try {
@@ -2022,7 +3047,8 @@ async function connectSupabase(url, anonKey) {
         return 'INVALID_URL';
       }
     })(),
-    anonKeyLength: anonKey?.length || 0
+    anonKeyLength: anonKey?.length || 0,
+    hasAuthHeader: Boolean(authHeader)
   });
 
   subscription = supabase
@@ -2060,7 +3086,8 @@ async function handleConfigSubmit(event) {
     localStorage.setItem(API_TOKEN_KEY, apiToken);
     localStorage.setItem(USER_ROLE_KEY, userRole);
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ url, anonKey }));
-    await connectSupabase(url, anonKey);
+    const session = getSession();
+    await connectSupabase(url, anonKey, session?.supabaseAccessToken || null);
   } catch (error) {
     setStatus(t('status.connectionFailed', { message: error.message }), 'err');
   }
@@ -2070,7 +3097,12 @@ async function handleCsvImport(event) {
   event.preventDefault();
   const currentRole = normalizeUserRole(localStorage.getItem(USER_ROLE_KEY));
   if (currentRole === 'trial') {
-    el.importResult.textContent = t('error.trialImportForbidden');
+    el.importResult.textContent = [
+      '匯入失敗',
+      '原因：trial 角色無匯入權限',
+      '資料筆數（inventory_items）：0',
+      '產品總數（products）：0'
+    ].join('\n');
     return;
   }
 
@@ -2100,7 +3132,9 @@ async function handleCsvImport(event) {
 
     const { data: result } = await parseApiResponse(response, 'bulk-products');
     if (!response.ok) {
-      throw new Error(getApiErrorMessage(result, t('error.bulkImportFailed')));
+      const skuConflictDetails = formatSkuConflictDetails(result);
+      const baseMessage = getApiErrorMessage(result, t('error.bulkImportFailed'));
+      throw new Error(skuConflictDetails ? `${baseMessage}\n${skuConflictDetails}` : baseMessage);
     }
     if (!result) {
       throw new Error(t('error.bulkImportEmptyResponse'));
@@ -2113,13 +3147,25 @@ async function handleCsvImport(event) {
       serverTargetSupabaseHost: result?.debug?.targetSupabaseHost || null
     });
 
-    el.importResult.textContent = JSON.stringify(result, null, 2);
+    const productCount = Number(result?.affected);
+    const inventoryCount = Number(result?.inventory_items_upserted);
+    el.importResult.textContent = [
+      '匯入成功',
+      `資料筆數（inventory_items）：${Number.isFinite(inventoryCount) ? inventoryCount : rows.length}`,
+      `產品總數（products）：${Number.isFinite(productCount) ? productCount : '-'}`
+    ].join('\n');
     if (!supabase) {
       console.warn('[csv] imported successfully but dashboard refresh cannot query DB because supabase client is not connected');
     }
     await fetchAndRenderDashboard();
   } catch (error) {
-    el.importResult.textContent = t('error.importFailed', { message: error.message });
+    console.error('[csv] import failed', error);
+    el.importResult.textContent = [
+      '匯入失敗',
+      `原因：${error?.message || '未知錯誤'}`,
+      '資料筆數（inventory_items）：0',
+      '產品總數（products）：0'
+    ].join('\n');
   }
 }
 
@@ -2165,6 +3211,7 @@ async function handleSimulateSubmit(event) {
 function boot() {
   currentLang = getCurrentLang();
   currentMode = getCurrentMode();
+  syncTopNavActiveState();
   populateLanguageSelect();
   applyI18nToStaticText();
   applyModeUiFromState();
@@ -2174,11 +3221,6 @@ function boot() {
     eventLog: !!el.eventLog,
     connectionStatus: !!el.connectionStatus
   });
-
-  if (!el.dashboard || !el.eventLog || !el.connectionStatus || !el.loginForm || !el.loginView || !el.appShell) {
-    console.error('[dom-check] required elements missing, abort boot');
-    return;
-  }
 
   const session = getSession();
   setAppVisibility(Boolean(session));
@@ -2199,6 +3241,9 @@ function boot() {
   }
   if (el.homeCardDashboard) {
     el.homeCardDashboard.addEventListener('click', () => handleHomeCardNavigation('dashboard'));
+  }
+  if (el.homeCardFittingDemo) {
+    el.homeCardFittingDemo.addEventListener('click', () => handleHomeCardNavigation('fittingDemo'));
   }
   if (el.homeCardProduct) {
     el.homeCardProduct.addEventListener('click', () => handleHomeCardNavigation('product'));
@@ -2329,20 +3374,38 @@ function boot() {
     el.resetDemoData.addEventListener('click', handleResetDemoData);
   }
 
-  el.configForm.addEventListener('submit', handleConfigSubmit);
-  el.csvImportForm.addEventListener('submit', handleCsvImport);
+  if (el.configForm) {
+    el.configForm.addEventListener('submit', handleConfigSubmit);
+  }
+  if (el.csvImportForm) {
+    el.csvImportForm.addEventListener('submit', handleCsvImport);
+  }
   if (el.groupedCsvImportForm) {
+    console.log('[grouped-import] submit listener bound');
     el.groupedCsvImportForm.addEventListener('submit', handleGroupedCsvImport);
   }
-  el.simulateForm.addEventListener('submit', handleSimulateSubmit);
+  if (el.groupedCsvFile) {
+    el.groupedCsvFile.addEventListener('change', previewGroupedCsvFile);
+  }
+  if (el.groupedPartition) {
+    el.groupedPartition.addEventListener('change', previewGroupedCsvFile);
+  }
+  if (el.groupedFilter) {
+    el.groupedFilter.addEventListener('change', previewGroupedCsvFile);
+  }
+  if (el.simulateForm) {
+    el.simulateForm.addEventListener('submit', handleSimulateSubmit);
+  }
   bindBoardDnD();
-  el.refreshButton.addEventListener('click', async () => {
-    try {
-      await fetchAndRenderDashboard();
-    } catch (error) {
-      setStatus(t('status.refreshFailed', { message: error.message }), 'err');
-    }
-  });
+  if (el.refreshButton) {
+    el.refreshButton.addEventListener('click', async () => {
+      try {
+        await fetchAndRenderDashboard();
+      } catch (error) {
+        setStatus(t('status.refreshFailed', { message: error.message }), 'err');
+      }
+    });
+  }
 
   // preferred: read explicit keys from localStorage
   let url = localStorage.getItem(URL_KEY) || DEFAULT_SUPABASE_URL;
@@ -2362,8 +3425,8 @@ function boot() {
     }
   }
 
-  el.supabaseUrl.value = url;
-  el.supabaseAnonKey.value = anonKey;
+  if (el.supabaseUrl) el.supabaseUrl.value = url;
+  if (el.supabaseAnonKey) el.supabaseAnonKey.value = anonKey;
   if (el.apiToken) {
     el.apiToken.value = (localStorage.getItem(API_TOKEN_KEY) || '').trim();
   }
@@ -2375,7 +3438,7 @@ function boot() {
 
   if (url && anonKey) {
     if (session) {
-      connectSupabase(url, anonKey).catch((error) => {
+      connectSupabase(url, anonKey, session?.supabaseAccessToken || null).catch((error) => {
         setStatus(t('status.autoConnectFailed', { message: error.message }), 'err');
       });
     }

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RFID Fitting Room PoC - CSV Import</title>
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <header class="page-header">
+    <h1 data-i18n="home.cards.csv.title">CSV Import</h1>
+    <div class="header-actions">
+      <nav class="top-nav" aria-label="Primary">
+        <a href="/" class="top-nav-link">Home</a>
+        <a href="/product.html" class="top-nav-link">Product</a>
+        <a href="/setting" class="top-nav-link">Setting</a>
+      </nav>
+      <label for="languageSelect" class="language-label" data-i18n="language.label">Language</label>
+      <select id="languageSelect" class="language-select" aria-label="Language"></select>
+      <p id="connectionStatus" class="status-badge">Initializing…</p>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel" aria-labelledby="importTitle">
+      <h2 id="importTitle" data-i18n="import.title">CSV Product Import</h2>
+      <form id="csvImportForm" class="stack-form">
+        <input id="csvFile" type="file" accept=".csv,text/csv" required />
+        <button type="submit" data-i18n="import.submit">Upload & Import</button>
+      </form>
+      <pre id="importResult" class="result-box" data-i18n="import.notStarted">Not imported yet</pre>
+    </section>
+
+    <section class="panel" aria-labelledby="groupedImportTitle">
+      <h2 id="groupedImportTitle" data-i18n="importGrouped.title">Grouped CSV Import (Auto SGTIN-96)</h2>
+      <p class="hint" data-i18n="importGrouped.specHint">Required columns: sku_ean13, product_name, color, size, quantity, price_usd</p>
+      <form id="groupedCsvImportForm" class="stack-form">
+        <label>
+          <span data-i18n="importGrouped.partitionLabel">Partition</span>
+          <select id="groupedPartition">
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+            <option value="6">6</option>
+          </select>
+        </label>
+        <label>
+          <span data-i18n="importGrouped.filterLabel">Filter</span>
+          <select id="groupedFilter">
+            <option value="0" selected>0</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+          </select>
+        </label>
+        <input id="groupedCsvFile" type="file" accept=".csv,text/csv" required />
+        <button type="submit" data-i18n="importGrouped.submit">Generate EPC & Import</button>
+      </form>
+
+      <pre id="groupedImportResult" class="result-box" data-i18n="importGrouped.notStarted">Not imported yet</pre>
+
+      <section aria-labelledby="groupedPreviewTitle">
+        <h3 id="groupedPreviewTitle" data-i18n="importGrouped.previewTitle">Validation & Preview</h3>
+        <div id="groupedPreviewResult" class="result-box grouped-preview-box" data-i18n="importGrouped.previewEmpty">No file parsed yet</div>
+      </section>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

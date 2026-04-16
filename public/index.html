@@ -43,6 +43,10 @@
               <h3 data-i18n="home.cards.dashboard.title">Dashboard</h3>
               <p data-i18n="home.cards.dashboard.desc">Open visual fitting-room dashboard</p>
             </button>
+            <button id="homeCardFittingDemo" type="button" class="home-card home-card--secondary">
+              <h3 data-i18n="home.cards.fittingDemo.title">Fitting Room Demo</h3>
+              <p data-i18n="home.cards.fittingDemo.desc">Open demo controls for fitting-room simulation</p>
+            </button>
             <button id="homeCardProduct" type="button" class="home-card home-card--secondary">
               <h3 data-i18n="home.cards.product.title">Product</h3>
               <p data-i18n="home.cards.product.desc">Go to product board area</p>
@@ -51,297 +55,71 @@
               <h3 data-i18n="home.cards.setting.title">Setting</h3>
               <p data-i18n="home.cards.setting.desc">Open Supabase and system settings</p>
             </button>
-            <button id="homeCardCsvImport" type="button" class="home-card home-card--secondary">
+            <a id="homeCardCsvImport" href="/csv-import.html" class="home-card home-card--secondary">
               <h3 data-i18n="home.cards.csv.title">CSV Import</h3>
               <p data-i18n="home.cards.csv.desc">Open import tools and upload data</p>
-            </button>
+            </a>
           </div>
         </section>
       </main>
     </section>
 
     <section id="dashboardView" hidden>
-    <header class="page-header">
-      <h1 data-i18n="app.title">RFID Fitting Room PoC Dashboard</h1>
-      <div class="header-actions">
-        <label for="languageSelect" class="language-label" data-i18n="language.label">Language</label>
-        <select id="languageSelect" class="language-select" aria-label="Language"></select>
-        <button id="backToHome" type="button" class="button-secondary" data-i18n="home.actions.backHome">Back to Home</button>
-        <button id="logoutButton" type="button" data-i18n="auth.logout">Logout</button>
-        <p id="connectionStatus" class="status-badge">Initializing…</p>
-      </div>
-    </header>
-
-  <main class="layout">
-    <section class="panel panel--storefront" aria-labelledby="dashboardTitle">
-      <h2 id="dashboardTitle" data-i18n="board.title">Visual Simulation Board</h2>
-      <div class="kpi-grid kpi-grid--compact" aria-label="KPI">
-        <article class="kpi-card">
-          <p class="kpi-label" data-i18n="kpi.total">Total Items</p>
-          <p id="kpiTotal" class="kpi-value">0</p>
-        </article>
-        <article class="kpi-card">
-          <p class="kpi-label" data-i18n="kpi.fitting">In Fitting</p>
-          <p id="kpiFitting" class="kpi-value">0</p>
-        </article>
-        <article class="kpi-card">
-          <p class="kpi-label" data-i18n="kpi.abnormal">Abnormal Stay</p>
-          <p id="kpiAbnormal" class="kpi-value text-err">0</p>
-        </article>
-        <article class="kpi-card">
-          <p class="kpi-label" data-i18n="kpi.checkout">At Checkout</p>
-          <p id="kpiCheckout" class="kpi-value">0</p>
-        </article>
-        <article class="kpi-card">
-          <p class="kpi-label" data-i18n="kpi.sold">Sold</p>
-          <p id="kpiSold" class="kpi-value text-ok">0</p>
-        </article>
-        <article class="kpi-card">
-          <p class="kpi-label" data-i18n="kpi.todayFitting">Today Fitting Sessions</p>
-          <p id="kpiTodayFitting" class="kpi-value">0</p>
-        </article>
-        <article class="kpi-card">
-          <p class="kpi-label" data-i18n="kpi.todaySales">Today Sales</p>
-          <p id="kpiTodaySales" class="kpi-value">0</p>
-        </article>
-        <article class="kpi-card">
-          <p class="kpi-label" data-i18n="kpi.conversionRate">Today Conversion Rate</p>
-          <p id="kpiConversionRate" class="kpi-value">0%</p>
-        </article>
-      </div>
-
-      <div class="mode-config" aria-label="Mode configuration">
-        <label>
-          <span data-i18n="mode.label">Operation Mode</span>
-          <select id="modeSelect">
-            <option value="demo" data-i18n="mode.demo">Demo</option>
-            <option value="operational" data-i18n="mode.operational">Operational</option>
-          </select>
-        </label>
-        <label>
-          <span data-i18n="mode.thresholdLabel">Overstay Threshold (minutes)</span>
-          <input id="overstayThresholdMinutes" type="number" min="1" step="1" value="15" />
-        </label>
-      </div>
-
-      <div class="panel-title-row">
-        <h3 class="board-lanes-title" data-i18n="board.lanes">Rack / Fitting / Checkout</h3>
-        <div class="panel-actions">
-          <button id="demoControlsToggle" type="button" data-i18n="demoControls.openButton">Demo Controls</button>
-          <button id="refreshButton" type="button" data-i18n="dashboard.refresh">Refresh</button>
+      <header class="page-header">
+        <h1 data-i18n="app.title">RFID Fitting Room PoC Dashboard</h1>
+        <div class="header-actions">
+          <label for="languageSelect" class="language-label" data-i18n="language.label">Language</label>
+          <select id="languageSelect" class="language-select" aria-label="Language"></select>
+          <button id="backToHome" type="button" class="button-secondary" data-i18n="home.actions.backHome">Back to Home</button>
+          <button id="logoutButton" type="button" data-i18n="auth.logout">Logout</button>
+          <p id="connectionStatus" class="status-badge">Initializing…</p>
         </div>
-      </div>
-      <div id="dashboard" class="storefront-scene"></div>
+      </header>
 
-      <section class="restock-panel" aria-labelledby="restockTitle">
-        <h3 id="restockTitle" data-i18n="restock.title">Restock Suggestions (Rule-based)</h3>
-        <ul id="restockList" class="event-log"></ul>
-      </section>
+      <main class="layout">
+        <section class="panel panel--storefront" aria-labelledby="dashboardTitle">
+          <h2 id="dashboardTitle" data-i18n="board.title">Visual Simulation Board</h2>
+          <div class="kpi-grid kpi-grid--compact" aria-label="KPI">
+            <article class="kpi-card">
+              <p class="kpi-label" data-i18n="kpi.total">Total Items</p>
+              <p id="kpiTotal" class="kpi-value">0</p>
+            </article>
+            <article class="kpi-card">
+              <p class="kpi-label" data-i18n="kpi.fitting">In Fitting</p>
+              <p id="kpiFitting" class="kpi-value">0</p>
+            </article>
+            <article class="kpi-card">
+              <p class="kpi-label" data-i18n="kpi.abnormal">Abnormal Stay</p>
+              <p id="kpiAbnormal" class="kpi-value text-err">0</p>
+            </article>
+            <article class="kpi-card">
+              <p class="kpi-label" data-i18n="kpi.checkout">At Checkout</p>
+              <p id="kpiCheckout" class="kpi-value">0</p>
+            </article>
+            <article class="kpi-card">
+              <p class="kpi-label" data-i18n="kpi.sold">Sold</p>
+              <p id="kpiSold" class="kpi-value text-ok">0</p>
+            </article>
+            <article class="kpi-card">
+              <p class="kpi-label" data-i18n="kpi.todayFitting">Today Fitting Sessions</p>
+              <p id="kpiTodayFitting" class="kpi-value">0</p>
+            </article>
+            <article class="kpi-card">
+              <p class="kpi-label" data-i18n="kpi.todaySales">Today Sales</p>
+              <p id="kpiTodaySales" class="kpi-value">0</p>
+            </article>
+            <article class="kpi-card">
+              <p class="kpi-label" data-i18n="kpi.conversionRate">Today Conversion Rate</p>
+              <p id="kpiConversionRate" class="kpi-value">0%</p>
+            </article>
+          </div>
 
-      <div id="itemDetailOverlay" class="item-detail-overlay" hidden>
-        <article class="item-detail-card" aria-live="polite">
-          <header class="item-detail-header">
-            <h3 data-i18n="detail.title">Item Details</h3>
-            <button id="itemDetailClose" type="button" class="item-detail-close" data-i18n="detail.close">Close</button>
-          </header>
-          <div id="itemDetailBody" class="item-detail-body"></div>
-        </article>
-      </div>
+          <div class="panel-actions">
+            <button id="refreshButton" type="button" data-i18n="dashboard.refresh">Refresh</button>
+          </div>
+        </section>
+      </main>
     </section>
-
-    <div class="secondary-panels">
-      <section class="panel" aria-labelledby="timelineTitle">
-        <h2 id="timelineTitle" data-i18n="timeline.title">Recent Actions</h2>
-        <ul id="activityTimeline" class="event-log"></ul>
-      </section>
-    </div>
-  </main>
-
-  <div id="demoControlsBackdrop" class="demo-controls-backdrop" hidden></div>
-  <aside id="demoControlsDrawer" class="demo-controls-drawer" aria-hidden="true">
-    <header class="demo-controls-header">
-      <div>
-        <h2 data-i18n="demoControls.title">Demo Controls</h2>
-        <p data-i18n="demoControls.subtitle">Simulation & data actions</p>
-      </div>
-      <button id="demoControlsClose" type="button" class="demo-controls-close" aria-label="Close">×</button>
-    </header>
-
-    <section class="demo-section" aria-labelledby="quickActionsTitle">
-      <h3 id="quickActionsTitle" data-i18n="demoControls.quickActions.title">Quick Actions</h3>
-      <p class="hint" data-i18n="demoControls.quickActions.subtitle">Run a single simulated event</p>
-      <form id="quickActionForm" class="stack-form">
-        <label>
-          <span data-i18n="demoControls.quickActions.product">Product</span>
-          <select id="quickActionProduct"></select>
-        </label>
-        <label>
-          <span data-i18n="demoControls.quickActions.room">Fitting Room</span>
-          <select id="quickActionRoom">
-            <option value="">Select a room</option>
-            <option value="1">Room 1</option>
-            <option value="2">Room 2</option>
-            <option value="3">Room 3</option>
-            <option value="4">Room 4</option>
-          </select>
-        </label>
-        <label>
-          <span data-i18n="demoControls.quickActions.action">Action</span>
-          <select id="quickActionType">
-            <option value="">Select an action</option>
-            <option value="enter">Enter Room</option>
-            <option value="exit">Exit Room</option>
-            <option value="sale">Mark Sale</option>
-            <option value="alert">Trigger Alert</option>
-            <option value="resolve">Resolve Alert</option>
-          </select>
-        </label>
-        <label>
-          <span data-i18n="demoControls.quickActions.note">Note</span>
-          <input id="quickActionNote" placeholder="Optional note" />
-        </label>
-        <p id="quickActionError" class="hint text-err" hidden></p>
-        <button id="quickActionRun" type="submit" data-i18n="demoControls.quickActions.run">Run Action</button>
-      </form>
-      <p class="hint" data-i18n="demoControls.quickActions.helper">Each action creates an event record and updates session status.</p>
-    </section>
-
-    <section class="demo-section" aria-labelledby="scenarioTitle">
-      <h3 id="scenarioTitle" data-i18n="demoControls.scenarios.title">Scenario Presets</h3>
-      <p class="hint" data-i18n="demoControls.scenarios.subtitle">Run prebuilt demo scenarios</p>
-      <div class="scenario-list">
-        <article class="scenario-card">
-          <h4 data-i18n="demoControls.scenarios.normal.title">Normal Try-On</h4>
-          <p data-i18n="demoControls.scenarios.normal.desc">Item enters and exits within normal dwell time.</p>
-          <button type="button" class="scenario-run" data-scenario="normal" data-i18n="demoControls.scenarios.run">Run Scenario</button>
-        </article>
-        <article class="scenario-card">
-          <h4 data-i18n="demoControls.scenarios.longDwell.title">Long Dwell</h4>
-          <p data-i18n="demoControls.scenarios.longDwell.desc">Item stays in fitting room and triggers an alert.</p>
-          <button type="button" class="scenario-run" data-scenario="longDwell" data-i18n="demoControls.scenarios.run">Run Scenario</button>
-        </article>
-        <article class="scenario-card">
-          <h4 data-i18n="demoControls.scenarios.purchase.title">Try-On to Purchase</h4>
-          <p data-i18n="demoControls.scenarios.purchase.desc">Item is tried on and sold within conversion window.</p>
-          <button type="button" class="scenario-run" data-scenario="purchase" data-i18n="demoControls.scenarios.run">Run Scenario</button>
-        </article>
-        <article class="scenario-card">
-          <h4 data-i18n="demoControls.scenarios.multi.title">Multi-Item Try-On</h4>
-          <p data-i18n="demoControls.scenarios.multi.desc">Multiple items enter one room; one item converts to sale.</p>
-          <button type="button" class="scenario-run" data-scenario="multi" data-i18n="demoControls.scenarios.run">Run Scenario</button>
-        </article>
-      </div>
-    </section>
-
-    <section class="demo-section" aria-labelledby="dataUtilsTitle">
-      <h3 id="dataUtilsTitle" data-i18n="demoControls.dataUtils.title">Data Utilities</h3>
-      <p class="hint" data-i18n="demoControls.dataUtils.subtitle">Manage demo data and environment</p>
-      <div class="stack-form">
-        <button id="seedTodayData" type="button" data-i18n="demoControls.dataUtils.seed">Seed Today’s Data</button>
-        <button id="clearActiveAlerts" type="button" class="button-secondary" data-i18n="demoControls.dataUtils.clearAlerts">Clear Active Alerts</button>
-        <button id="resetDemoData" type="button" class="button-danger" data-i18n="demoControls.dataUtils.reset">Reset Demo Data</button>
-      </div>
-    </section>
-
-    <details class="backup-tools">
-      <summary data-i18n="backup.summary">Open secondary tools</summary>
-      <div class="backup-tools-content">
-        <section aria-labelledby="configTitle">
-          <h3 id="configTitle" data-i18n="config.title">Supabase Connection</h3>
-          <form id="configForm" class="stack-form">
-            <label>
-              <span data-i18n="config.urlLabel">Supabase URL</span>
-              <input id="supabaseUrl" type="url" required placeholder="https://xxxx.supabase.co" />
-            </label>
-            <label>
-              <span data-i18n="config.anonKeyLabel">Supabase Publishable Key</span>
-              <input id="supabaseAnonKey" type="password" required placeholder="eyJ..." />
-            </label>
-            <label>
-              <span data-i18n="auth.apiTokenLabel">API Shared Token</span>
-              <input id="apiToken" type="password" placeholder="optional when auth disabled" />
-            </label>
-            <label>
-              <span data-i18n="auth.roleLabel">Role</span>
-              <select id="userRole" required>
-                <option value="trial" data-i18n="auth.role.trial">Trial</option>
-                <option value="user" data-i18n="auth.role.user">User</option>
-                <option value="admin" data-i18n="auth.role.admin">Admin</option>
-              </select>
-            </label>
-            <button type="submit" data-i18n="config.saveAndConnect">Save & Connect</button>
-          </form>
-        </section>
-
-        <section aria-labelledby="importTitle">
-          <h3 id="importTitle" data-i18n="import.title">CSV Product Import</h3>
-          <form id="csvImportForm" class="stack-form">
-            <input id="csvFile" type="file" accept=".csv,text/csv" required />
-            <button type="submit" data-i18n="import.submit">Upload & Import</button>
-          </form>
-          <pre id="importResult" class="result-box" data-i18n="import.notStarted">Not imported yet</pre>
-        </section>
-
-        <section aria-labelledby="groupedImportTitle">
-          <h3 id="groupedImportTitle" data-i18n="importGrouped.title">Grouped CSV Import (Auto SGTIN-96)</h3>
-          <form id="groupedCsvImportForm" class="stack-form">
-            <label>
-              <span data-i18n="importGrouped.partitionLabel">Partition</span>
-              <select id="groupedPartition">
-                <option value="0">0</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5" selected>5</option>
-                <option value="6">6</option>
-              </select>
-            </label>
-            <label>
-              <span data-i18n="importGrouped.filterLabel">Filter</span>
-              <select id="groupedFilter">
-                <option value="0">0</option>
-                <option value="1" selected>1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-                <option value="7">7</option>
-              </select>
-            </label>
-            <input id="groupedCsvFile" type="file" accept=".csv,text/csv" required />
-            <button type="submit" data-i18n="importGrouped.submit">Generate EPC & Import</button>
-          </form>
-          <pre id="groupedImportResult" class="result-box" data-i18n="importGrouped.notStarted">Not imported yet</pre>
-        </section>
-
-        <section aria-labelledby="simulateTitle">
-          <h3 id="simulateTitle" data-i18n="simulate.title">Simulate RFID Event</h3>
-          <form id="simulateForm" class="stack-form">
-            <label>
-              <span data-i18n="simulate.readerId">Reader ID</span>
-              <input id="readerId" name="reader_id" required placeholder="FITTING_ROOM_ANTENNA_1" />
-            </label>
-            <label>
-              <span data-i18n="simulate.epcData">EPC Data (24-char Hex)</span>
-              <input id="epcData" name="epc_data" required placeholder="3034257BF7194E4000001A85" />
-            </label>
-            <button type="submit" data-i18n="simulate.submit">Send Event</button>
-          </form>
-          <pre id="simulateResult" class="result-box" data-i18n="simulate.notSent">Not sent yet</pre>
-        </section>
-
-        <section aria-labelledby="eventLogTitle">
-          <h3 id="eventLogTitle" data-i18n="events.title">Latest Event Logs</h3>
-          <ul id="eventLog" class="event-log"></ul>
-        </section>
-      </div>
-    </details>
-  </aside>
-
-  <div id="demoToastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
-  </section>
   </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script type="module" src="js/main.js"></script>

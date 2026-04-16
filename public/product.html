@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RFID Fitting Room PoC - Product</title>
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <header class="page-header">
+    <h1 data-i18n="home.cards.product.title">Product</h1>
+    <div class="header-actions">
+      <nav class="top-nav" aria-label="Primary">
+        <a href="/" class="top-nav-link">Home</a>
+        <a href="/product.html" class="top-nav-link is-active" aria-current="page">Product</a>
+        <a href="/csv-import.html" class="top-nav-link">CSV Import</a>
+        <a href="/setting" class="top-nav-link">Setting</a>
+      </nav>
+      <label for="languageSelect" class="language-label" data-i18n="language.label">Language</label>
+      <select id="languageSelect" class="language-select" aria-label="Language"></select>
+      <button id="refreshButton" type="button" data-i18n="dashboard.refresh">Refresh</button>
+      <p id="connectionStatus" class="status-badge">Initializing…</p>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel" aria-labelledby="productSummaryTitle">
+      <h2 id="productSummaryTitle" data-i18n="product.summary.title">Products by SKU</h2>
+      <p class="hint" data-i18n="product.summary.desc">Click each SKU row to expand item EPC and current location.</p>
+      <div id="productSkuSummary" class="product-sku-summary"></div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

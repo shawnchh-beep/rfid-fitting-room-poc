@@ -65,6 +65,130 @@ function normalizeRow(row = {}) {
   };
 }
 
+function normalizeComparableText(value) {
+  const text = String(value ?? '').trim();
+  return text || null;
+}
+
+function normalizeComparablePrice(value) {
+  if (value === '' || value == null) return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function buildSkuProfile(item = {}) {
+  return {
+    name_en: normalizeComparableText(item.name_en),
+    size: normalizeComparableText(item.size),
+    color: normalizeComparableText(item.color),
+    price: normalizeComparablePrice(item.price)
+  };
+}
+
+function collectIncomingSkuProfilesAndConflicts(items = []) {
+  const profilesBySku = new Map();
+  const conflictsBySku = new Map();
+  const fieldsToCheck = ['name_en', 'size', 'color', 'price'];
+
+  for (const item of items) {
+    const sku = normalizeComparableText(item?.sku);
+    if (!sku) continue;
+
+    const profile = buildSkuProfile(item);
+    const existingProfile = profilesBySku.get(sku);
+    if (!existingProfile) {
+      profilesBySku.set(sku, profile);
+      continue;
+    }
+
+    const fieldDiff = {};
+    fieldsToCheck.forEach((field) => {
+      if (existingProfile[field] !== profile[field]) {
+        fieldDiff[field] = {
+          incoming: profile[field],
+          existing: existingProfile[field]
+        };
+      }
+    });
+
+    if (Object.keys(fieldDiff).length > 0) {
+      const current = conflictsBySku.get(sku) || { sku, fields: {} };
+      Object.entries(fieldDiff).forEach(([field, diff]) => {
+        current.fields[field] = current.fields[field] || diff;
+      });
+      conflictsBySku.set(sku, current);
+    }
+  }
+
+  return {
+    profilesBySku,
+    conflicts: [...conflictsBySku.values()]
+  };
+}
+
+async function detectSkuConflictsAgainstDb(profilesBySku = new Map()) {
+  const skus = [...profilesBySku.keys()].filter(Boolean);
+  if (skus.length === 0) return [];
+
+  const result = await supabase
+    .from('products')
+    .select('sku, name_en, size, color, price')
+    .in('sku', skus);
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  const fieldsToCheck = ['name_en', 'size', 'color', 'price'];
+  const existingBySku = new Map();
+
+  (result.data || []).forEach((row) => {
+    const sku = normalizeComparableText(row?.sku);
+    if (!sku) return;
+
+    const existing = existingBySku.get(sku) || {
+      name_en: new Set(),
+      size: new Set(),
+      color: new Set(),
+      price: new Set()
+    };
+
+    existing.name_en.add(normalizeComparableText(row?.name_en));
+    existing.size.add(normalizeComparableText(row?.size));
+    existing.color.add(normalizeComparableText(row?.color));
+    existing.price.add(normalizeComparablePrice(row?.price));
+    existingBySku.set(sku, existing);
+  });
+
+  const conflicts = [];
+  for (const [sku, incomingProfile] of profilesBySku.entries()) {
+    const existingProfileSets = existingBySku.get(sku);
+    if (!existingProfileSets) continue;
+
+    const fields = {};
+    fieldsToCheck.forEach((field) => {
+      const existingValues = [...existingProfileSets[field]];
+      if (existingValues.length === 0) return;
+
+      const exactlyMatchSingleValue =
+        existingValues.length === 1 && existingValues[0] === incomingProfile[field];
+
+      if (!exactlyMatchSingleValue) {
+        fields[field] = {
+          incoming: incomingProfile[field],
+          existing: existingValues.length === 1 ? existingValues[0] : existingValues
+        };
+      }
+    });
+
+    if (Object.keys(fields).length > 0) {
+      conflicts.push({ sku, fields });
+    }
+  }
+
+  return conflicts;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
@@ -90,6 +214,7 @@ export default async function handler(req, res) {
     })();
 
     const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+    const validateOnly = req.body?.validate_only === true;
     if (rows.length === 0) {
       return res.status(400).json({ error: 'rows 不可為空' });
     }
@@ -109,6 +234,35 @@ export default async function handler(req, res) {
         throw new Error(`第 ${index + 1} 筆資料錯誤：${error.message}`);
       }
     });
+
+    const { profilesBySku, conflicts: inFileConflicts } = collectIncomingSkuProfilesAndConflicts(normalized);
+    if (inFileConflicts.length > 0) {
+      return res.status(409).json({
+        error: 'SKU conflict detected',
+        error_code: 'SKU_CONFLICT',
+        scope: 'in_file',
+        conflicts: inFileConflicts
+      });
+    }
+
+    const dbConflicts = await detectSkuConflictsAgainstDb(profilesBySku);
+    if (dbConflicts.length > 0) {
+      return res.status(409).json({
+        error: 'SKU conflict detected',
+        error_code: 'SKU_CONFLICT',
+        scope: 'against_db',
+        conflicts: dbConflicts
+      });
+    }
+
+    if (validateOnly) {
+      return res.status(200).json({
+        status: 'validated',
+        message: `驗證通過，共 ${normalized.length} 筆`,
+        scope: 'none',
+        conflicts: []
+      });
+    }
 
     const keyByPrefixItem = (item) => `${item.epc_company_prefix}::${item.item_reference}`;
     const duplicateCounter = new Map();
@@ -163,6 +317,9 @@ export default async function handler(req, res) {
       name: item.name,
       name_en: item.name_en,
       description_en: item.description_en,
+      sku: item.sku || null,
+      size: item.size || null,
+      color: item.color || null,
       image_url: item.image_url,
       price: item.price
     }));
@@ -219,7 +376,8 @@ export default async function handler(req, res) {
       translationUpserted = translationUpsert.data?.length || 0;
     }
 
-    const inventoryRows = normalizedUnique
+    // inventory_items 必須以「逐筆 EPC」寫入，不能使用 normalizedUnique（會把同款不同 EPC 併掉）
+    const inventoryRows = normalized
       .map((item) => {
         const key = `${item.epc_company_prefix}::${item.item_reference}`;
         const productId = productIdByKey.get(key);
@@ -241,11 +399,32 @@ export default async function handler(req, res) {
         .select('id, epc_data');
 
       if (inventoryUpsert.error) {
+        const missingTable =
+          inventoryUpsert.error?.code === '42P01'
+          || String(inventoryUpsert.error?.message || '').includes("Could not find the table 'public.inventory_items'");
+
+        if (missingTable) {
+          console.error('[bulk-products] inventory_items table missing in current Supabase schema', {
+            targetSupabaseHost,
+            code: inventoryUpsert.error?.code,
+            message: inventoryUpsert.error?.message,
+            hint: inventoryUpsert.error?.hint,
+            details: inventoryUpsert.error?.details
+          });
+        }
+
         console.error('[bulk-products] inventory upsert failed', summarizeError(inventoryUpsert.error));
         throw inventoryUpsert.error;
       }
 
       inventoryItemsUpserted = inventoryUpsert.data?.length || 0;
+
+      console.log('[bulk-products] inventory upsert summary', {
+        normalizedRowsCount: normalized.length,
+        uniqueProductCount: normalizedUnique.length,
+        inventoryRowsCount: inventoryRows.length,
+        inventoryItemsUpserted
+      });
     }
 
     return res.status(200).json({
