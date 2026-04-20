@@ -166,6 +166,113 @@ function normalizeProductId(value) {
   return text || null;
 }
 
+function parseProductKey(productKey) {
+  const [companyPrefix, itemReference] = String(productKey || '').split('::');
+  return {
+    companyPrefix: String(companyPrefix || '').trim(),
+    itemReference: String(itemReference || '').trim()
+  };
+}
+
+function roomIdFromReaderId(readerId) {
+  const match = String(readerId || '').toUpperCase().match(/FITTING(?:_ROOM)?_ANTENNA_(\d+)/);
+  const id = Number(match?.[1] || 1);
+  if (!Number.isInteger(id) || id < 1 || id > 4) return 1;
+  return id;
+}
+
+async function fetchProductsByProductKeyCompat() {
+  if (!state.supabase) return new Map();
+
+  const selectAttempts = [
+    'id,name,name_en,size,sku,sku_ean13,epc_company_prefix,item_reference',
+    'id,name,name_en,size,sku,epc_company_prefix,item_reference',
+    '*'
+  ];
+
+  for (const selectClause of selectAttempts) {
+    const res = await state.supabase
+      .from('products')
+      .select(selectClause)
+      .limit(5000);
+
+    if (res.error) {
+      if (!isSchemaCompatError(res.error)) {
+        console.warn('[FRD][fetchProductsByProductKeyCompat] query failed', {
+          selectClause,
+          code: res.error?.code,
+          message: res.error?.message
+        });
+        return new Map();
+      }
+      continue;
+    }
+
+    const map = new Map();
+    (res.data || []).forEach((row) => {
+      const key = `${String(row?.epc_company_prefix || '').trim()}::${String(row?.item_reference || '').trim()}`;
+      if (key !== '::') {
+        map.set(key, row);
+      }
+    });
+
+    return map;
+  }
+
+  return new Map();
+}
+
+async function fetchActiveRoomAssignmentsFromDb() {
+  const rooms = buildEmptyRooms();
+  if (!state.supabase) return rooms;
+
+  const presenceRes = await state.supabase
+    .from('fitting_room_presence')
+    .select('product_key,entered_at,last_seen_at,last_reader_id')
+    .limit(500);
+
+  if (presenceRes.error) {
+    console.warn('[FRD][fetchActiveRoomAssignmentsFromDb] fitting_room_presence query failed, fallback to empty rooms', {
+      code: presenceRes.error?.code,
+      message: presenceRes.error?.message,
+      hint: presenceRes.error?.hint,
+      details: presenceRes.error?.details
+    });
+    return rooms;
+  }
+
+  const productByKey = await fetchProductsByProductKeyCompat();
+  let seq = 1;
+  (presenceRes.data || []).forEach((presence) => {
+    const key = String(presence?.product_key || '').trim();
+    if (!key) return;
+    const roomId = roomIdFromReaderId(presence?.last_reader_id);
+    const room = rooms.find((x) => x.roomId === roomId);
+    if (!room) return;
+
+    const product = productByKey.get(key);
+    const decodedKey = parseProductKey(key);
+    room.items.push({
+      room_item_id: `room_item_${seq++}`,
+      item_key: key,
+      item_no: resolveSkuValue(product?.item_no, decodedKey.itemReference, key),
+      product_name: resolveSkuValue(product?.name_en, product?.name, `Item ${decodedKey.itemReference || key}`),
+      size: resolveSkuValue(product?.size, '-'),
+      sku_ean13: resolveSkuValue(product?.sku_ean13, product?.sku, key),
+      epc_data: '',
+      enteredAt: String(presence?.entered_at || presence?.last_seen_at || new Date().toISOString())
+    });
+  });
+
+  console.debug('[FRD][fetchActiveRoomAssignmentsFromDb] hydrated room assignments from presence', {
+    presenceRows: (presenceRes.data || []).length,
+    roomItemCount: rooms.reduce((acc, room) => acc + room.items.length, 0),
+    byRoom: rooms.map((room) => ({ roomId: room.roomId, count: room.items.length }))
+  });
+
+  return rooms;
+}
+
 function isAvailableInventoryStatus(status) {
   const s = String(status || '').trim().toLowerCase();
   if (!s) return true;
@@ -1469,11 +1576,11 @@ async function bootstrapFromDb() {
     state.selectedItemKey = null;
     state.selectedSize = null;
     state.selectedSkuKey = null;
-    state.roomAssignments = buildEmptyRooms();
+    state.roomAssignments = await fetchActiveRoomAssignmentsFromDb();
     state.checkoutRecords = [];
     state.recentEvents = await fetchRecentEventsFromDb(50);
     state.draggingContext = null;
-    state.roomItemSeq = 1;
+    state.roomItemSeq = state.roomAssignments.reduce((acc, room) => acc + room.items.length, 0) + 1;
     state.bottomTab = 'recent-events';
     state.checkoutShowAll = false;
     state.expandedRoomIds = {};

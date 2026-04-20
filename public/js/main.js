@@ -128,6 +128,15 @@ const el = {
   kpiTodayFitting: document.getElementById('kpiTodayFitting'),
   kpiTodaySales: document.getElementById('kpiTodaySales'),
   kpiConversionRate: document.getElementById('kpiConversionRate'),
+  kpiOpportunityItems: document.getElementById('kpiOpportunityItems'),
+  heroNarrative: document.getElementById('heroNarrative'),
+  heroLiveStatus: document.getElementById('heroLiveStatus'),
+  heroTrackingStatus: document.getElementById('heroTrackingStatus'),
+  heroAiStatus: document.getElementById('heroAiStatus'),
+  overviewSnapshotBody: document.getElementById('overviewSnapshotBody'),
+  overviewAiSummaryBody: document.getElementById('overviewAiSummaryBody'),
+  overviewOpportunityBody: document.getElementById('overviewOpportunityBody'),
+  overviewAlertBody: document.getElementById('overviewAlertBody'),
   productSkuSummary: document.getElementById('productSkuSummary'),
   productSummaryViewSku: document.getElementById('productSummaryViewSku'),
   productSummaryViewNested: document.getElementById('productSummaryViewNested'),
@@ -135,6 +144,12 @@ const el = {
   productItemNoFilter: document.getElementById('productItemNoFilter'),
   productFilterReset: document.getElementById('productFilterReset'),
   restockList: document.getElementById('restockList'),
+  storyFunnelBody: document.getElementById('storyFunnelBody'),
+  storyHourlyBody: document.getElementById('storyHourlyBody'),
+  opsOpportunityBody: document.getElementById('opsOpportunityBody'),
+  opsAlertBody: document.getElementById('opsAlertBody'),
+  replenishmentSafetyBody: document.getElementById('replenishmentSafetyBody'),
+  replenishmentPriorityBody: document.getElementById('replenishmentPriorityBody'),
   modeSelect: document.getElementById('modeSelect'),
   overstayThresholdMinutes: document.getElementById('overstayThresholdMinutes'),
   activityTimeline: document.getElementById('activityTimeline')
@@ -363,7 +378,49 @@ const I18N = {
     'state.RACK': 'RACK',
     'state.FITTING_ROOM': 'FITTING_ROOM',
     'state.CHECKOUT': 'CHECKOUT',
-    'state.SOLD': 'SOLD'
+    'state.SOLD': 'SOLD',
+    'analytics.story.title': 'Story Layer',
+    'analytics.ops.title': 'Operations Layer',
+    'analytics.replenishment.title': 'Replenishment Layer',
+    'analytics.range.today': 'Today',
+    'analytics.range.last7Days': 'Last 7 days',
+    'analytics.range.sessionBasis': 'Session basis',
+    'analytics.a1.title': 'Try-On to Sale Funnel',
+    'analytics.a1.tryOn': 'Try-On Sessions',
+    'analytics.a1.checkout': 'Checkout Intent',
+    'analytics.a1.sales': 'Completed Sales',
+    'analytics.a1.rate': 'Try-On to Sale Rate',
+    'analytics.a2.title': 'Hourly Activity Heat',
+    'analytics.a2.tryOn': 'Try-on',
+    'analytics.a2.sales': 'Sales',
+    'analytics.a2.fallback': 'Sparse today data, showing available hourly summary.',
+    'analytics.b1.title': 'Opportunity Matrix',
+    'analytics.b1.subtitle': 'Top opportunities',
+    'analytics.b1.empty': 'Not enough product-level try-on data yet.',
+    'analytics.b1.row': '{name} / Try-on {tryOn} / Conv {conversion}% / Score {score}',
+    'analytics.b2.title': 'Operations Alerts',
+    'analytics.b2.subtitle': 'Action-required alerts',
+    'analytics.b2.empty': 'No active alerts',
+    'analytics.b2.longDwellTitle': 'Long dwell items detected',
+    'analytics.b2.longDwellAction': 'Check fitting room and assist customer flow.',
+    'analytics.b2.unclearedTitle': 'Uncleared fitting-room items',
+    'analytics.b2.unclearedAction': 'Verify room clear-out and reset session state.',
+    'analytics.b2.congestionTitle': 'Fitting room congestion risk',
+    'analytics.b2.congestionAction': 'Reallocate staff to high-load room.',
+    'analytics.c1.title': 'Safety Stock Risk',
+    'analytics.c1.subtitle': 'SKU risk against safety line',
+    'analytics.c1.empty': 'No SKU-level stock risk detected.',
+    'analytics.c1.cover': 'cover',
+    'analytics.c3.title': 'Restock Priority List',
+    'analytics.c3.subtitle': 'Action list',
+    'analytics.c3.empty': 'No urgent replenishment actions',
+    'analytics.c3.rank': 'Rank',
+    'analytics.c3.sku': 'SKU',
+    'analytics.c3.gap': 'Gap',
+    'analytics.c3.score': 'Score',
+    'analytics.label.critical': 'Critical',
+    'analytics.label.warning': 'Warning',
+    'analytics.label.info': 'Info'
   },
   'zh-Hant': {
     'app.title': 'RFID 試衣間 PoC 後台',
@@ -1151,7 +1208,7 @@ function handleHomeCardNavigation(type) {
     return;
   }
   if (type === 'product') {
-    navigate('/product');
+    navigate('/product.html');
     return;
   }
   if (type === 'setting') {
@@ -1159,7 +1216,7 @@ function handleHomeCardNavigation(type) {
     return;
   }
   if (type === 'csv') {
-    navigate('/csv-import');
+    navigate('/csv-import.html');
   }
 }
 
@@ -2163,20 +2220,45 @@ function buildPresenceMap(rows = []) {
 }
 
 function deriveStateByPresence(productKey, latestEvent, presence, nowMs, overstayMs) {
+  const stateFromEvent = latestEvent ? normalizeStateFromEvent(latestEvent) : 'RACK';
   if (presence) {
     const lastSeenMs = Date.parse(presence.last_seen_at);
     const enteredMs = Date.parse(presence.entered_at);
+    const lastSeenAgeMs = Number.isFinite(lastSeenMs) ? (nowMs - lastSeenMs) : null;
+    const enteredAgeMs = Number.isFinite(enteredMs) ? (nowMs - enteredMs) : null;
     if (Number.isFinite(lastSeenMs) && nowMs - lastSeenMs <= FITTING_EXIT_TIMEOUT_MS) {
       const abnormal = Number.isFinite(enteredMs) && nowMs - enteredMs >= overstayMs;
       return { state: 'FITTING_ROOM', abnormal };
     }
+
+    console.debug('[abnormal] presence stale -> fallback event state', {
+      productKey,
+      stateFromEvent,
+      lastSeenAgeMs,
+      enteredAgeMs,
+      fittingExitTimeoutMs: FITTING_EXIT_TIMEOUT_MS,
+      overstayMs,
+      lastSeenAt: presence.last_seen_at,
+      enteredAt: presence.entered_at,
+      eventType: latestEvent?.event_type || null,
+      eventTimestamp: latestEvent?.timestamp || null
+    });
     return { state: 'RACK', abnormal: false };
   }
 
-  // Fitting 狀態改為「僅由 presence 決定」：
-  // 當 presence 不存在時，即使最新事件是 FITTING，也視為已離場回 RACK。
-  const stateFromEvent = latestEvent ? normalizeStateFromEvent(latestEvent) : 'RACK';
-  const state = stateFromEvent === 'FITTING_ROOM' ? 'RACK' : stateFromEvent;
+  // 相容舊環境：若 presence 表不可用/空值，回退到最新事件狀態。
+  // 只要沒有 left/return/sale 事件覆蓋，enter_fitting_room 會維持為 FITTING_ROOM。
+  // 避免切頁後因 heartbeat 缺失導致 live snapshot 掉回 0。
+  if (stateFromEvent === 'FITTING_ROOM') {
+    console.debug('[abnormal] no presence row, using latest event fallback', {
+      productKey,
+      stateFromEvent,
+      overstayMs,
+      eventType: latestEvent?.event_type || null,
+      eventTimestamp: latestEvent?.timestamp || null
+    });
+  }
+  const state = stateFromEvent;
   return { state, abnormal: false };
 }
 
@@ -2787,7 +2869,15 @@ function computeKpiMetrics({ grouped, sessions, saleEvents }) {
   const convertedSessions = Array.isArray(sessions)
     ? sessions.filter((session) => session?.converted_to_sale).length
     : 0;
-  const conversionRate = todayFitting > 0 ? (convertedSessions / todayFitting) * 100 : 0;
+  const conversionRate = todayFitting > 0 ? (todaySales / todayFitting) * 100 : 0;
+
+  console.log('[kpi] conversion diagnostics', {
+    todayFitting,
+    todaySales,
+    convertedSessions,
+    conversionRate,
+    mode: 'sales_over_sessions'
+  });
 
   return { totalItems, fittingItems, abnormalItems, checkoutItems, soldItems, todayFitting, todaySales, conversionRate };
 }
@@ -2828,9 +2918,425 @@ function computeRestockSuggestions(products = [], sales7d = [], inventoryRows = 
     .slice(0, 20);
 }
 
-function renderDashboard(products, latestEventMap, presenceMap, todaySessions = [], todaySaleEvents = [], sales7d = [], inventoryRows = []) {
-  lastRenderContext = { products, latestEventMap, presenceMap, todaySessions, todaySaleEvents, sales7d, inventoryRows };
+function getHourOfTimestamp(timestamp) {
+  if (!timestamp) return null;
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.getHours();
+}
+
+function buildHourlyMetrics(todaySessions = [], todaySaleEvents = []) {
+  const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, tryOn: 0, sales: 0 }));
+
+  todaySessions.forEach((session) => {
+    const hour = getHourOfTimestamp(session?.entered_at);
+    if (hour == null) return;
+    hours[hour].tryOn += 1;
+  });
+
+  todaySaleEvents.forEach((event) => {
+    const hour = getHourOfTimestamp(event?.timestamp);
+    if (hour == null) return;
+    hours[hour].sales += 1;
+  });
+
+  return hours;
+}
+
+function computeStoryFunnelMetrics(todaySessions = [], todaySaleEvents = [], recentEvents = []) {
+  const tryOnSessions = Array.isArray(todaySessions) ? todaySessions.length : 0;
+  const checkoutIntent = (Array.isArray(recentEvents) ? recentEvents : [])
+    .filter((row) => {
+      if (row?.event_type !== 'move_to_checkout') return false;
+      const ts = new Date(row?.timestamp || 0);
+      if (Number.isNaN(ts.getTime())) return false;
+      const start = new Date(todayStartIso());
+      return ts >= start;
+    })
+    .length;
+  const completedSales = Array.isArray(todaySaleEvents) ? todaySaleEvents.length : 0;
+  const tryOnToSaleRate = tryOnSessions > 0 ? (completedSales / tryOnSessions) * 100 : 0;
+
+  return {
+    tryOnSessions,
+    checkoutIntent,
+    completedSales,
+    tryOnToSaleRate
+  };
+}
+
+function computeOpportunityRows(products = [], recentEvents = []) {
+  const eventRows = Array.isArray(recentEvents) ? recentEvents : [];
+  const byKey = new Map();
+
+  products.forEach((product) => {
+    const productKey = productKeyFromProduct(product);
+    if (!productKey) return;
+    byKey.set(productKey, {
+      name: product.display_name || product.name_en || product.name || t('dashboard.unnamedProduct'),
+      sku: resolveSkuValue(product?.sku) || '-',
+      tryOn: 0,
+      sales: 0
+    });
+  });
+
+  eventRows.forEach((event) => {
+    const key = productKeyFromEvent(event);
+    if (!key || !byKey.has(key)) return;
+    if (event?.event_type === 'enter_fitting_room') {
+      byKey.get(key).tryOn += 1;
+    }
+    if (event?.event_type === 'sale_completed') {
+      byKey.get(key).sales += 1;
+    }
+  });
+
+  const rows = Array.from(byKey.values())
+    .map((row) => {
+      const conversion = row.tryOn > 0 ? (row.sales / row.tryOn) * 100 : 0;
+      return {
+        ...row,
+        conversion
+      };
+    })
+    .filter((row) => row.tryOn > 0);
+
+  const benchmark = rows.length > 0
+    ? rows.reduce((acc, row) => acc + row.conversion, 0) / rows.length
+    : 0;
+
+  return rows
+    .map((row) => ({
+      ...row,
+      opportunityScore: Math.max(0, row.tryOn * (benchmark - row.conversion))
+    }))
+    .sort((a, b) => (b.opportunityScore - a.opportunityScore) || (b.tryOn - a.tryOn))
+    .slice(0, 10);
+}
+
+function computeAlertRows(grouped = {}) {
+  const fittingRows = grouped?.FITTING_ROOM || [];
+  const abnormalCount = fittingRows.filter((row) => row.abnormal).length;
+  const unclearedCount = fittingRows.length;
+
+  const alerts = [];
+
+  if (abnormalCount > 0) {
+    alerts.push({
+      level: 'critical',
+      title: t('analytics.b2.longDwellTitle'),
+      detail: `${abnormalCount}`,
+      action: t('analytics.b2.longDwellAction')
+    });
+  }
+  if (unclearedCount > 0) {
+    alerts.push({
+      level: 'warning',
+      title: t('analytics.b2.unclearedTitle'),
+      detail: `${unclearedCount}`,
+      action: t('analytics.b2.unclearedAction')
+    });
+  }
+  if (fittingRows.length >= 6) {
+    alerts.push({
+      level: 'info',
+      title: t('analytics.b2.congestionTitle'),
+      detail: `${fittingRows.length}`,
+      action: t('analytics.b2.congestionAction')
+    });
+  }
+
+  return alerts.slice(0, 5);
+}
+
+function renderManagerOverview({ grouped, todaySessions, todaySaleEvents, products, recentEvents }) {
+  const fittingCount = grouped?.FITTING_ROOM?.length || 0;
+  const checkoutCount = grouped?.CHECKOUT?.length || 0;
+  const rackCount = grouped?.RACK?.length || 0;
+  const abnormalCount = (grouped?.FITTING_ROOM || []).filter((row) => row.abnormal).length;
+  const todayFitting = Array.isArray(todaySessions) ? todaySessions.length : 0;
+  const todaySales = Array.isArray(todaySaleEvents) ? todaySaleEvents.length : 0;
+  const conversionRate = todayFitting > 0 ? (todaySales / todayFitting) * 100 : 0;
+  const opportunityRows = computeOpportunityRows(products, recentEvents);
+  const alertRows = computeAlertRows(grouped);
+
+  if (el.kpiOpportunityItems) {
+    el.kpiOpportunityItems.textContent = String(opportunityRows.length);
+  }
+
+  if (el.heroNarrative) {
+    if (todayFitting === 0) {
+      el.heroNarrative.textContent = 'No fitting activity yet today. Monitor store flow and conversion once sessions begin.';
+    } else if (abnormalCount > 0) {
+      el.heroNarrative.textContent = `Try-on activity is live with ${todayFitting} sessions, but ${abnormalCount} abnormal dwell alerts need attention.`;
+    } else {
+      el.heroNarrative.textContent = `Store is active with ${todayFitting} try-on sessions and ${conversionRate.toFixed(1)}% conversion today.`;
+    }
+  }
+
+  if (el.heroLiveStatus) {
+    el.heroLiveStatus.textContent = `Live store: ${todayFitting > 0 ? 'Active' : 'Quiet'}`;
+    el.heroLiveStatus.classList.toggle('text-warn', todayFitting === 0);
+  }
+  if (el.heroTrackingStatus) {
+    el.heroTrackingStatus.textContent = `RFID tracking: ${products.length > 0 ? 'Normal' : 'No products'}`;
+    el.heroTrackingStatus.classList.toggle('text-warn', products.length === 0);
+  }
+  if (el.heroAiStatus) {
+    el.heroAiStatus.textContent = `AI assistant: ${opportunityRows.length > 0 || alertRows.length > 0 ? 'Ready' : 'Monitoring'}`;
+  }
+
+  if (el.overviewSnapshotBody) {
+    const topProducts = (grouped?.FITTING_ROOM || []).slice(0, 5).map((row) => row?.product?.display_name || row?.product?.name_en || row?.product?.name || '-');
+    el.overviewSnapshotBody.innerHTML = `
+      <div class="snapshot-grid">
+        <article class="snapshot-chip"><p class="snapshot-chip-label">Rack</p><p class="snapshot-chip-value">${escapeHtml(String(rackCount))}</p></article>
+        <article class="snapshot-chip"><p class="snapshot-chip-label">Fitting Room</p><p class="snapshot-chip-value">${escapeHtml(String(fittingCount))}</p></article>
+        <article class="snapshot-chip"><p class="snapshot-chip-label">Checkout</p><p class="snapshot-chip-value">${escapeHtml(String(checkoutCount))}</p></article>
+      </div>
+      <p class="hint">Active alerts: <strong>${escapeHtml(String(alertRows.length))}</strong> / Today sales: <strong>${escapeHtml(String(todaySales))}</strong></p>
+      <div class="snapshot-mini-products">
+        ${(topProducts.length > 0 ? topProducts : ['No active try-on items']).map((name) => `<span class="snapshot-mini-product">${escapeHtml(name)}</span>`).join('')}
+      </div>
+    `;
+  }
+
+  if (el.overviewAiSummaryBody) {
+    const summaryItems = [];
+    if (opportunityRows.length > 0) {
+      const top = opportunityRows[0];
+      summaryItems.push(`${top.name} shows high try-on interest with ${top.conversion.toFixed(1)}% conversion.`);
+    }
+    if (abnormalCount > 0) {
+      summaryItems.push(`${abnormalCount} abnormal dwell items detected. Prioritize fitting room follow-up.`);
+    }
+    if (todayFitting > 0 && conversionRate < 20) {
+      summaryItems.push('Conversion is below 20%. Review styling guidance near fitting rooms.');
+    }
+    if (summaryItems.length === 0) {
+      summaryItems.push('Store performance is stable. Continue monitoring try-on and conversion trend.');
+    }
+    el.overviewAiSummaryBody.innerHTML = `
+      <ul class="ai-summary-list">
+        ${summaryItems.slice(0, 4).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+      </ul>
+      <div class="ai-summary-actions">
+        <button type="button" class="button-secondary">View full insights</button>
+        <button type="button" class="button-secondary">Ask AI</button>
+      </div>
+    `;
+  }
+}
+
+function computeSkuReplenishment(products = [], sales7d = [], inventoryRows = []) {
+  const productById = new Map();
+  const productByEpc = new Map();
+  products.forEach((product) => {
+    if (product?.id != null) productById.set(product.id, product);
+    const epc = String(product?.epc_data || '').trim();
+    if (epc) productByEpc.set(epc, product);
+  });
+
+  const stockBySku = new Map();
+  inventoryRows.forEach((row) => {
+    const status = String(row?.status || '').toUpperCase();
+    const isAvailable = !status || status === 'ACTIVE' || status === 'IN_STOCK';
+    if (!isAvailable) return;
+    const product = productById.get(row?.product_id);
+    const sku = resolveSkuValue(row?.sku, product?.sku);
+    if (!sku) return;
+    stockBySku.set(sku, (stockBySku.get(sku) || 0) + 1);
+  });
+
+  const soldBySku = new Map();
+  sales7d.forEach((row) => {
+    const epc = String(row?.epc_data || '').trim();
+    if (!epc) return;
+    const product = productByEpc.get(epc);
+    const sku = resolveSkuValue(product?.sku);
+    if (!sku) return;
+    soldBySku.set(sku, (soldBySku.get(sku) || 0) + 1);
+  });
+
+  const allSkus = new Set([...stockBySku.keys(), ...soldBySku.keys()]);
+
+  return Array.from(allSkus)
+    .map((sku) => {
+      const sold7d = soldBySku.get(sku) || 0;
+      const currentStock = stockBySku.get(sku) || 0;
+      const avgDailySales = sold7d / 7;
+      const safetyStock = Math.ceil(avgDailySales * 3);
+      const reorderPoint = safetyStock + 1;
+      const suggestedQty = Math.max(0, reorderPoint - currentStock);
+      const safetyGap = Math.max(0, safetyStock - currentStock);
+      const daysOfCover = avgDailySales > 0 ? (currentStock / avgDailySales) : null;
+      const priorityScore = (safetyGap * 2) + avgDailySales;
+      const riskLevel = currentStock < safetyStock ? 'critical' : (currentStock < reorderPoint ? 'warning' : 'healthy');
+      return {
+        sku,
+        sold7d,
+        currentStock,
+        avgDailySales,
+        safetyStock,
+        reorderPoint,
+        suggestedQty,
+        safetyGap,
+        daysOfCover,
+        priorityScore,
+        riskLevel
+      };
+    })
+    .sort((a, b) => (b.suggestedQty - a.suggestedQty) || (b.priorityScore - a.priorityScore));
+}
+
+function renderAnalyticsModules({ products, grouped, todaySessions, todaySaleEvents, recentEvents, sales7d, inventoryRows }) {
+  if (el.storyFunnelBody) {
+    const funnel = computeStoryFunnelMetrics(todaySessions, todaySaleEvents, recentEvents);
+    const maxValue = Math.max(funnel.tryOnSessions, funnel.checkoutIntent, funnel.completedSales, 1);
+    el.storyFunnelBody.innerHTML = `
+      <div class="analytics-funnel-step">
+        <div class="analytics-funnel-label-row"><span>${escapeHtml(t('analytics.a1.tryOn'))}</span><strong>${escapeHtml(String(funnel.tryOnSessions))}</strong></div>
+        <div class="analytics-funnel-track"><div class="analytics-funnel-fill" style="width:${Math.max(6, (funnel.tryOnSessions / maxValue) * 100).toFixed(1)}%"></div></div>
+      </div>
+      <div class="analytics-funnel-step">
+        <div class="analytics-funnel-label-row"><span>${escapeHtml(t('analytics.a1.checkout'))}</span><strong>${escapeHtml(String(funnel.checkoutIntent))}</strong></div>
+        <div class="analytics-funnel-track"><div class="analytics-funnel-fill" style="width:${Math.max(6, (funnel.checkoutIntent / maxValue) * 100).toFixed(1)}%"></div></div>
+      </div>
+      <div class="analytics-funnel-step">
+        <div class="analytics-funnel-label-row"><span>${escapeHtml(t('analytics.a1.sales'))}</span><strong>${escapeHtml(String(funnel.completedSales))}</strong></div>
+        <div class="analytics-funnel-track"><div class="analytics-funnel-fill" style="width:${Math.max(6, (funnel.completedSales / maxValue) * 100).toFixed(1)}%"></div></div>
+      </div>
+      <p class="hint">${escapeHtml(t('analytics.a1.rate'))}: <strong>${escapeHtml(funnel.tryOnToSaleRate.toFixed(1))}%</strong></p>
+    `;
+  }
+
+  if (el.storyHourlyBody) {
+    const hourly = buildHourlyMetrics(todaySessions, todaySaleEvents);
+    const nonZero = hourly.filter((row) => row.tryOn > 0 || row.sales > 0);
+    const sourceRows = nonZero.length > 0 ? nonZero : hourly;
+    const top = sourceRows.slice().sort((a, b) => (b.tryOn + b.sales) - (a.tryOn + a.sales)).slice(0, 8);
+    const maxVal = Math.max(...top.map((row) => row.tryOn + row.sales), 1);
+    const fallbackHtml = nonZero.length === 0 ? `<p class="hint">${escapeHtml(t('analytics.a2.fallback'))}</p>` : '';
+    el.storyHourlyBody.innerHTML = `${fallbackHtml}${top.map((row) => `
+      <div class="analytics-hour-row">
+        <span>${escapeHtml(String(row.hour).padStart(2, '0'))}:00</span>
+        <div class="analytics-hour-track"><div class="analytics-hour-fill" style="width:${(((row.tryOn + row.sales) / maxVal) * 100).toFixed(1)}%"></div></div>
+        <span>${escapeHtml(t('analytics.a2.tryOn'))} ${escapeHtml(String(row.tryOn))} / ${escapeHtml(t('analytics.a2.sales'))} ${escapeHtml(String(row.sales))}</span>
+      </div>
+    `).join('')}`;
+  }
+
+  if (el.opsOpportunityBody) {
+    const rows = computeOpportunityRows(products, recentEvents);
+    if (rows.length === 0) {
+      el.opsOpportunityBody.innerHTML = `<p class="analytics-empty">${escapeHtml(t('analytics.b1.empty'))}</p>`;
+    } else {
+      el.opsOpportunityBody.innerHTML = rows.map((row) => `
+        <div class="analytics-opportunity-row">
+          <strong>${escapeHtml(row.name)}</strong>
+          <span>${escapeHtml(t('analytics.a1.rate'))}: ${escapeHtml(row.conversion.toFixed(1))}%</span>
+          <span>${escapeHtml(row.opportunityScore.toFixed(1))}</span>
+        </div>
+      `).join('');
+    }
+  }
+  if (el.overviewOpportunityBody) {
+    const rows = computeOpportunityRows(products, recentEvents).slice(0, 5);
+    if (rows.length === 0) {
+      el.overviewOpportunityBody.innerHTML = `<p class="analytics-empty">${escapeHtml(t('analytics.b1.empty'))}</p>`;
+    } else {
+      el.overviewOpportunityBody.innerHTML = rows.map((row) => `
+        <div class="analytics-opportunity-row">
+          <strong>${escapeHtml(row.name)}</strong>
+          <span>${escapeHtml(row.tryOn)} try-on</span>
+          <span>${escapeHtml(row.conversion.toFixed(1))}%</span>
+        </div>
+      `).join('');
+    }
+  }
+
+  if (el.opsAlertBody) {
+    const alerts = computeAlertRows(grouped);
+    if (alerts.length === 0) {
+      el.opsAlertBody.innerHTML = `<p class="analytics-empty">${escapeHtml(t('analytics.b2.empty'))}</p>`;
+    } else {
+      el.opsAlertBody.innerHTML = `<ul class="analytics-alert-list">${alerts.map((alert) => `
+        <li class="analytics-alert-item analytics-alert-item--${escapeHtml(alert.level)}">
+          <div><strong>${escapeHtml(alert.title)}</strong></div>
+          <div>${escapeHtml(alert.detail)}</div>
+          <div class="hint">${escapeHtml(alert.action)}</div>
+        </li>
+      `).join('')}</ul>`;
+    }
+  }
+  if (el.overviewAlertBody) {
+    const alerts = computeAlertRows(grouped);
+    if (alerts.length === 0) {
+      el.overviewAlertBody.innerHTML = `<p class="analytics-empty">${escapeHtml(t('analytics.b2.empty'))}</p>`;
+    } else {
+      el.overviewAlertBody.innerHTML = `<ul class="analytics-alert-list">${alerts.map((alert) => `
+        <li class="analytics-alert-item analytics-alert-item--${escapeHtml(alert.level)}">
+          <div><strong>${escapeHtml(alert.title)}</strong></div>
+          <div class="hint">${escapeHtml(alert.action)}</div>
+        </li>
+      `).join('')}</ul>`;
+    }
+  }
+
+  const skuRows = computeSkuReplenishment(products, sales7d, inventoryRows);
+
+  if (el.replenishmentSafetyBody) {
+    const topRiskRows = skuRows.slice(0, 8);
+    if (topRiskRows.length === 0) {
+      el.replenishmentSafetyBody.innerHTML = `<p class="analytics-empty">${escapeHtml(t('analytics.c1.empty'))}</p>`;
+    } else {
+      const maxSafety = Math.max(...topRiskRows.map((row) => Math.max(row.safetyStock, row.currentStock, 1)), 1);
+      el.replenishmentSafetyBody.innerHTML = topRiskRows.map((row) => `
+        <div class="analytics-safety-row">
+          <strong>${escapeHtml(row.sku)}</strong>
+          <div class="analytics-safety-track"><div class="analytics-safety-fill analytics-safety-fill--${escapeHtml(row.riskLevel)}" style="width:${((row.currentStock / maxSafety) * 100).toFixed(1)}%"></div></div>
+          <span>${escapeHtml(String(row.currentStock))}/${escapeHtml(String(row.safetyStock))}</span>
+        </div>
+      `).join('');
+    }
+  }
+
+  if (el.replenishmentPriorityBody) {
+    const priorityRows = skuRows.filter((row) => row.suggestedQty > 0).slice(0, 10);
+    if (priorityRows.length === 0) {
+      el.replenishmentPriorityBody.innerHTML = `<p class="analytics-empty">${escapeHtml(t('analytics.c3.empty'))}</p>`;
+    } else {
+      el.replenishmentPriorityBody.innerHTML = `
+        <div class="analytics-priority-head">
+          <span>${escapeHtml(t('analytics.c3.rank'))}</span>
+          <span>${escapeHtml(t('analytics.c3.sku'))}</span>
+          <span>${escapeHtml(t('analytics.c3.gap'))}</span>
+          <span>${escapeHtml(t('analytics.c3.score'))}</span>
+        </div>
+        ${priorityRows.map((row, index) => `
+          <div class="analytics-priority-row">
+            <span>${escapeHtml(String(index + 1))}</span>
+            <strong>${escapeHtml(row.sku)}</strong>
+            <span>${escapeHtml(String(row.suggestedQty))}</span>
+            <span>${escapeHtml(row.priorityScore.toFixed(1))}</span>
+          </div>
+        `).join('')}
+      `;
+    }
+  }
+}
+
+function renderDashboard(products, latestEventMap, presenceMap, todaySessions = [], todaySaleEvents = [], sales7d = [], inventoryRows = [], recentEvents = []) {
+  lastRenderContext = { products, latestEventMap, presenceMap, todaySessions, todaySaleEvents, sales7d, inventoryRows, recentEvents };
   const grouped = Object.fromEntries(BOARD_STATES.map((s) => [s, []]));
+  const eventFittingKeys = [];
+  latestEventMap.forEach((event, key) => {
+    if (normalizeStateFromEvent(event) === 'FITTING_ROOM') {
+      eventFittingKeys.push(key);
+    }
+  });
+  const presenceKeys = new Set(presenceMap.keys());
+  const fittingWithoutPresence = eventFittingKeys.filter((key) => !presenceKeys.has(key));
 
   const missingKeyProducts = products.filter((product) => !productKeyFromProduct(product));
   if (missingKeyProducts.length > 0) {
@@ -2849,11 +3355,25 @@ function renderDashboard(products, latestEventMap, presenceMap, todaySessions = 
   const overstayMs = getCurrentOverstayThresholdMs();
   const overstayMinutes = getCurrentOverstayThresholdMinutes();
   const debugStateRows = [];
+  const abnormalDiag = {
+    fittingRows: 0,
+    abnormalRows: 0,
+    fittingButNotAbnormalRows: 0,
+    noPresenceButEventSaysFittingRows: 0,
+    stalePresenceRows: 0,
+    stalePresenceAndEventFittingRows: 0,
+    overstayThresholdMinutes: overstayMinutes
+  };
 
   products.forEach((product) => {
     const productKey = productKeyFromProduct(product);
     const event = latestEventMap.get(productKey);
     const presence = productKey ? presenceMap.get(productKey) : null;
+    const lastSeenMs = Date.parse(presence?.last_seen_at);
+    const enteredMs = Date.parse(presence?.entered_at);
+    const presenceStale = Boolean(presence)
+      && (!Number.isFinite(lastSeenMs) || nowMs - lastSeenMs > FITTING_EXIT_TIMEOUT_MS);
+    const eventState = normalizeStateFromEvent(event || {});
     const { state: rawState, abnormal: rawAbnormal } = deriveStateByPresence(productKey, event, presence, nowMs, overstayMs);
     const overrideState = productKey ? localLaneOverrides.get(productKey) : null;
     const state = overrideState || (rawState === 'SOLD' ? 'CHECKOUT' : rawState);
@@ -2862,18 +3382,55 @@ function renderDashboard(products, latestEventMap, presenceMap, todaySessions = 
     const sold = rawState === 'SOLD' || event?.event_type === 'sale_completed';
     grouped[normalizedState].push({ product, event, abnormal, state: normalizedState, productKey, sold });
 
+    if (normalizedState === 'FITTING_ROOM') {
+      abnormalDiag.fittingRows += 1;
+      if (abnormal) {
+        abnormalDiag.abnormalRows += 1;
+      } else {
+        abnormalDiag.fittingButNotAbnormalRows += 1;
+      }
+    }
+    if (!presence && eventState === 'FITTING_ROOM') {
+      abnormalDiag.noPresenceButEventSaysFittingRows += 1;
+    }
+    if (presenceStale) {
+      abnormalDiag.stalePresenceRows += 1;
+      if (eventState === 'FITTING_ROOM') {
+        abnormalDiag.stalePresenceAndEventFittingRows += 1;
+      }
+    }
+
     debugStateRows.push({
       productKey,
       name: product.display_name || product.name_en || product.name || null,
       state: normalizedState,
       abnormal,
       lastReader: event?.reader_id || null,
+      eventState,
+      presenceStale,
+      lastSeenAgeSec: Number.isFinite(lastSeenMs) ? Math.floor((nowMs - lastSeenMs) / 1000) : null,
+      enteredAgeSec: Number.isFinite(enteredMs) ? Math.floor((nowMs - enteredMs) / 1000) : null,
       presenceLastSeen: presence?.last_seen_at || null,
       presenceEnteredAt: presence?.entered_at || null
     });
   });
 
   console.table(debugStateRows.slice(0, 20));
+  console.log('[abnormal] pipeline diagnostics', abnormalDiag);
+  const stateReconcileDiag = {
+    productsCount: products.length,
+    latestEventKeyCount: latestEventMap.size,
+    presenceKeyCount: presenceMap.size,
+    fittingByLatestEventCount: eventFittingKeys.length,
+    fittingByPresenceCount: grouped.FITTING_ROOM.length,
+    forcedRackBecausePresenceMissingCount: fittingWithoutPresence.length,
+    forcedRackSample: fittingWithoutPresence.slice(0, 8)
+  };
+  if (fittingWithoutPresence.length > 0) {
+    console.warn('[dashboard] fitting reconciliation mismatch', stateReconcileDiag);
+  } else {
+    console.log('[dashboard] fitting reconciliation', stateReconcileDiag);
+  }
 
   const {
     totalItems,
@@ -2894,29 +3451,9 @@ function renderDashboard(products, latestEventMap, presenceMap, todaySessions = 
   if (el.kpiTodaySales) el.kpiTodaySales.textContent = String(todaySales);
   if (el.kpiConversionRate) el.kpiConversionRate.textContent = `${conversionRate.toFixed(1)}%`;
 
-  if (el.restockList) {
-    const suggestions = computeRestockSuggestions(products, sales7d, inventoryRows);
-    if (suggestions.length === 0) {
-      el.restockList.innerHTML = `<li class="hint">${escapeHtml(t('restock.empty'))}</li>`;
-    } else {
-      el.restockList.innerHTML = suggestions
-        .map(({ product, sold7d, currentStock, suggestedQty }) => {
-          const displayName = product.display_name || product.name_en || product.name || t('dashboard.unnamedProduct');
-          return `
-            <li class="restock-row">
-              <span>${escapeHtml(t('restock.row', {
-                name: displayName,
-                sold7d,
-                stock: currentStock,
-                qty: suggestedQty
-              }))}</span>
-              <strong class="text-warn">+${escapeHtml(String(suggestedQty))}</strong>
-            </li>
-          `;
-        })
-        .join('');
-    }
-  }
+  renderManagerOverview({ grouped, todaySessions, todaySaleEvents, products, recentEvents });
+
+  renderAnalyticsModules({ products, grouped, todaySessions, todaySaleEvents, recentEvents, sales7d, inventoryRows });
 
   if (!el.dashboard) return;
 
@@ -3074,7 +3611,8 @@ function rerenderFromCache() {
     lastRenderContext.todaySessions || [],
     lastRenderContext.todaySaleEvents || [],
     lastRenderContext.sales7d || [],
-    lastRenderContext.inventoryRows || []
+    lastRenderContext.inventoryRows || [],
+    lastRenderContext.recentEvents || []
   );
 }
 
@@ -3306,11 +3844,25 @@ async function fetchAndRenderDashboard() {
     supabase.from('rfid_events').select('epc_data,reader_id,timestamp,event_type,event_source,from_zone,to_zone').order('timestamp', { ascending: false }).limit(500),
     supabase.from('product_translations').select('product_id,locale,name,description').eq('locale', currentLang),
     supabase.from('fitting_room_presence').select('product_key,entered_at,last_seen_at,last_reader_id'),
-    supabase.from('fitting_room_sessions').select('id,converted_to_sale').gte('entered_at', todayStartIso()),
-    supabase.from('rfid_events').select('id').eq('event_type', 'sale_completed').gte('timestamp', todayStartIso()),
+    supabase.from('fitting_room_sessions').select('id,converted_to_sale,entered_at,left_at,fitting_room_id,session_status').gte('entered_at', todayStartIso()),
+    supabase.from('rfid_events').select('epc_data,timestamp,event_type').eq('event_type', 'sale_completed').gte('timestamp', todayStartIso()),
     supabase.from('rfid_events').select('epc_data').eq('event_type', 'sale_completed').gte('timestamp', sevenDaysAgoIso),
     supabase.from('inventory_items').select('product_id,sku,style_no,item_no,status,epc_data')
   ]);
+
+  if (todaySessionsRes?.error && todaySessionsRes.error.code === '42703') {
+    const fallbackTodaySessionsRes = await supabase
+      .from('fitting_room_sessions')
+      .select('id,converted_to_sale,entered_at,left_at')
+      .gte('entered_at', todayStartIso());
+    if (!fallbackTodaySessionsRes.error) {
+      todaySessionsRes.data = fallbackTodaySessionsRes.data || [];
+      todaySessionsRes.error = null;
+      console.warn('[dashboard] fitting_room_sessions fallback query applied (reduced columns)', {
+        rows: todaySessionsRes.data.length
+      });
+    }
+  }
 
   if (inventoryRes?.error) {
     if (inventoryRes.error.code === '42703') {
@@ -3384,10 +3936,30 @@ async function fetchAndRenderDashboard() {
     if (!presenceRes?.error) return presenceRes?.data || [];
     console.warn('[dashboard] fitting_room_presence query skipped', {
       code: presenceRes.error.code,
-      message: presenceRes.error.message
+      message: presenceRes.error.message,
+      hint: presenceRes.error.hint,
+      details: presenceRes.error.details
     });
     return [];
   })();
+
+  if (todaySessionsRes?.error) {
+    console.warn('[dashboard] fitting_room_sessions query failed, today fitting KPI will fallback to 0', {
+      code: todaySessionsRes.error.code,
+      message: todaySessionsRes.error.message,
+      hint: todaySessionsRes.error.hint,
+      details: todaySessionsRes.error.details
+    });
+  }
+
+  if (todaySalesRes?.error) {
+    console.warn('[dashboard] sale_completed(today) query failed, today sales KPI will fallback to 0', {
+      code: todaySalesRes.error.code,
+      message: todaySalesRes.error.message,
+      hint: todaySalesRes.error.hint,
+      details: todaySalesRes.error.details
+    });
+  }
 
   const translationMap = new Map((translationsRes.data || []).map((row) => [row.product_id, row]));
   const localizedProducts = (productsRes.data || []).map((product) => {
@@ -3423,6 +3995,7 @@ async function fetchAndRenderDashboard() {
   const safeTodaySales = todaySalesRes?.error ? [] : (todaySalesRes?.data || []);
   const safeSales7d = sales7dRes?.error ? [] : (sales7dRes?.data || []);
   const safeInventoryRows = inventoryRes?.error ? [] : (inventoryRes?.data || []);
+  const safeRecentEvents = eventsRes?.data || [];
 
   if (!inventoryRes?.error && safeInventoryRows.length === 0 && (productsRes.data || []).length > 0) {
     console.warn('[dashboard] inventory_items returned 0 rows while products exist; possible RLS/no-select-policy or wrong project data source', {
@@ -3460,7 +4033,7 @@ async function fetchAndRenderDashboard() {
     eventKeySample: (eventsRes.data || []).slice(0, 5).map((e) => productKeyFromEvent(e))
   });
   if (el.dashboard) {
-    renderDashboard(localizedProducts, latestMap, presenceMap, safeTodaySessions, safeTodaySales, safeSales7d, safeInventoryRows);
+    renderDashboard(localizedProducts, latestMap, presenceMap, safeTodaySessions, safeTodaySales, safeSales7d, safeInventoryRows, safeRecentEvents);
   }
   console.log('[dashboard] render success', {
     products: localizedProducts.length,

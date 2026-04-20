@@ -30,8 +30,8 @@
     <nav class="top-nav" aria-label="Primary" style="margin: 12px 20px 0;">
       <a href="/" data-route-link class="top-nav-link">Home</a>
       <a href="/dashboard" data-route-link class="top-nav-link">Dashboard</a>
-      <a href="/product" data-route-link class="top-nav-link">Product</a>
-      <a href="/csv-import" data-route-link class="top-nav-link">CSV Import</a>
+      <a href="/product.html" data-route-link class="top-nav-link">Product</a>
+      <a href="/csv-import.html" data-route-link class="top-nav-link">CSV Import</a>
       <a href="/setting" data-route-link class="top-nav-link">Setting</a>
       <a href="/fitting-demo.html" class="top-nav-link">Fitting Demo</a>
     </nav>
@@ -64,7 +64,7 @@
               <h3 data-i18n="home.cards.setting.title">Setting</h3>
               <p data-i18n="home.cards.setting.desc">Open Supabase and system settings</p>
             </button>
-            <a id="homeCardCsvImport" href="/csv-import" data-route-link class="home-card home-card--secondary">
+            <a id="homeCardCsvImport" href="/csv-import.html" data-route-link class="home-card home-card--secondary">
               <h3 data-i18n="home.cards.csv.title">CSV Import</h3>
               <p data-i18n="home.cards.csv.desc">Open import tools and upload data</p>
             </a>
@@ -86,9 +86,164 @@
       </header>
 
       <main class="layout">
+        <section class="panel manager-hero" aria-labelledby="managerHeroTitle">
+          <div>
+            <h2 id="managerHeroTitle">Smart Fitting Room Overview</h2>
+            <p id="heroNarrative" class="hint">Today store performance summary is loading.</p>
+          </div>
+          <div class="manager-status-pills">
+            <span id="heroLiveStatus" class="status-badge">Live store: Active</span>
+            <span id="heroTrackingStatus" class="status-badge">RFID tracking: Normal</span>
+            <span id="heroAiStatus" class="status-badge">AI assistant: Ready</span>
+          </div>
+        </section>
+
+        <section class="manager-kpi-grid" aria-label="Primary KPI">
+          <article class="kpi-card kpi-card--hero">
+            <p class="kpi-label" data-i18n="kpi.todayFitting">Today Fitting Sessions</p>
+            <p id="kpiTodayFitting" class="kpi-value">0</p>
+          </article>
+          <article class="kpi-card kpi-card--hero">
+            <p class="kpi-label" data-i18n="kpi.conversionRate">Today Conversion Rate</p>
+            <p id="kpiConversionRate" class="kpi-value">0%</p>
+          </article>
+          <article class="kpi-card kpi-card--hero">
+            <p class="kpi-label" data-i18n="kpi.abnormal">Abnormal Stay</p>
+            <p id="kpiAbnormal" class="kpi-value text-err">0</p>
+          </article>
+          <article class="kpi-card kpi-card--hero">
+            <p class="kpi-label">Opportunity Items</p>
+            <p id="kpiOpportunityItems" class="kpi-value">0</p>
+          </article>
+        </section>
+
+        <section class="panel manager-core-grid" aria-label="Overview Snapshot and AI Summary">
+          <article class="manager-core-card" aria-labelledby="overviewSnapshotTitle">
+            <header class="panel-title-row">
+              <h2 id="overviewSnapshotTitle">Live Store Snapshot</h2>
+            </header>
+            <div id="overviewSnapshotBody" class="dashboard-analytics-card-body">
+              <p class="hint" data-i18n="dashboard.empty">No data</p>
+            </div>
+          </article>
+          <article class="manager-core-card" aria-labelledby="overviewAiSummaryTitle">
+            <header class="panel-title-row">
+              <h2 id="overviewAiSummaryTitle">AI Summary Today</h2>
+            </header>
+            <div id="overviewAiSummaryBody" class="dashboard-analytics-card-body">
+              <p class="hint" data-i18n="dashboard.empty">No data</p>
+            </div>
+          </article>
+        </section>
+
+        <section class="panel manager-core-grid manager-core-grid--actions" aria-label="Top Opportunities and Active Alerts">
+          <article class="manager-core-card" aria-labelledby="overviewOpportunityTitle">
+            <header class="panel-title-row">
+              <h2 id="overviewOpportunityTitle">Top Opportunities</h2>
+            </header>
+            <div id="overviewOpportunityBody" class="dashboard-analytics-card-body">
+              <p class="hint" data-i18n="dashboard.empty">No data</p>
+            </div>
+          </article>
+          <article class="manager-core-card" aria-labelledby="overviewAlertTitle">
+            <header class="panel-title-row">
+              <h2 id="overviewAlertTitle">Active Alerts</h2>
+            </header>
+            <div id="overviewAlertBody" class="dashboard-analytics-card-body">
+              <p class="hint" data-i18n="dashboard.empty">No data</p>
+            </div>
+          </article>
+        </section>
+
+        <section id="dashboardStorySection" class="panel dashboard-analytics-section" aria-labelledby="dashboardStoryTitle">
+          <header class="dashboard-analytics-section-header">
+            <h2 id="dashboardStoryTitle" data-i18n="analytics.story.title">Story Layer</h2>
+            <span class="status-badge" data-i18n="analytics.range.today">Today</span>
+          </header>
+          <div class="dashboard-analytics-row dashboard-analytics-row--story">
+            <article id="storyFunnelCard" class="dashboard-analytics-card" aria-labelledby="storyFunnelTitle">
+              <header class="dashboard-analytics-card-header">
+                <h3 id="storyFunnelTitle" data-i18n="analytics.a1.title">Try-On to Sale Funnel</h3>
+                <span class="hint" data-i18n="analytics.range.sessionBasis">Session basis</span>
+              </header>
+              <div id="storyFunnelBody" class="dashboard-analytics-card-body">
+                <p class="hint" data-i18n="dashboard.empty">No data</p>
+              </div>
+            </article>
+            <article id="storyHourlyCard" class="dashboard-analytics-card" aria-labelledby="storyHourlyTitle">
+              <header class="dashboard-analytics-card-header">
+                <h3 id="storyHourlyTitle" data-i18n="analytics.a2.title">Hourly Activity Heat</h3>
+                <span class="hint" data-i18n="analytics.range.today">Today</span>
+              </header>
+              <div id="storyHourlyBody" class="dashboard-analytics-card-body">
+                <p class="hint" data-i18n="dashboard.empty">No data</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="dashboardOpsSection" class="panel dashboard-analytics-section" aria-labelledby="dashboardOpsTitle">
+          <header class="dashboard-analytics-section-header">
+            <h2 id="dashboardOpsTitle" data-i18n="analytics.ops.title">Operations Layer</h2>
+            <span class="status-badge" data-i18n="analytics.range.last7Days">Last 7 days</span>
+          </header>
+          <div class="dashboard-analytics-row dashboard-analytics-row--ops">
+            <article id="opsOpportunityCard" class="dashboard-analytics-card" aria-labelledby="opsOpportunityTitle">
+              <header class="dashboard-analytics-card-header">
+                <h3 id="opsOpportunityTitle" data-i18n="analytics.b1.title">Opportunity Matrix</h3>
+                <span class="hint" data-i18n="analytics.b1.subtitle">Top opportunities</span>
+              </header>
+              <div id="opsOpportunityBody" class="dashboard-analytics-card-body">
+                <p class="hint" data-i18n="dashboard.empty">No data</p>
+              </div>
+            </article>
+            <article id="opsAlertCard" class="dashboard-analytics-card" aria-labelledby="opsAlertTitle">
+              <header class="dashboard-analytics-card-header">
+                <h3 id="opsAlertTitle" data-i18n="analytics.b2.title">Operations Alerts</h3>
+                <span class="hint" data-i18n="analytics.b2.subtitle">Action-required alerts</span>
+              </header>
+              <div id="opsAlertBody" class="dashboard-analytics-card-body">
+                <p class="hint" data-i18n="dashboard.empty">No data</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="dashboardReplenishmentSection" class="panel dashboard-analytics-section" aria-labelledby="dashboardReplenishmentTitle">
+          <header class="dashboard-analytics-section-header">
+            <h2 id="dashboardReplenishmentTitle" data-i18n="analytics.replenishment.title">Replenishment Layer</h2>
+            <span class="status-badge" data-i18n="analytics.range.last7Days">Last 7 days</span>
+          </header>
+          <div class="dashboard-analytics-row dashboard-analytics-row--replenishment">
+            <article id="replenishmentSafetyCard" class="dashboard-analytics-card" aria-labelledby="replenishmentSafetyTitle">
+              <header class="dashboard-analytics-card-header">
+                <h3 id="replenishmentSafetyTitle" data-i18n="analytics.c1.title">Safety Stock Risk</h3>
+                <span class="hint" data-i18n="analytics.c1.subtitle">SKU risk against safety line</span>
+              </header>
+              <div id="replenishmentSafetyBody" class="dashboard-analytics-card-body">
+                <p class="hint" data-i18n="dashboard.empty">No data</p>
+              </div>
+            </article>
+            <article id="replenishmentPriorityCard" class="dashboard-analytics-card" aria-labelledby="replenishmentPriorityTitle">
+              <header class="dashboard-analytics-card-header">
+                <h3 id="replenishmentPriorityTitle" data-i18n="analytics.c3.title">Restock Priority List</h3>
+                <span class="hint" data-i18n="analytics.c3.subtitle">Action list</span>
+              </header>
+              <div id="replenishmentPriorityBody" class="dashboard-analytics-card-body">
+                <p class="hint" data-i18n="dashboard.empty">No data</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
         <section class="panel panel--storefront" aria-labelledby="dashboardTitle">
-          <h2 id="dashboardTitle" data-i18n="board.title">Visual Simulation Board</h2>
-          <div class="kpi-grid kpi-grid--compact" aria-label="KPI">
+          <div class="panel-title-row">
+            <h2 id="dashboardTitle">Detailed Live Board</h2>
+            <div class="panel-actions">
+              <button id="refreshButton" type="button" data-i18n="dashboard.refresh">Refresh</button>
+            </div>
+          </div>
+          <div class="kpi-grid kpi-grid--compact" aria-label="Secondary KPI">
             <article class="kpi-card">
               <p class="kpi-label" data-i18n="kpi.total">Total Items</p>
               <p id="kpiTotal" class="kpi-value">0</p>
@@ -96,10 +251,6 @@
             <article class="kpi-card">
               <p class="kpi-label" data-i18n="kpi.fitting">In Fitting</p>
               <p id="kpiFitting" class="kpi-value">0</p>
-            </article>
-            <article class="kpi-card">
-              <p class="kpi-label" data-i18n="kpi.abnormal">Abnormal Stay</p>
-              <p id="kpiAbnormal" class="kpi-value text-err">0</p>
             </article>
             <article class="kpi-card">
               <p class="kpi-label" data-i18n="kpi.checkout">At Checkout</p>
@@ -110,23 +261,10 @@
               <p id="kpiSold" class="kpi-value text-ok">0</p>
             </article>
             <article class="kpi-card">
-              <p class="kpi-label" data-i18n="kpi.todayFitting">Today Fitting Sessions</p>
-              <p id="kpiTodayFitting" class="kpi-value">0</p>
-            </article>
-            <article class="kpi-card">
               <p class="kpi-label" data-i18n="kpi.todaySales">Today Sales</p>
               <p id="kpiTodaySales" class="kpi-value">0</p>
             </article>
-            <article class="kpi-card">
-              <p class="kpi-label" data-i18n="kpi.conversionRate">Today Conversion Rate</p>
-              <p id="kpiConversionRate" class="kpi-value">0%</p>
-            </article>
           </div>
-
-          <div class="panel-actions">
-            <button id="refreshButton" type="button" data-i18n="dashboard.refresh">Refresh</button>
-          </div>
-
           <section id="dashboard" class="dashboard-board" style="margin-top: 16px;"></section>
         </section>
 

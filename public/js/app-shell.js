@@ -3,9 +3,13 @@ const VIEW_IDS = ['homeView', 'dashboardView', 'productView', 'csvImportView', '
 const ROUTE_TO_VIEW = {
   '/': 'homeView',
   '/dashboard': 'dashboardView',
+  '/dashboard.html': 'dashboardView',
   '/product': 'productView',
+  '/product.html': 'productView',
   '/csv-import': 'csvImportView',
-  '/setting': 'settingView'
+  '/csv-import.html': 'csvImportView',
+  '/setting': 'settingView',
+  '/setting.html': 'settingView'
 };
 
 function getEl(id) {
@@ -37,4 +41,3 @@ export function setShellViewByPath(pathname = '/') {
   setShellView(viewId);
   return viewId;
 }
-

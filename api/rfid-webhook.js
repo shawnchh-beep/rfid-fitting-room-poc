@@ -448,6 +448,17 @@ export default async function handler(req, res) {
       bodyToZone: to_zone
     });
 
+    console.log('[rfid-webhook] envelope diagnostics', {
+      epc_data: epc_data || null,
+      reader_id: reader_id || null,
+      event_type: event_type || null,
+      from_zone: from_zone || null,
+      to_zone: to_zone || null,
+      normalized: eventEnvelope,
+      productKey,
+      isFittingReader
+    });
+
     // 2. Debounce Check: 檢查過去 3 秒內是否有相同 Reader 讀到相同 EPC
     const threeSecondsAgo = new Date(Date.now() - 3000).toISOString();
 
@@ -470,6 +481,15 @@ export default async function handler(req, res) {
           itemReference,
           readerId: reader_id,
           nowIso
+        });
+        console.log('[rfid-webhook] debounce branch presence update result', {
+          productKey,
+          isFittingReader,
+          hasError: Boolean(presenceUpsert.error),
+          errorCode: presenceUpsert.error?.code || null,
+          errorMessage: presenceUpsert.error?.message || null,
+          isNewVisit: presenceUpsert.isNewVisit ?? null,
+          previousLastSeenAt: presenceUpsert.previousLastSeenAt || null
         });
         if (presenceUpsert.error && !isMissingPresenceTable(presenceUpsert.error)) {
           throw presenceUpsert.error;
@@ -541,6 +561,15 @@ export default async function handler(req, res) {
         readerId: reader_id,
         nowIso
       });
+      console.log('[rfid-webhook] insert branch presence update result', {
+        productKey,
+        isFittingReader,
+        hasError: Boolean(presenceUpsert.error),
+        errorCode: presenceUpsert.error?.code || null,
+        errorMessage: presenceUpsert.error?.message || null,
+        isNewVisit: presenceUpsert.isNewVisit ?? null,
+        previousLastSeenAt: presenceUpsert.previousLastSeenAt || null
+      });
       if (presenceUpsert.error && !isMissingPresenceTable(presenceUpsert.error)) {
         throw presenceUpsert.error;
       }
@@ -574,6 +603,13 @@ export default async function handler(req, res) {
       }
     } else {
       const presenceDelete = await clearFittingPresence(productKey);
+      console.log('[rfid-webhook] non-fitting branch presence clear result', {
+        productKey,
+        isFittingReader,
+        hasError: Boolean(presenceDelete.error),
+        errorCode: presenceDelete.error?.code || null,
+        errorMessage: presenceDelete.error?.message || null
+      });
       if (presenceDelete.error && !isMissingPresenceTable(presenceDelete.error)) {
         throw presenceDelete.error;
       }
