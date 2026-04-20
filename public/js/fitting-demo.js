@@ -185,8 +185,8 @@ async function fetchProductsByProductKeyCompat() {
   if (!state.supabase) return new Map();
 
   const selectAttempts = [
-    'id,name,name_en,size,sku,sku_ean13,epc_company_prefix,item_reference',
-    'id,name,name_en,size,sku,epc_company_prefix,item_reference',
+    'id,name,name_en,size,sku,sku_ean13,item_no,epc_company_prefix,item_reference',
+    'id,name,name_en,size,sku,item_no,epc_company_prefix,item_reference',
     '*'
   ];
 
@@ -242,7 +242,29 @@ async function fetchActiveRoomAssignmentsFromDb() {
   }
 
   const productByKey = await fetchProductsByProductKeyCompat();
+  const inventoryRows = await fetchInventoryCompat();
+  const epcPoolByProductId = new Map();
+  const epcPoolBySku = new Map();
+  (inventoryRows || []).forEach((row) => {
+    if (!isAvailableInventoryStatus(row?.status)) return;
+    const epc = String(row?.epc_data || '').trim();
+    if (!isValidEpcData(epc)) return;
+
+    const productId = normalizeProductId(row?.product_id);
+    if (productId) {
+      if (!epcPoolByProductId.has(productId)) epcPoolByProductId.set(productId, []);
+      epcPoolByProductId.get(productId).push(epc);
+    }
+
+    const sku = resolveSkuValue(row?.sku);
+    if (sku) {
+      if (!epcPoolBySku.has(sku)) epcPoolBySku.set(sku, []);
+      epcPoolBySku.get(sku).push(epc);
+    }
+  });
+
   let seq = 1;
+  let missingEpcCount = 0;
   (presenceRes.data || []).forEach((presence) => {
     const key = String(presence?.product_key || '').trim();
     if (!key) return;
@@ -252,14 +274,23 @@ async function fetchActiveRoomAssignmentsFromDb() {
 
     const product = productByKey.get(key);
     const decodedKey = parseProductKey(key);
+    const productId = normalizeProductId(product?.id);
+    const sku = resolveSkuValue(product?.sku_ean13, product?.sku, key);
+    const epcFromProductPool = productId ? String((epcPoolByProductId.get(productId) || []).shift() || '').trim() : '';
+    const epcFromSkuPool = String((epcPoolBySku.get(sku) || []).shift() || '').trim();
+    const roomEpc = isValidEpcData(epcFromProductPool)
+      ? epcFromProductPool
+      : (isValidEpcData(epcFromSkuPool) ? epcFromSkuPool : '');
+    if (!roomEpc) missingEpcCount += 1;
+
     room.items.push({
       room_item_id: `room_item_${seq++}`,
       item_key: key,
       item_no: resolveSkuValue(product?.item_no, decodedKey.itemReference, key),
       product_name: resolveSkuValue(product?.name_en, product?.name, `Item ${decodedKey.itemReference || key}`),
       size: resolveSkuValue(product?.size, '-'),
-      sku_ean13: resolveSkuValue(product?.sku_ean13, product?.sku, key),
-      epc_data: '',
+      sku_ean13: sku,
+      epc_data: roomEpc,
       enteredAt: String(presence?.entered_at || presence?.last_seen_at || new Date().toISOString())
     });
   });
@@ -267,6 +298,7 @@ async function fetchActiveRoomAssignmentsFromDb() {
   console.debug('[FRD][fetchActiveRoomAssignmentsFromDb] hydrated room assignments from presence', {
     presenceRows: (presenceRes.data || []).length,
     roomItemCount: rooms.reduce((acc, room) => acc + room.items.length, 0),
+    roomItemMissingEpcCount: missingEpcCount,
     byRoom: rooms.map((room) => ({ roomId: room.roomId, count: room.items.length }))
   });
 
@@ -1525,9 +1557,10 @@ function bindEvents() {
   });
 
   if (el.resetButton) {
-    el.resetButton.addEventListener('click', () => {
-      bootstrapMockData();
-      showToast('Demo reset', 'ok');
+    el.resetButton.addEventListener('click', async () => {
+      await bootstrapFromDb();
+      const mode = state.dataSource === 'db' ? 'DB' : 'Mock';
+      showToast(`Demo reset (${mode} mode)`, state.dataSource === 'db' ? 'ok' : 'warn');
     });
   }
 
