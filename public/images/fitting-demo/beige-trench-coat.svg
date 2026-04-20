@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Beige Trench Coat">
+  <rect width="240" height="240" rx="20" fill="#fafaf9"/>
+  <path d="M84 56l20-10h32l20 10 16 42-14 8-6 84H88l-6-84-14-8z" fill="#e7dfcf" stroke="#cfc4ae" stroke-width="3"/>
+  <path d="M120 46v144" stroke="#b8ac96" stroke-width="3"/>
+  <rect x="96" y="116" width="48" height="10" rx="5" fill="#c4b79f"/>
+  <circle cx="110" cy="96" r="3" fill="#9f8f74"/>
+  <circle cx="130" cy="96" r="3" fill="#9f8f74"/>
+  <circle cx="110" cy="110" r="3" fill="#9f8f74"/>
+  <circle cx="130" cy="110" r="3" fill="#9f8f74"/>
+  <text x="120" y="220" text-anchor="middle" font-size="14" fill="#756852" font-family="Arial">Beige Trench Coat</text>
+</svg>

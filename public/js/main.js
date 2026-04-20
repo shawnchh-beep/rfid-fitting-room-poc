@@ -1,21 +1,28 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { navigate, onRouteChange, startRouter, getCurrentPath } from './router.js';
+import { setShellAuthVisibility, setShellViewByPath } from './app-shell.js';
+import { STORAGE_KEYS, readStorage, writeStorage, readJsonStorage, writeJsonStorage } from './state/storage.js';
+import { getAppState, setAppState } from './state/app-state.js';
+import { createSupabaseClient, getSupabaseClient, resetSupabaseClient } from './services/supabase-service.js';
 
-const STORAGE_KEY = 'rfid_poc_supabase_config_v1';
-const URL_KEY = 'supabaseUrl';
-const ANON_KEY = 'supabaseAnonKey';
-const LANG_KEY = 'rfid_poc_lang_v1';
-const MODE_KEY = 'rfid_poc_mode_v1';
-const OVERSTAY_DEMO_KEY = 'rfid_poc_overstay_demo_minutes_v1';
-const OVERSTAY_OPERATIONAL_KEY = 'rfid_poc_overstay_operational_minutes_v1';
-const API_TOKEN_KEY = 'rfid_poc_api_token_v1';
-const USER_ROLE_KEY = 'rfid_poc_user_role_v1';
-const SESSION_KEY = 'rfid_poc_login_session_v1';
+const STORAGE_KEY = STORAGE_KEYS.supabaseConfig;
+const URL_KEY = STORAGE_KEYS.supabaseUrl;
+const ANON_KEY = STORAGE_KEYS.supabaseAnonKey;
+const LANG_KEY = STORAGE_KEYS.lang;
+const MODE_KEY = STORAGE_KEYS.mode;
+const PRODUCT_SUMMARY_VIEW_KEY = STORAGE_KEYS.productSummaryView;
+const OVERSTAY_DEMO_KEY = STORAGE_KEYS.overstayDemoMinutes;
+const OVERSTAY_OPERATIONAL_KEY = STORAGE_KEYS.overstayOperationalMinutes;
+const API_TOKEN_KEY = STORAGE_KEYS.apiToken;
+const USER_ROLE_KEY = STORAGE_KEYS.userRole;
+const SESSION_KEY = STORAGE_KEYS.session;
 const USER_ROLE_DEFAULT = 'trial';
 const USER_ROLE_OPTIONS = ['trial', 'user', 'admin'];
 const DEFAULT_SUPABASE_URL = 'https://trgxtbqjkhydvbfndmhk.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_RjeQR-HU84MRCpByTqZlxg_lwJHStMP';
 const DEFAULT_LANG = 'en';
 const DEFAULT_MODE = 'demo';
+const DEFAULT_PRODUCT_SUMMARY_VIEW = 'nested';
+const PRODUCT_SUMMARY_VIEWS = ['sku', 'nested'];
 const MODE_DEFAULT_THRESHOLDS = {
   demo: 15,
   operational: 10
@@ -53,6 +60,8 @@ let currentMode = DEFAULT_MODE;
 let dragProductKey = null;
 const localLaneOverrides = new Map();
 let lastRenderContext = null;
+let lastSkuSummary = { rows: [], conflicts: [] };
+let currentProductSummaryView = DEFAULT_PRODUCT_SUMMARY_VIEW;
 
 const el = {
   loginView: document.getElementById('loginView'),
@@ -120,6 +129,11 @@ const el = {
   kpiTodaySales: document.getElementById('kpiTodaySales'),
   kpiConversionRate: document.getElementById('kpiConversionRate'),
   productSkuSummary: document.getElementById('productSkuSummary'),
+  productSummaryViewSku: document.getElementById('productSummaryViewSku'),
+  productSummaryViewNested: document.getElementById('productSummaryViewNested'),
+  productStyleNoFilter: document.getElementById('productStyleNoFilter'),
+  productItemNoFilter: document.getElementById('productItemNoFilter'),
+  productFilterReset: document.getElementById('productFilterReset'),
   restockList: document.getElementById('restockList'),
   modeSelect: document.getElementById('modeSelect'),
   overstayThresholdMinutes: document.getElementById('overstayThresholdMinutes'),
@@ -167,10 +181,12 @@ const I18N = {
     'dashboard.refresh': 'Refresh',
     'dashboard.empty': 'No data',
     'dashboard.unnamedProduct': 'Unnamed Product',
-    'product.summary.title': 'Products by SKU',
-    'product.summary.desc': 'Click each SKU row to expand all items, EPC and current location',
+    'product.summary.title': 'Product Inventory',
+    'product.summary.desc': 'Review style summaries first, then drill down to color groups, SKU rows, and EPC details.',
     'product.summary.empty': 'No product items found',
     'product.summary.sku': 'SKU',
+    'product.summary.styleNo': 'Style No',
+    'product.summary.itemNoCode': 'Item No',
     'product.summary.productName': 'Product Name',
     'product.summary.size': 'Size',
     'product.summary.color': 'Color',
@@ -187,6 +203,23 @@ const I18N = {
     'product.summary.conflictTitle': 'SKU data conflicts detected',
     'product.summary.conflictItem': 'SKU {sku} / {field}: {values}',
     'product.summary.errorValue': 'ERROR',
+    'product.summary.filter.styleNo': 'Style No',
+    'product.summary.filter.itemNo': 'Item No',
+    'product.summary.filter.reset': 'Clear Filters',
+    'product.summary.view.label': 'View',
+    'product.summary.view.sku': 'SKU View',
+    'product.summary.view.nested': 'Nested View',
+    'product.summary.nested.items': 'SKU Rows',
+    'product.summary.colorCount': 'Color Count',
+    'product.summary.skuCount': 'SKU Count',
+    'product.summary.priceRange': 'Price Range',
+    'product.summary.sizeCount': 'Size Count',
+    'product.summary.epcCount': 'EPC Count',
+    'product.summary.viewEpcs': 'View EPCs',
+    'product.summary.lowStock': 'Low Stock',
+    'product.summary.status': 'Status',
+    'product.summary.lastSeen': 'Last Seen',
+    'product.summary.styleCardFallback': 'Style Summary',
     'dashboard.sku': 'SKU',
     'dashboard.epc': 'EPC',
     'dashboard.gtinSegment': 'GTIN Segment',
@@ -244,7 +277,7 @@ const I18N = {
     'import.notStarted': 'Not imported yet',
     'importGrouped.title': 'Grouped CSV Import (Auto SGTIN-96)',
     'importGrouped.fieldsHint': 'Fields:',
-    'importGrouped.specHint': 'Required columns: sku_ean13, product_name, color, size, quantity, price_usd',
+    'importGrouped.specHint': 'Required columns: style_no, item_no, sku_ean13, product_name, color, size, quantity, price_usd',
     'importGrouped.partitionLabel': 'Partition',
     'importGrouped.filterLabel': 'Filter',
     'importGrouped.previewTitle': 'Validation & Preview',
@@ -258,6 +291,8 @@ const I18N = {
     'importGrouped.preview.line': 'Line',
     'importGrouped.preview.sku': 'SKU (EAN13)',
     'importGrouped.preview.productName': 'Product Name',
+    'importGrouped.preview.styleNo': 'Style No',
+    'importGrouped.preview.itemNo': 'Item No',
     'importGrouped.preview.color': 'Color',
     'importGrouped.preview.size': 'Size',
     'importGrouped.preview.price': 'Price',
@@ -368,10 +403,12 @@ const I18N = {
     'dashboard.refresh': '手動刷新',
     'dashboard.empty': '無資料',
     'dashboard.unnamedProduct': '未命名商品',
-    'product.summary.title': 'SKU 商品總覽',
-    'product.summary.desc': '點擊各 SKU 列可展開查看所有 item 的 EPC 與目前位置',
+    'product.summary.title': '商品庫存總覽',
+    'product.summary.desc': '先查看款式摘要，再往下檢視顏色群組、SKU 列與 EPC 明細。',
     'product.summary.empty': '目前無商品資料',
     'product.summary.sku': 'SKU',
+    'product.summary.styleNo': '款號',
+    'product.summary.itemNoCode': '貨號',
     'product.summary.productName': '產品名稱',
     'product.summary.size': '尺寸',
     'product.summary.color': '顏色',
@@ -388,6 +425,23 @@ const I18N = {
     'product.summary.conflictTitle': '偵測到 SKU 資料衝突',
     'product.summary.conflictItem': 'SKU {sku} / {field}：{values}',
     'product.summary.errorValue': 'ERROR',
+    'product.summary.filter.styleNo': '款號',
+    'product.summary.filter.itemNo': '貨號',
+    'product.summary.filter.reset': '清除篩選',
+    'product.summary.view.label': '顯示模式',
+    'product.summary.view.sku': 'SKU 檢視',
+    'product.summary.view.nested': '巢狀檢視',
+    'product.summary.nested.items': 'SKU 筆數',
+    'product.summary.colorCount': '顏色數',
+    'product.summary.skuCount': 'SKU 數',
+    'product.summary.priceRange': '價格區間',
+    'product.summary.sizeCount': '尺寸數',
+    'product.summary.epcCount': 'EPC 數',
+    'product.summary.viewEpcs': '查看 EPC',
+    'product.summary.lowStock': '低庫存',
+    'product.summary.status': '狀態',
+    'product.summary.lastSeen': '最後偵測',
+    'product.summary.styleCardFallback': '款式摘要',
     'dashboard.gtinSegment': 'GTIN片段',
     'dashboard.price': '價格',
     'dashboard.description': '描述',
@@ -443,7 +497,7 @@ const I18N = {
     'import.notStarted': '尚未導入',
     'importGrouped.title': 'Grouped CSV 導入（自動產生 SGTIN-96）',
     'importGrouped.fieldsHint': '欄位：',
-    'importGrouped.specHint': '必要欄位：sku_ean13、product_name、color、size、quantity、price_usd',
+    'importGrouped.specHint': '必要欄位：style_no、item_no、sku_ean13、product_name、color、size、quantity、price_usd',
     'importGrouped.partitionLabel': 'Partition',
     'importGrouped.filterLabel': 'Filter',
     'importGrouped.previewTitle': '驗證與預覽',
@@ -457,6 +511,8 @@ const I18N = {
     'importGrouped.preview.line': '行號',
     'importGrouped.preview.sku': 'SKU（EAN13）',
     'importGrouped.preview.productName': '產品名稱',
+    'importGrouped.preview.styleNo': '款號',
+    'importGrouped.preview.itemNo': '貨號',
     'importGrouped.preview.color': '顏色',
     'importGrouped.preview.size': '尺寸',
     'importGrouped.preview.price': '價格',
@@ -545,6 +601,8 @@ const I18N = {
     'product.summary.desc': '点击各 SKU 行可展开查看所有 item 的 EPC 与当前位置',
     'product.summary.empty': '当前无商品数据',
     'product.summary.sku': 'SKU',
+    'product.summary.styleNo': '款号',
+    'product.summary.itemNoCode': '货号',
     'product.summary.productName': '产品名称',
     'product.summary.size': '尺码',
     'product.summary.color': '颜色',
@@ -560,6 +618,13 @@ const I18N = {
     'product.summary.conflictTitle': '检测到 SKU 数据冲突',
     'product.summary.conflictItem': 'SKU {sku} / {field}：{values}',
     'product.summary.errorValue': 'ERROR',
+    'product.summary.filter.styleNo': '款号',
+    'product.summary.filter.itemNo': '货号',
+    'product.summary.filter.reset': '清除筛选',
+    'product.summary.view.label': '显示模式',
+    'product.summary.view.sku': 'SKU 视图',
+    'product.summary.view.nested': '嵌套视图',
+    'product.summary.nested.items': 'SKU 行数',
     'dashboard.abnormalStay': '异常停留',
     'import.title': 'CSV 批量导入商品',
     'import.fieldsHint': '字段：',
@@ -567,7 +632,7 @@ const I18N = {
     'import.notStarted': '尚未导入',
     'importGrouped.title': 'Grouped CSV 导入（自动生成 SGTIN-96）',
     'importGrouped.fieldsHint': '字段：',
-    'importGrouped.specHint': '必要字段：sku_ean13、product_name、color、size、quantity、price_usd',
+    'importGrouped.specHint': '必要字段：style_no、item_no、sku_ean13、product_name、color、size、quantity、price_usd',
     'importGrouped.partitionLabel': 'Partition',
     'importGrouped.filterLabel': 'Filter',
     'importGrouped.previewTitle': '校验与预览',
@@ -581,6 +646,8 @@ const I18N = {
     'importGrouped.preview.line': '行号',
     'importGrouped.preview.sku': 'SKU（EAN13）',
     'importGrouped.preview.productName': '产品名称',
+    'importGrouped.preview.styleNo': '款号',
+    'importGrouped.preview.itemNo': '货号',
     'importGrouped.preview.color': '颜色',
     'importGrouped.preview.size': '尺码',
     'importGrouped.preview.price': '价格',
@@ -649,6 +716,8 @@ const I18N = {
     'product.summary.desc': 'SKU 行をクリックすると item の EPC と現在位置を展開表示します',
     'product.summary.empty': '商品データがありません',
     'product.summary.sku': 'SKU',
+    'product.summary.styleNo': 'Style No',
+    'product.summary.itemNoCode': 'Item No',
     'product.summary.productName': '商品名',
     'product.summary.size': 'サイズ',
     'product.summary.color': 'カラー',
@@ -664,6 +733,13 @@ const I18N = {
     'product.summary.conflictTitle': 'SKU データの不整合を検出しました',
     'product.summary.conflictItem': 'SKU {sku} / {field}: {values}',
     'product.summary.errorValue': 'ERROR',
+    'product.summary.filter.styleNo': 'Style No',
+    'product.summary.filter.itemNo': 'Item No',
+    'product.summary.filter.reset': 'フィルター解除',
+    'product.summary.view.label': '表示モード',
+    'product.summary.view.sku': 'SKU ビュー',
+    'product.summary.view.nested': 'ネストビュー',
+    'product.summary.nested.items': 'SKU 行数',
     'dashboard.abnormalStay': '異常滞在',
     'import.title': 'CSV 商品一括インポート',
     'import.fieldsHint': '項目:',
@@ -671,7 +747,7 @@ const I18N = {
     'import.notStarted': '未インポート',
     'importGrouped.title': 'Grouped CSV インポート（SGTIN-96 自動生成）',
     'importGrouped.fieldsHint': '項目：',
-    'importGrouped.specHint': '必須列：sku_ean13、product_name、color、size、quantity、price_usd',
+    'importGrouped.specHint': '必須列：style_no、item_no、sku_ean13、product_name、color、size、quantity、price_usd',
     'importGrouped.partitionLabel': 'Partition',
     'importGrouped.filterLabel': 'Filter',
     'importGrouped.previewTitle': '検証とプレビュー',
@@ -685,6 +761,8 @@ const I18N = {
     'importGrouped.preview.line': '行番号',
     'importGrouped.preview.sku': 'SKU（EAN13）',
     'importGrouped.preview.productName': '商品名',
+    'importGrouped.preview.styleNo': 'Style No',
+    'importGrouped.preview.itemNo': 'Item No',
     'importGrouped.preview.color': 'カラー',
     'importGrouped.preview.size': 'サイズ',
     'importGrouped.preview.price': '価格',
@@ -753,65 +831,69 @@ function applyI18nToStaticText() {
 }
 
 function getCurrentLang() {
-  const stored = localStorage.getItem(LANG_KEY) || DEFAULT_LANG;
+  const stored = readStorage(LANG_KEY, DEFAULT_LANG);
   return SUPPORTED_LANGS.includes(stored) ? stored : DEFAULT_LANG;
 }
 
 function getCurrentMode() {
-  const stored = localStorage.getItem(MODE_KEY) || DEFAULT_MODE;
+  const stored = readStorage(MODE_KEY, DEFAULT_MODE);
   return SUPPORTED_MODES.includes(stored) ? stored : DEFAULT_MODE;
 }
 
+function getCurrentProductSummaryView() {
+  const stored = readStorage(PRODUCT_SUMMARY_VIEW_KEY, DEFAULT_PRODUCT_SUMMARY_VIEW);
+  return PRODUCT_SUMMARY_VIEWS.includes(stored) ? stored : DEFAULT_PRODUCT_SUMMARY_VIEW;
+}
+
 function getSession() {
-  const raw = localStorage.getItem(SESSION_KEY);
+  const raw = readStorage(SESSION_KEY, null);
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
     if (!parsed?.token || !parsed?.role || !parsed?.expiresAt) return null;
     if (!parsed?.supabaseAccessToken || !parsed?.supabaseTokenExpiresAt) {
-      localStorage.removeItem(SESSION_KEY);
+      writeStorage(SESSION_KEY, null);
       return null;
     }
     if (Date.parse(parsed.expiresAt) <= Date.now()) {
-      localStorage.removeItem(SESSION_KEY);
+      writeStorage(SESSION_KEY, null);
       return null;
     }
     if (Date.parse(parsed.supabaseTokenExpiresAt) <= Date.now()) {
-      localStorage.removeItem(SESSION_KEY);
+      writeStorage(SESSION_KEY, null);
       return null;
     }
     return parsed;
   } catch {
-    localStorage.removeItem(SESSION_KEY);
+    writeStorage(SESSION_KEY, null);
     return null;
   }
 }
 
 function setSession(session) {
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  writeJsonStorage(SESSION_KEY, session);
 }
 
 function clearSession() {
-  localStorage.removeItem(SESSION_KEY);
+  writeStorage(SESSION_KEY, null);
 }
 
 function setAppVisibility(isAuthenticated) {
-  if (el.loginView) el.loginView.hidden = isAuthenticated;
-  if (el.appShell) el.appShell.hidden = !isAuthenticated;
+  setShellAuthVisibility(isAuthenticated);
 }
 
 function setMainView(view) {
-  const target = view === 'dashboard' ? 'dashboard' : 'home';
-  if (el.homeView) el.homeView.hidden = target !== 'home';
-  if (el.dashboardView) el.dashboardView.hidden = target !== 'dashboard';
+  const targetPath = view === 'dashboard' ? '/dashboard' : '/';
+  setShellViewByPath(targetPath);
+  syncTopNavActiveState(targetPath);
 }
 
 function navigateToDashboard() {
-  setMainView('dashboard');
+  navigate('/dashboard');
 }
 
 function navigateToHome() {
-  setMainView('home');
+  navigate('/');
 }
 
 async function handleLoginSubmit(event) {
@@ -862,16 +944,16 @@ async function handleLoginSubmit(event) {
     };
 
     setSession(mergedSession);
-    localStorage.setItem(USER_ROLE_KEY, normalizeUserRole(mergedSession.role));
+    writeStorage(USER_ROLE_KEY, normalizeUserRole(mergedSession.role));
     setAppVisibility(true);
-    navigateToHome();
+    navigate('/');
 
     if (el.userRole) {
       el.userRole.value = normalizeUserRole(mergedSession.role);
     }
 
-    const url = localStorage.getItem(URL_KEY) || DEFAULT_SUPABASE_URL;
-    const anonKey = localStorage.getItem(ANON_KEY) || DEFAULT_SUPABASE_ANON_KEY;
+    const url = readStorage(URL_KEY, DEFAULT_SUPABASE_URL);
+    const anonKey = readStorage(ANON_KEY, DEFAULT_SUPABASE_ANON_KEY);
     if (el.supabaseUrl) el.supabaseUrl.value = url;
     if (el.supabaseAnonKey) el.supabaseAnonKey.value = anonKey;
 
@@ -895,8 +977,10 @@ function handleLogout() {
     subscription = null;
   }
   supabase = null;
+  resetSupabaseClient();
+  setAppState({ session: null, supabaseClient: null, connectionStatus: 'idle' });
   setAppVisibility(false);
-  setMainView('home');
+  navigate('/', { replace: true });
   if (el.loginPassword) el.loginPassword.value = '';
   if (el.loginError) {
     el.loginError.hidden = true;
@@ -910,14 +994,14 @@ function modeThresholdStorageKey(mode) {
 
 function getModeThresholdMinutes(mode) {
   const fallback = MODE_DEFAULT_THRESHOLDS[mode] || MODE_DEFAULT_THRESHOLDS.demo;
-  const raw = Number(localStorage.getItem(modeThresholdStorageKey(mode)));
+  const raw = Number(readStorage(modeThresholdStorageKey(mode), ''));
   if (!Number.isFinite(raw) || raw < 1) return fallback;
   return Math.floor(raw);
 }
 
 function setModeThresholdMinutes(mode, minutes) {
   const safe = Math.max(1, Math.floor(Number(minutes) || 1));
-  localStorage.setItem(modeThresholdStorageKey(mode), String(safe));
+  writeStorage(modeThresholdStorageKey(mode), String(safe));
 }
 
 function getCurrentOverstayThresholdMinutes() {
@@ -932,6 +1016,31 @@ function applyModeUiFromState() {
   if (el.modeSelect) el.modeSelect.value = currentMode;
   if (el.overstayThresholdMinutes) {
     el.overstayThresholdMinutes.value = String(getCurrentOverstayThresholdMinutes());
+  }
+}
+
+function applyProductSummaryViewUi() {
+  const isSku = currentProductSummaryView === 'sku';
+  if (el.productSummaryViewSku) {
+    el.productSummaryViewSku.classList.toggle('is-active', isSku);
+    el.productSummaryViewSku.setAttribute('aria-pressed', isSku ? 'true' : 'false');
+  }
+  if (el.productSummaryViewNested) {
+    el.productSummaryViewNested.classList.toggle('is-active', !isSku);
+    el.productSummaryViewNested.setAttribute('aria-pressed', isSku ? 'false' : 'true');
+  }
+}
+
+function setProductSummaryView(nextView, options = {}) {
+  const { persist = true, rerender = true } = options;
+  const view = PRODUCT_SUMMARY_VIEWS.includes(nextView) ? nextView : DEFAULT_PRODUCT_SUMMARY_VIEW;
+  currentProductSummaryView = view;
+  if (persist) {
+    writeStorage(PRODUCT_SUMMARY_VIEW_KEY, currentProductSummaryView);
+  }
+  applyProductSummaryViewUi();
+  if (rerender) {
+    renderProductSkuSummary(lastSkuSummary);
   }
 }
 
@@ -952,11 +1061,11 @@ function populateLanguageSelect() {
   el.languageSelect.value = currentLang;
 }
 
-function syncTopNavActiveState() {
+function syncTopNavActiveState(pathname = window.location.pathname) {
   const navLinks = Array.from(document.querySelectorAll('.top-nav-link'));
   if (!navLinks.length) return;
 
-  const currentPath = window.location.pathname;
+  const currentPath = String(pathname || '/');
   navLinks.forEach((link) => {
     const href = link.getAttribute('href') || '';
     const url = new URL(href, window.location.origin);
@@ -1024,24 +1133,33 @@ function closeDemoControls() {
 }
 
 function handleHomeCardNavigation(type) {
+  console.info('[nav] home card navigation', {
+    type,
+    fromPath: window.location.pathname,
+    at: new Date().toISOString()
+  });
   if (type === 'dashboard') {
-    navigateToDashboard();
+    navigate('/dashboard');
     return;
   }
   if (type === 'fittingDemo') {
-    window.location.href = '/product.html';
+    console.info('[nav] redirect to fitting-demo', {
+      to: '/fitting-demo.html',
+      fromPath: window.location.pathname
+    });
+    window.location.href = '/fitting-demo.html';
     return;
   }
   if (type === 'product') {
-    window.location.href = '/product.html';
+    navigate('/product');
     return;
   }
   if (type === 'setting') {
-    window.location.href = '/setting';
+    navigate('/setting');
     return;
   }
   if (type === 'csv') {
-    window.location.href = '/csv-import.html';
+    navigate('/csv-import');
   }
 }
 
@@ -1320,8 +1438,8 @@ function isValidEpcData(value) {
 }
 
 function getApiAuthHeaders() {
-  const apiToken = (localStorage.getItem(API_TOKEN_KEY) || '').trim();
-  const userRole = normalizeUserRole(localStorage.getItem(USER_ROLE_KEY));
+  const apiToken = String(readStorage(API_TOKEN_KEY, '') || '').trim();
+  const userRole = normalizeUserRole(readStorage(USER_ROLE_KEY, USER_ROLE_DEFAULT));
   const headers = {};
 
   if (apiToken) headers['x-api-token'] = apiToken;
@@ -1481,7 +1599,7 @@ function encodeSGTIN96({ companyPrefix, itemReference, serial, partition = 5, fi
 
 function groupedCsvToRows(text) {
   const rows = csvToRows(text);
-  const required = ['sku_ean13', 'product_name', 'color', 'size', 'quantity', 'price_usd'];
+  const required = ['style_no', 'item_no', 'sku_ean13', 'product_name', 'color', 'size', 'quantity', 'price_usd'];
   rows.forEach((row) => {
     required.forEach((field) => {
       if (!(field in row)) {
@@ -1593,6 +1711,8 @@ async function previewGroupedCsvFile() {
     const serialEnd = expandedRows > 0 ? (serialStart + expandedRows - 1) : null;
     const conflicts = detectGroupedCsvSkuConflicts(groupedRows);
     const detailRows = groupedRows.slice(0, 50);
+    const uniqueStyles = new Set(groupedRows.map((row) => String(row.style_no || '').trim()).filter(Boolean));
+    const uniqueItems = new Set(groupedRows.map((row) => String(row.item_no || '').trim()).filter(Boolean));
 
     const validationRows = [];
     groupedRows.forEach((row) => {
@@ -1610,6 +1730,8 @@ async function previewGroupedCsvFile() {
         product_name: String(row.product_name || '').trim(),
         name_en: String(row.product_name || '').trim(),
         sku: ean13,
+        style_no: String(row.style_no || '').trim(),
+        item_no: String(row.item_no || '').trim(),
         size: String(row.size || '').trim(),
         color: String(row.color || '').trim(),
         price
@@ -1639,6 +1761,8 @@ async function previewGroupedCsvFile() {
     const summaryRows = [
       ['file_name', file.name],
       ['grouped_rows', String(groupedRows.length)],
+      ['style_rows', String(uniqueStyles.size)],
+      ['item_rows', String(uniqueItems.size)],
       ['expanded_rows', String(expandedRows)],
       ['partition', String(partition)],
       ['filter', String(filter)],
@@ -1699,6 +1823,8 @@ async function previewGroupedCsvFile() {
           <thead>
             <tr>
               <th>${escapeHtml(t('importGrouped.preview.line'))}</th>
+              <th>${escapeHtml(t('importGrouped.preview.styleNo'))}</th>
+              <th>${escapeHtml(t('importGrouped.preview.itemNo'))}</th>
               <th>${escapeHtml(t('importGrouped.preview.sku'))}</th>
               <th>${escapeHtml(t('importGrouped.preview.productName'))}</th>
               <th>${escapeHtml(t('importGrouped.preview.color'))}</th>
@@ -1711,6 +1837,8 @@ async function previewGroupedCsvFile() {
             ${detailRows.map((row) => `
               <tr>
                 <td>${escapeHtml(String(row.__line ?? '-'))}</td>
+                <td>${escapeHtml(String(row.style_no || ''))}</td>
+                <td>${escapeHtml(String(row.item_no || ''))}</td>
                 <td>${escapeHtml(String(row.sku_ean13 || ''))}</td>
                 <td>${escapeHtml(String(row.product_name || ''))}</td>
                 <td>${escapeHtml(String(row.color || ''))}</td>
@@ -1821,10 +1949,10 @@ async function handleGroupedCsvImport(event) {
     hasFileInput: !!el.groupedCsvFile,
     hasResultBox: !!el.groupedImportResult,
     fileSelected: !!el.groupedCsvFile?.files?.[0],
-    role: normalizeUserRole(localStorage.getItem(USER_ROLE_KEY))
+    role: normalizeUserRole(readStorage(USER_ROLE_KEY, USER_ROLE_DEFAULT))
   });
 
-  const currentRole = normalizeUserRole(localStorage.getItem(USER_ROLE_KEY));
+  const currentRole = normalizeUserRole(readStorage(USER_ROLE_KEY, USER_ROLE_DEFAULT));
   if (currentRole === 'trial') {
     console.warn('[grouped-import] blocked by role policy', {
       at: new Date().toISOString(),
@@ -1879,6 +2007,8 @@ async function handleGroupedCsvImport(event) {
           product_name: String(row.product_name || '').trim(),
           name_en: String(row.product_name || '').trim(),
           sku: ean13,
+          style_no: String(row.style_no || '').trim(),
+          item_no: String(row.item_no || '').trim(),
           size: String(row.size || '').trim(),
           color: String(row.color || '').trim(),
           price: price
@@ -2097,6 +2227,8 @@ function buildSkuSummaryRows(products = [], events = [], presenceRows = [], inve
     : (products || []).map((product) => ({
       epc_data: product?.epc_data || product?.epc,
       product_id: product?.id,
+      style_no: resolveSkuValue(product?.style_no),
+      item_no: resolveSkuValue(product?.item_no),
       sku: resolveSkuValue(product?.sku),
       __fromProductsFallback: true
     }));
@@ -2117,6 +2249,8 @@ function buildSkuSummaryRows(products = [], events = [], presenceRows = [], inve
   sourceRows.forEach((item, index) => {
     const epc = String(item?.epc_data || '').trim();
     const product = productById.get(item?.product_id) || null;
+    const styleNo = resolveSkuValue(item?.style_no, product?.style_no, product?.sku);
+    const itemNo = resolveSkuValue(item?.item_no, item?.sku, product?.item_no, product?.sku);
     const rawItemSku = resolveSkuValue(item?.sku);
     const rawProductSku = resolveSkuValue(product?.sku);
     const sku = resolveSkuValue(rawItemSku, rawProductSku, t('product.summary.skuUnknown'));
@@ -2129,7 +2263,7 @@ function buildSkuSummaryRows(products = [], events = [], presenceRows = [], inve
       skuResolutionStats.unknownSku += 1;
     }
 
-    const identity = epc || `${item?.product_id || 'no_product'}::${sku}::${index}`;
+    const identity = epc || `${item?.product_id || 'no_product'}::${itemNo || sku}::${index}`;
     if (seenIdentity.has(identity)) return;
     seenIdentity.add(identity);
 
@@ -2141,9 +2275,14 @@ function buildSkuSummaryRows(products = [], events = [], presenceRows = [], inve
       : { state: String(item?.status || '').toUpperCase() === 'SOLD' ? 'SOLD' : 'UNKNOWN' };
     const location = STATES.includes(state) ? state : 'UNKNOWN';
 
-    if (!skuMap.has(sku)) {
-      skuMap.set(sku, {
+    // 以 SKU 作為聚合主鍵，避免同 item_no 下不同尺寸（不同 SKU）被誤合併。
+    // 若 SKU 缺失才回退 itemNo，最後才使用 EPC/索引確保不會全部擠成同一桶。
+    const bucketKey = rawItemSku || rawProductSku || itemNo || `UNKNOWN::${epc || index}`;
+    if (!skuMap.has(bucketKey)) {
+      skuMap.set(bucketKey, {
         sku,
+        styleNo,
+        itemNo,
         productNameCandidates: new Set(),
         sizeCandidates: new Set(),
         colorCandidates: new Set(),
@@ -2155,7 +2294,7 @@ function buildSkuSummaryRows(products = [], events = [], presenceRows = [], inve
       });
     }
 
-    const bucket = skuMap.get(sku);
+    const bucket = skuMap.get(bucketKey);
     const productName = normalizeSummaryField(
       product?.display_name || product?.name_en || product?.name || item?.name_en || item?.product_name
     );
@@ -2214,9 +2353,18 @@ function buildSkuSummaryRows(products = [], events = [], presenceRows = [], inve
   };
 
   const rows = [...skuMap.values()]
-    .sort((a, b) => String(a.sku).localeCompare(String(b.sku)))
+    .sort((a, b) => {
+      const aStyle = String(a.styleNo || '');
+      const bStyle = String(b.styleNo || '');
+      if (aStyle !== bStyle) return aStyle.localeCompare(bStyle);
+      const aItem = String(a.itemNo || a.sku || '');
+      const bItem = String(b.itemNo || b.sku || '');
+      return aItem.localeCompare(bItem);
+    })
     .map((row) => ({
       sku: row.sku,
+      styleNo: row.styleNo || '-',
+      itemNo: row.itemNo || '-',
       productName: resolveDisplayValue(row.productNameCandidates, row.sku, 'product.summary.productName'),
       size: resolveDisplayValue(row.sizeCandidates, row.sku, 'product.summary.size'),
       color: resolveDisplayValue(row.colorCandidates, row.sku, 'product.summary.color'),
@@ -2249,45 +2397,50 @@ function buildSkuSummaryRows(products = [], events = [], presenceRows = [], inve
   return { rows, conflicts };
 }
 
-function renderProductSkuSummary(summarySummary = { rows: [], conflicts: [] }) {
-  if (!el.productSkuSummary) return;
+function formatSummaryPriceDisplay(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return '-';
+  if (text === '-' || text === t('product.summary.errorValue')) return text;
+  const num = Number(text);
+  if (!Number.isFinite(num)) return text;
+  return `$${num.toFixed(2)}`;
+}
 
-  const formatPriceDisplay = (value) => {
-    const text = String(value ?? '').trim();
-    if (!text) return '-';
-    if (text === '-' || text === t('product.summary.errorValue')) return text;
-    const num = Number(text);
-    if (!Number.isFinite(num)) return text;
-    return `$${num.toFixed(2)}`;
-  };
-
-  const summaryRows = Array.isArray(summarySummary)
+function getFilteredSummaryRows(summarySummary = { rows: [], conflicts: [] }) {
+  const summaryRowsRaw = Array.isArray(summarySummary)
     ? summarySummary
     : (Array.isArray(summarySummary?.rows) ? summarySummary.rows : []);
-  const conflicts = Array.isArray(summarySummary?.conflicts) ? summarySummary.conflicts : [];
+  const styleFilter = String(el.productStyleNoFilter?.value || '').trim().toLowerCase();
+  const itemFilter = String(el.productItemNoFilter?.value || '').trim().toLowerCase();
+  return summaryRowsRaw.filter((row) => {
+    const styleNo = String(row?.styleNo || '').toLowerCase();
+    const itemNo = String(row?.itemNo || '').toLowerCase();
+    const sku = String(row?.sku || '').toLowerCase();
+    const passStyle = !styleFilter || styleNo.includes(styleFilter);
+    const passItem = !itemFilter || itemNo.includes(itemFilter) || sku.includes(itemFilter);
+    return passStyle && passItem;
+  });
+}
 
-  if (!Array.isArray(summaryRows) || summaryRows.length === 0) {
-    el.productSkuSummary.innerHTML = `<p class="hint">${escapeHtml(t('product.summary.empty'))}</p>`;
-    return;
-  }
+function renderProductSummaryConflicts(conflicts = []) {
+  if (!Array.isArray(conflicts) || conflicts.length === 0) return '';
+  return `
+    <div class="product-sku-conflicts" role="alert">
+      <strong>${escapeHtml(t('product.summary.conflictTitle'))}</strong>
+      <ul>
+        ${conflicts.map((conflict) => `
+          <li>${escapeHtml(t('product.summary.conflictItem', {
+            sku: conflict.sku,
+            field: t(conflict.field),
+            values: conflict.candidates.join(', ')
+          }))}</li>
+        `).join('')}
+      </ul>
+    </div>
+  `;
+}
 
-  const conflictHtml = conflicts.length > 0
-    ? `
-      <div class="product-sku-conflicts" role="alert">
-        <strong>${escapeHtml(t('product.summary.conflictTitle'))}</strong>
-        <ul>
-          ${conflicts.map((conflict) => `
-            <li>${escapeHtml(t('product.summary.conflictItem', {
-              sku: conflict.sku,
-              field: t(conflict.field),
-              values: conflict.candidates.join(', ')
-            }))}</li>
-          `).join('')}
-        </ul>
-      </div>
-    `
-    : '';
-
+function renderLegacySkuSummary(summaryRows = [], conflictHtml = '') {
   const cardsHtml = summaryRows
     .map((row) => {
       const detailRows = row.items
@@ -2303,11 +2456,13 @@ function renderProductSkuSummary(summarySummary = { rows: [], conflicts: [] }) {
       return `
         <details class="product-sku-card">
           <summary class="product-sku-summary-row">
+            <span class="product-sku-col">${escapeHtml(row.styleNo)}</span>
+            <span class="product-sku-col">${escapeHtml(row.itemNo)}</span>
             <span class="product-sku-col product-sku-col--sku">${escapeHtml(row.sku)}</span>
             <span class="product-sku-col">${escapeHtml(row.productName)}</span>
             <span class="product-sku-col">${escapeHtml(row.size)}</span>
             <span class="product-sku-col">${escapeHtml(row.color)}</span>
-            <span class="product-sku-col">${escapeHtml(formatPriceDisplay(row.price))}</span>
+            <span class="product-sku-col">${escapeHtml(formatSummaryPriceDisplay(row.price))}</span>
             <span class="product-sku-col">${escapeHtml(String(row.inventoryCount))}</span>
             <span class="product-sku-col">${escapeHtml(String(row.soldCount))}</span>
             <span class="product-sku-col">${escapeHtml(String(row.totalCount))}</span>
@@ -2331,9 +2486,11 @@ function renderProductSkuSummary(summarySummary = { rows: [], conflicts: [] }) {
     })
     .join('');
 
-  el.productSkuSummary.innerHTML = `
+  return `
     ${conflictHtml}
     <div class="product-sku-head" role="row">
+      <span class="product-sku-col">${escapeHtml(t('product.summary.styleNo'))}</span>
+      <span class="product-sku-col">${escapeHtml(t('product.summary.itemNoCode'))}</span>
       <span class="product-sku-col product-sku-col--sku">${escapeHtml(t('product.summary.sku'))}</span>
       <span class="product-sku-col">${escapeHtml(t('product.summary.productName'))}</span>
       <span class="product-sku-col">${escapeHtml(t('product.summary.size'))}</span>
@@ -2345,6 +2502,277 @@ function renderProductSkuSummary(summarySummary = { rows: [], conflicts: [] }) {
     </div>
     ${cardsHtml}
   `;
+}
+
+function compareSummarySize(a, b) {
+  const order = ['XS', 'S', 'M', 'L', 'XL'];
+  const map = new Map(order.map((size, idx) => [size, idx]));
+  const left = String(a || '').trim().toUpperCase();
+  const right = String(b || '').trim().toUpperCase();
+  const leftRank = map.has(left) ? map.get(left) : Number.POSITIVE_INFINITY;
+  const rightRank = map.has(right) ? map.get(right) : Number.POSITIVE_INFINITY;
+  if (leftRank !== rightRank) return leftRank - rightRank;
+  return left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' });
+}
+
+function parseSummaryPrice(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function inferColorSwatchHex(colorName = '') {
+  const key = String(colorName || '').trim().toLowerCase();
+  if (!key || key === '-') return '#94A3B8';
+  if (key.includes('black')) return '#0F172A';
+  if (key.includes('white')) return '#E2E8F0';
+  if (key.includes('gray') || key.includes('grey')) return '#6B7280';
+  if (key.includes('navy')) return '#1E3A8A';
+  if (key.includes('blue')) return '#2563EB';
+  if (key.includes('red')) return '#DC2626';
+  if (key.includes('green')) return '#16A34A';
+  if (key.includes('yellow')) return '#D97706';
+  if (key.includes('beige') || key.includes('khaki')) return '#BFA77A';
+  if (key.includes('brown')) return '#92400E';
+  if (key.includes('pink')) return '#EC4899';
+  if (key.includes('purple') || key.includes('violet')) return '#7C3AED';
+  return '#64748B';
+}
+
+function buildPriceRangeDisplay(minPrice, maxPrice) {
+  if (!Number.isFinite(minPrice) && !Number.isFinite(maxPrice)) return '-';
+  if (!Number.isFinite(minPrice)) return `$${maxPrice.toFixed(2)}`;
+  if (!Number.isFinite(maxPrice)) return `$${minPrice.toFixed(2)}`;
+  if (Math.abs(minPrice - maxPrice) < 0.00001) return `$${minPrice.toFixed(2)}`;
+  return `$${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}`;
+}
+
+function buildStyleHierarchyFromSummaryRows(summaryRows = []) {
+  const styleMap = new Map();
+  summaryRows.forEach((row) => {
+    const styleNo = String(row?.styleNo || '-');
+    const itemNo = String(row?.itemNo || '-');
+    const color = String(row?.color || '-');
+    const size = String(row?.size || '-');
+    const groupKey = `${itemNo}::${color}`;
+    const inventoryCount = Number(row?.inventoryCount || 0);
+    const soldCount = Number(row?.soldCount || 0);
+    const totalCount = Number(row?.totalCount || 0);
+    const parsedPrice = parseSummaryPrice(row?.price);
+
+    if (!styleMap.has(styleNo)) {
+      styleMap.set(styleNo, {
+        styleNo,
+        productName: String(row?.productName || '').trim() || t('product.summary.styleCardFallback'),
+        inventoryCount: 0,
+        soldCount: 0,
+        totalCount: 0,
+        colorsSet: new Set(),
+        skuCount: 0,
+        minPrice: Number.POSITIVE_INFINITY,
+        maxPrice: Number.NEGATIVE_INFINITY,
+        groups: new Map()
+      });
+    }
+
+    const styleNode = styleMap.get(styleNo);
+    if (String(styleNode.productName || '').trim() === t('product.summary.styleCardFallback') && String(row?.productName || '').trim() && row?.productName !== '-') {
+      styleNode.productName = String(row.productName);
+    }
+    styleNode.inventoryCount += inventoryCount;
+    styleNode.soldCount += soldCount;
+    styleNode.totalCount += totalCount;
+    styleNode.skuCount += 1;
+    if (color && color !== '-') styleNode.colorsSet.add(color);
+    if (Number.isFinite(parsedPrice)) {
+      styleNode.minPrice = Math.min(styleNode.minPrice, parsedPrice);
+      styleNode.maxPrice = Math.max(styleNode.maxPrice, parsedPrice);
+    }
+
+    if (!styleNode.groups.has(groupKey)) {
+      styleNode.groups.set(groupKey, {
+        itemNo,
+        color,
+        inventoryCount: 0,
+        soldCount: 0,
+        totalCount: 0,
+        sizes: new Set(),
+        skuRows: []
+      });
+    }
+    const groupNode = styleNode.groups.get(groupKey);
+    groupNode.inventoryCount += inventoryCount;
+    groupNode.soldCount += soldCount;
+    groupNode.totalCount += totalCount;
+    if (size && size !== '-') groupNode.sizes.add(size);
+    groupNode.skuRows.push({
+      ...row,
+      size,
+      epcCount: Array.isArray(row?.items) ? row.items.length : 0
+    });
+  });
+
+  return [...styleMap.values()]
+    .sort((a, b) => String(a.styleNo).localeCompare(String(b.styleNo), undefined, { numeric: true, sensitivity: 'base' }))
+    .map((styleNode) => ({
+      ...styleNode,
+      colorCount: styleNode.colorsSet.size,
+      priceRange: buildPriceRangeDisplay(styleNode.minPrice, styleNode.maxPrice),
+      groups: [...styleNode.groups.values()]
+        .sort((a, b) => {
+          const itemCmp = String(a.itemNo || '').localeCompare(String(b.itemNo || ''), undefined, { numeric: true, sensitivity: 'base' });
+          if (itemCmp !== 0) return itemCmp;
+          return String(a.color || '').localeCompare(String(b.color || ''), undefined, { numeric: true, sensitivity: 'base' });
+        })
+        .map((groupNode) => ({
+          ...groupNode,
+          sizeCount: groupNode.sizes.size,
+          skuRows: [...groupNode.skuRows].sort((left, right) => {
+            const sizeCmp = compareSummarySize(left.size, right.size);
+            if (sizeCmp !== 0) return sizeCmp;
+            return String(left.sku || '').localeCompare(String(right.sku || ''), undefined, { numeric: true, sensitivity: 'base' });
+          })
+        }))
+    }));
+}
+
+function renderEpcDetailRows(items = []) {
+  return (items || []).map((item, idx) => {
+    const location = STATES.includes(item.location) ? item.location : 'UNKNOWN';
+    const label = STATES.includes(location) ? t(`state.${location}`) : t('product.summary.locationUnknown');
+    return `
+      <tr>
+        <td>${idx + 1}</td>
+        <td><code>${escapeHtml(item.epc)}</code></td>
+        <td>${escapeHtml(label)}</td>
+        <td>${escapeHtml(label)}</td>
+        <td>-</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderNestedSkuSummary(summaryRows = [], conflictHtml = '') {
+  const LOW_STOCK_THRESHOLD = 3;
+  const styleNodes = buildStyleHierarchyFromSummaryRows(summaryRows);
+  const styleHtml = styleNodes
+    .map((styleNode) => {
+      const styleLabel = String(styleNode.productName || '').trim() || t('product.summary.styleCardFallback');
+      const colorHtml = styleNode.groups
+        .map((groupNode) => {
+          const skuRowsHtml = groupNode.skuRows
+            .map((skuRow) => {
+              const inventory = Number(skuRow.inventoryCount || 0);
+              const isLowStock = inventory > 0 && inventory <= LOW_STOCK_THRESHOLD;
+              const epcRows = renderEpcDetailRows(skuRow.items || []);
+              return `
+                <details class="product-enterprise-sku-row">
+                  <summary class="product-enterprise-sku-summary">
+                    <span class="product-enterprise-sku-cell product-enterprise-sku-cell--sku"><code>${escapeHtml(skuRow.sku)}</code></span>
+                    <span class="product-enterprise-sku-cell"><span class="product-size-badge">${escapeHtml(skuRow.size || '-')}</span></span>
+                    <span class="product-enterprise-sku-cell">${escapeHtml(formatSummaryPriceDisplay(skuRow.price))}</span>
+                    <span class="product-enterprise-sku-cell product-enterprise-sku-cell--inventory ${isLowStock ? 'is-low-stock' : ''}">${escapeHtml(String(inventory))}</span>
+                    <span class="product-enterprise-sku-cell product-enterprise-sku-cell--sold">${escapeHtml(String(skuRow.soldCount || 0))}</span>
+                    <span class="product-enterprise-sku-cell">${escapeHtml(String(skuRow.epcCount || 0))}</span>
+                    <span class="product-enterprise-sku-cell product-enterprise-sku-cell--action">${escapeHtml(t('product.summary.viewEpcs'))}${isLowStock ? ` · <span class="product-stock-badge">${escapeHtml(t('product.summary.lowStock'))}</span>` : ''}</span>
+                  </summary>
+                  <div class="product-enterprise-epc-detail">
+                    <table class="preview-table product-enterprise-epc-table">
+                      <thead>
+                        <tr>
+                          <th>${escapeHtml(t('product.summary.itemNo'))}</th>
+                          <th>${escapeHtml(t('product.summary.epc'))}</th>
+                          <th>${escapeHtml(t('product.summary.location'))}</th>
+                          <th>${escapeHtml(t('product.summary.status'))}</th>
+                          <th>${escapeHtml(t('product.summary.lastSeen'))}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${epcRows}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              `;
+            })
+            .join('');
+
+          return `
+            <details class="product-enterprise-color-group" open>
+              <summary class="product-enterprise-color-summary">
+                <div class="product-enterprise-color-main">
+                  <span class="product-color-swatch" style="--swatch:${escapeHtml(inferColorSwatchHex(groupNode.color))}"></span>
+                  <strong>${escapeHtml(groupNode.color || '-')}</strong>
+                  <span class="product-enterprise-muted">${escapeHtml(t('product.summary.itemNoCode'))}: ${escapeHtml(groupNode.itemNo || '-')}</span>
+                </div>
+                <div class="product-enterprise-color-metrics">
+                  <span>${escapeHtml(t('product.summary.sizeCount'))}: <strong>${escapeHtml(String(groupNode.sizeCount || 0))}</strong></span>
+                  <span>${escapeHtml(t('product.summary.inventoryCount'))}: <strong>${escapeHtml(String(groupNode.inventoryCount || 0))}</strong></span>
+                  <span>${escapeHtml(t('product.summary.soldCount'))}: <strong>${escapeHtml(String(groupNode.soldCount || 0))}</strong></span>
+                </div>
+              </summary>
+              <div class="product-enterprise-sku-list">
+                <div class="product-enterprise-sku-head">
+                  <span>${escapeHtml(t('product.summary.sku'))}</span>
+                  <span>${escapeHtml(t('product.summary.size'))}</span>
+                  <span>${escapeHtml(t('product.summary.price'))}</span>
+                  <span>${escapeHtml(t('product.summary.inventoryCount'))}</span>
+                  <span>${escapeHtml(t('product.summary.soldCount'))}</span>
+                  <span>${escapeHtml(t('product.summary.epcCount'))}</span>
+                  <span>${escapeHtml(t('product.summary.viewEpcs'))}</span>
+                </div>
+                ${skuRowsHtml}
+              </div>
+            </details>
+          `;
+        }).join('');
+
+      return `
+        <details class="product-enterprise-style-card" open>
+          <summary class="product-enterprise-style-summary">
+            <div class="product-enterprise-style-left">
+              <div class="product-enterprise-thumb" aria-hidden="true">${escapeHtml(String(styleLabel).slice(0, 1).toUpperCase())}</div>
+              <div>
+                <p class="product-enterprise-style-no">${escapeHtml(t('product.summary.styleNo'))}: ${escapeHtml(styleNode.styleNo)}</p>
+                <h3 class="product-enterprise-style-name">${escapeHtml(styleLabel)}</h3>
+              </div>
+            </div>
+            <div class="product-enterprise-style-kpi">
+              <span>${escapeHtml(t('product.summary.colorCount'))}: <strong>${escapeHtml(String(styleNode.colorCount || 0))}</strong></span>
+              <span>${escapeHtml(t('product.summary.skuCount'))}: <strong>${escapeHtml(String(styleNode.skuCount || 0))}</strong></span>
+              <span>${escapeHtml(t('product.summary.inventoryCount'))}: <strong>${escapeHtml(String(styleNode.inventoryCount || 0))}</strong></span>
+              <span>${escapeHtml(t('product.summary.soldCount'))}: <strong>${escapeHtml(String(styleNode.soldCount || 0))}</strong></span>
+              <span>${escapeHtml(t('product.summary.priceRange'))}: <strong>${escapeHtml(styleNode.priceRange || '-')}</strong></span>
+            </div>
+          </summary>
+          <div class="product-enterprise-style-body">
+            ${colorHtml}
+          </div>
+        </details>
+      `;
+    })
+    .join('');
+
+  return `${conflictHtml}<div class="product-nested-summary">${styleHtml}</div>`;
+}
+
+function renderProductSkuSummary(summarySummary = { rows: [], conflicts: [] }) {
+  if (!el.productSkuSummary) return;
+
+  const summaryRows = getFilteredSummaryRows(summarySummary);
+  if (!Array.isArray(summaryRows) || summaryRows.length === 0) {
+    el.productSkuSummary.innerHTML = `<p class="hint">${escapeHtml(t('product.summary.empty'))}</p>`;
+    return;
+  }
+
+  const conflicts = Array.isArray(summarySummary?.conflicts) ? summarySummary.conflicts : [];
+  const conflictHtml = renderProductSummaryConflicts(conflicts);
+
+  if (currentProductSummaryView === 'nested') {
+    el.productSkuSummary.innerHTML = renderNestedSkuSummary(summaryRows, conflictHtml);
+    return;
+  }
+
+  el.productSkuSummary.innerHTML = renderLegacySkuSummary(summaryRows, conflictHtml);
 }
 
 function computeKpiMetrics({ grouped, sessions, saleEvents }) {
@@ -2857,8 +3285,8 @@ async function fetchAndRenderDashboard() {
     setStatus(t('status.notConnected'), 'warn');
     console.warn('[dashboard] supabase client not ready', {
       hasClient: !!supabase,
-      savedUrl: localStorage.getItem(URL_KEY) || null,
-      hasAnonKey: !!(localStorage.getItem(ANON_KEY) || '')
+      savedUrl: readStorage(URL_KEY, null),
+      hasAnonKey: !!readStorage(ANON_KEY, '')
     });
     return;
   }
@@ -2874,23 +3302,41 @@ async function fetchAndRenderDashboard() {
   const sevenDaysAgoIso = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000)).toISOString();
 
   const [productsRes, eventsRes, translationsRes, presenceRes, todaySessionsRes, todaySalesRes, sales7dRes, inventoryRes] = await Promise.all([
-    supabase.from('products').select('id,name,name_en,description_en,image_url,price,size,color,sku,epc_data,epc_company_prefix,item_reference').order('id', { ascending: true }),
+    supabase.from('products').select('id,name,name_en,description_en,image_url,price,size,color,sku,style_no,item_no,epc_data,epc_company_prefix,item_reference').order('id', { ascending: true }),
     supabase.from('rfid_events').select('epc_data,reader_id,timestamp,event_type,event_source,from_zone,to_zone').order('timestamp', { ascending: false }).limit(500),
     supabase.from('product_translations').select('product_id,locale,name,description').eq('locale', currentLang),
     supabase.from('fitting_room_presence').select('product_key,entered_at,last_seen_at,last_reader_id'),
     supabase.from('fitting_room_sessions').select('id,converted_to_sale').gte('entered_at', todayStartIso()),
     supabase.from('rfid_events').select('id').eq('event_type', 'sale_completed').gte('timestamp', todayStartIso()),
     supabase.from('rfid_events').select('epc_data').eq('event_type', 'sale_completed').gte('timestamp', sevenDaysAgoIso),
-    supabase.from('inventory_items').select('product_id,sku,status,epc_data')
+    supabase.from('inventory_items').select('product_id,sku,style_no,item_no,status,epc_data')
   ]);
 
   if (inventoryRes?.error) {
-    console.warn('[dashboard] inventory_items query failed, sku summary will fallback to products if needed', {
-      code: inventoryRes.error.code,
-      message: inventoryRes.error.message,
-      hint: inventoryRes.error.hint,
-      details: inventoryRes.error.details
-    });
+    if (inventoryRes.error.code === '42703') {
+      const fallbackInventoryRes = await supabase
+        .from('inventory_items')
+        .select('product_id,sku,status,epc_data');
+      if (!fallbackInventoryRes.error) {
+        inventoryRes.data = fallbackInventoryRes.data || [];
+        inventoryRes.error = null;
+      } else {
+        console.warn('[dashboard] inventory_items fallback query failed', {
+          code: fallbackInventoryRes.error.code,
+          message: fallbackInventoryRes.error.message,
+          hint: fallbackInventoryRes.error.hint,
+          details: fallbackInventoryRes.error.details
+        });
+      }
+    }
+    if (inventoryRes?.error) {
+      console.warn('[dashboard] inventory_items query failed, sku summary will fallback to products if needed', {
+        code: inventoryRes.error.code,
+        message: inventoryRes.error.message,
+        hint: inventoryRes.error.hint,
+        details: inventoryRes.error.details
+      });
+    }
   }
 
   if (productsRes.error) {
@@ -3005,6 +3451,7 @@ async function fetchAndRenderDashboard() {
       safePresenceRows,
       safeInventoryRows
     );
+    lastSkuSummary = skuSummaryRows;
     renderProductSkuSummary(skuSummaryRows);
   }
 
@@ -3032,13 +3479,12 @@ async function connectSupabase(url, anonKey, accessToken = null) {
   }
 
   const authHeader = String(accessToken || '').trim();
-  supabase = createClient(url, anonKey, {
-    global: {
-      headers: authHeader
-        ? { Authorization: `Bearer ${authHeader}` }
-        : {}
-    }
-  });
+  if (!authHeader) {
+    throw new Error('請先登入後再連線 Dashboard（缺少 Supabase access token）');
+  }
+
+  supabase = createSupabaseClient(url, anonKey, authHeader);
+  setAppState({ supabaseClient: supabase, connectionStatus: 'connecting' });
   console.log('[supabase] client created', {
     urlHost: (() => {
       try {
@@ -3070,6 +3516,7 @@ async function connectSupabase(url, anonKey, accessToken = null) {
     });
 
   await fetchAndRenderDashboard();
+  setAppState({ connectionStatus: 'connected' });
 }
 
 async function handleConfigSubmit(event) {
@@ -3081,11 +3528,11 @@ async function handleConfigSubmit(event) {
   const userRole = normalizeUserRole(el.userRole?.value);
 
   try {
-    localStorage.setItem(URL_KEY, url);
-    localStorage.setItem(ANON_KEY, anonKey);
-    localStorage.setItem(API_TOKEN_KEY, apiToken);
-    localStorage.setItem(USER_ROLE_KEY, userRole);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ url, anonKey }));
+    writeStorage(URL_KEY, url);
+    writeStorage(ANON_KEY, anonKey);
+    writeStorage(API_TOKEN_KEY, apiToken);
+    writeStorage(USER_ROLE_KEY, userRole);
+    writeJsonStorage(STORAGE_KEY, { url, anonKey });
     const session = getSession();
     await connectSupabase(url, anonKey, session?.supabaseAccessToken || null);
   } catch (error) {
@@ -3095,7 +3542,7 @@ async function handleConfigSubmit(event) {
 
 async function handleCsvImport(event) {
   event.preventDefault();
-  const currentRole = normalizeUserRole(localStorage.getItem(USER_ROLE_KEY));
+  const currentRole = normalizeUserRole(readStorage(USER_ROLE_KEY, USER_ROLE_DEFAULT));
   if (currentRole === 'trial') {
     el.importResult.textContent = [
       '匯入失敗',
@@ -3121,7 +3568,7 @@ async function handleCsvImport(event) {
       rowsCount: rows.length,
       firstRow: rows[0] || null,
       hasSupabaseClient: !!supabase,
-      currentFrontendSupabaseUrl: localStorage.getItem(URL_KEY) || null
+      currentFrontendSupabaseUrl: readStorage(URL_KEY, null)
     });
 
     const response = await fetch('/api/bulk-products', {
@@ -3209,12 +3656,22 @@ async function handleSimulateSubmit(event) {
 }
 
 function boot() {
+  const sharedState = getAppState();
+  if (sharedState?.supabaseClient) {
+    supabase = sharedState.supabaseClient;
+  } else {
+    supabase = getSupabaseClient();
+  }
+
   currentLang = getCurrentLang();
   currentMode = getCurrentMode();
+  currentProductSummaryView = getCurrentProductSummaryView();
+  setAppState({ currentLang, currentMode, currentProductSummaryView });
   syncTopNavActiveState();
   populateLanguageSelect();
   applyI18nToStaticText();
   applyModeUiFromState();
+  applyProductSummaryViewUi();
 
   console.log('[dom-check]', {
     dashboard: !!el.dashboard,
@@ -3223,6 +3680,7 @@ function boot() {
   });
 
   const session = getSession();
+  setAppState({ session });
   setAppVisibility(Boolean(session));
   setMainView(session ? 'home' : 'home');
 
@@ -3266,7 +3724,7 @@ function boot() {
       const nextLang = event.target.value;
       if (!SUPPORTED_LANGS.includes(nextLang)) return;
       currentLang = nextLang;
-      localStorage.setItem(LANG_KEY, currentLang);
+      writeStorage(LANG_KEY, currentLang);
       applyI18nToStaticText();
       if (supabase) {
         try {
@@ -3283,7 +3741,7 @@ function boot() {
       const nextMode = event.target.value;
       if (!SUPPORTED_MODES.includes(nextMode)) return;
       currentMode = nextMode;
-      localStorage.setItem(MODE_KEY, currentMode);
+      writeStorage(MODE_KEY, currentMode);
       applyModeUiFromState();
       rerenderFromCache();
       if (supabase) {
@@ -3393,6 +3851,33 @@ function boot() {
   if (el.groupedFilter) {
     el.groupedFilter.addEventListener('change', previewGroupedCsvFile);
   }
+  if (el.productStyleNoFilter) {
+    el.productStyleNoFilter.addEventListener('input', () => {
+      renderProductSkuSummary(lastSkuSummary);
+    });
+  }
+  if (el.productItemNoFilter) {
+    el.productItemNoFilter.addEventListener('input', () => {
+      renderProductSkuSummary(lastSkuSummary);
+    });
+  }
+  if (el.productFilterReset) {
+    el.productFilterReset.addEventListener('click', () => {
+      if (el.productStyleNoFilter) el.productStyleNoFilter.value = '';
+      if (el.productItemNoFilter) el.productItemNoFilter.value = '';
+      renderProductSkuSummary(lastSkuSummary);
+    });
+  }
+  if (el.productSummaryViewSku) {
+    el.productSummaryViewSku.addEventListener('click', () => {
+      setProductSummaryView('sku');
+    });
+  }
+  if (el.productSummaryViewNested) {
+    el.productSummaryViewNested.addEventListener('click', () => {
+      setProductSummaryView('nested');
+    });
+  }
   if (el.simulateForm) {
     el.simulateForm.addEventListener('submit', handleSimulateSubmit);
   }
@@ -3408,45 +3893,66 @@ function boot() {
   }
 
   // preferred: read explicit keys from localStorage
-  let url = localStorage.getItem(URL_KEY) || DEFAULT_SUPABASE_URL;
-  let anonKey = localStorage.getItem(ANON_KEY) || DEFAULT_SUPABASE_ANON_KEY;
+  let url = readStorage(URL_KEY, DEFAULT_SUPABASE_URL);
+  let anonKey = readStorage(ANON_KEY, DEFAULT_SUPABASE_ANON_KEY);
 
   // fallback for old storage schema
   if (!url || !anonKey) {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        url = url || parsed?.url || '';
-        anonKey = anonKey || parsed?.anonKey || '';
-      } catch {
-        console.warn('[storage] malformed STORAGE_KEY payload');
-      }
+    const parsed = readJsonStorage(STORAGE_KEY, null);
+    if (!parsed && readStorage(STORAGE_KEY, null)) {
+      console.warn('[storage] malformed STORAGE_KEY payload');
     }
+    url = url || parsed?.url || '';
+    anonKey = anonKey || parsed?.anonKey || '';
   }
 
   if (el.supabaseUrl) el.supabaseUrl.value = url;
   if (el.supabaseAnonKey) el.supabaseAnonKey.value = anonKey;
   if (el.apiToken) {
-    el.apiToken.value = (localStorage.getItem(API_TOKEN_KEY) || '').trim();
+    el.apiToken.value = String(readStorage(API_TOKEN_KEY, '') || '').trim();
   }
   if (el.userRole) {
-    const role = normalizeUserRole(localStorage.getItem(USER_ROLE_KEY));
-    localStorage.setItem(USER_ROLE_KEY, role);
+    const role = normalizeUserRole(readStorage(USER_ROLE_KEY, USER_ROLE_DEFAULT));
+    writeStorage(USER_ROLE_KEY, role);
     el.userRole.value = role;
   }
 
-  if (url && anonKey) {
-    if (session) {
+  onRouteChange(({ path }) => {
+    const activeSession = getSession();
+    const authenticated = Boolean(activeSession);
+    console.info('[router] route changed', {
+      path,
+      authenticated,
+      at: new Date().toISOString()
+    });
+    setShellAuthVisibility(authenticated);
+    if (!authenticated) {
+      setShellViewByPath('/');
+      syncTopNavActiveState('/');
+      return;
+    }
+    setShellViewByPath(path);
+    syncTopNavActiveState(path);
+  });
+
+  startRouter();
+
+  if (session) {
+    setShellAuthVisibility(true);
+    syncTopNavActiveState(getCurrentPath());
+    if (url && anonKey) {
       connectSupabase(url, anonKey, session?.supabaseAccessToken || null).catch((error) => {
         setStatus(t('status.autoConnectFailed', { message: error.message }), 'err');
       });
+      return;
     }
-    return;
-  }
 
-  if (session) {
     setStatus(t('status.needSupabaseConfig'), 'warn');
+  } else {
+    if (getCurrentPath() !== '/') {
+      navigate('/', { replace: true });
+    }
+    setStatus('請先登入後再查詢 Dashboard', 'warn');
   }
 
   populateQuickActionProducts(lastRenderContext?.products || []);

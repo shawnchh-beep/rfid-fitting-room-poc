@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RFID Fitting Room PoC - Fitting Room Demo</title>
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <header class="page-header frd-header">
+    <div>
+      <h1>Fitting Room Demo</h1>
+      <p class="hint frd-subtitle">Select a product, choose a size, and drag it into a fitting room</p>
+    </div>
+    <div class="header-actions frd-header-actions">
+      <nav class="top-nav" aria-label="Primary">
+        <a href="/" class="top-nav-link">Home</a>
+        <a href="/fitting-demo.html" class="top-nav-link is-active" aria-current="page">Fitting Demo</a>
+        <a href="/product.html" class="top-nav-link">Product</a>
+        <a href="/csv-import.html" class="top-nav-link">CSV Import</a>
+        <a href="/setting" class="top-nav-link">Setting</a>
+      </nav>
+      <a href="/" class="top-nav-link frd-open-dashboard">Open Dashboard</a>
+      <button id="fittingDemoResetButton" type="button" class="button-secondary">Reset Demo</button>
+      <button id="fittingDemoSeedButton" type="button" class="button-secondary">Seed Demo Data</button>
+      <p id="fittingDemoAlertsBadge" class="status-badge">Active Alerts: 0</p>
+      <p id="fittingDemoStatus" class="status-badge">Mock Mode</p>
+    </div>
+  </header>
+
+  <main class="layout frd-layout">
+    <section class="panel frd-main" aria-label="Fitting Room Demo Board">
+      <section class="frd-col" aria-labelledby="rackPanelTitle">
+        <div class="frd-col-header">
+          <h2 id="rackPanelTitle">Rack</h2>
+          <p class="hint">Summary list for quick selection</p>
+        </div>
+        <div id="rackList" class="frd-rack-list frd-rack-dropzone" data-drop-zone="rack"></div>
+        <div id="selectedItemDetailBody" class="frd-selected-detail"></div>
+      </section>
+
+      <section class="frd-col frd-col--center" aria-labelledby="roomsPanelTitle">
+        <div class="frd-col-header">
+          <h2 id="roomsPanelTitle">Fitting Rooms</h2>
+          <p class="hint">Status-first rooms with compact item cards</p>
+        </div>
+        <div id="roomsGrid" class="frd-rooms-grid"></div>
+      </section>
+
+      <section class="frd-col frd-col--checkout" aria-labelledby="checkoutPanelTitle">
+        <div class="frd-col-header">
+          <h2 id="checkoutPanelTitle">Checkout</h2>
+          <p class="hint">Recent purchase stream</p>
+        </div>
+        <article class="frd-checkout-panel" aria-label="Checkout Drop Zone and Purchased Items">
+          <div id="checkoutDropzone" class="frd-checkout-dropzone" data-drop-zone="checkout">
+            <p class="hint">Drop drag token here</p>
+          </div>
+          <div id="checkoutList" class="frd-checkout-list"></div>
+          <button id="checkoutToggleButton" type="button" class="button-secondary frd-checkout-toggle" hidden>View older</button>
+        </article>
+      </section>
+    </section>
+
+    <section class="frd-bottom">
+      <article class="panel frd-bottom-tabs" aria-label="Bottom Information Tabs">
+        <div class="frd-tabs" role="tablist" aria-label="Bottom info tabs">
+          <button type="button" class="frd-tab-btn is-active" role="tab" aria-selected="true" data-bottom-tab="recent-events">Recent Events</button>
+          <button type="button" class="frd-tab-btn" role="tab" aria-selected="false" data-bottom-tab="room-summary">Room Summary</button>
+        </div>
+
+        <section class="frd-tab-panel" data-bottom-panel="recent-events">
+          <div class="frd-events-table-wrap">
+            <table class="frd-events-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Product</th>
+                  <th>Size</th>
+                  <th>Room</th>
+                  <th>Event Type</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="recentEventsBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="frd-tab-panel" data-bottom-panel="room-summary" hidden>
+          <div id="roomSummaryBody" class="frd-room-summary"></div>
+        </section>
+      </article>
+    </section>
+  </main>
+
+  <div id="fittingDemoToastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module" src="./js/fitting-demo.js"></script>
+</body>
+</html>

@@ -19,6 +19,8 @@ function normalizeRow(row = {}) {
   const nameJa = String(row.name_ja || '').trim();
   const descriptionJa = String(row.description_ja || '').trim();
   const sku = String(row.sku || '').trim();
+  const styleNo = String(row.style_no || '').trim();
+  const itemNo = String(row.item_no || '').trim();
   const size = String(row.size || '').trim();
   const color = String(row.color || '').trim();
   const imageUrl = String(row.image_url || '').trim();
@@ -57,6 +59,8 @@ function normalizeRow(row = {}) {
     name_en: nameEn,
     description_en: descriptionEn || null,
     sku: sku || null,
+    style_no: styleNo || sku || null,
+    item_no: itemNo || sku || null,
     size: size || null,
     color: color || null,
     image_url: imageUrl || null,
@@ -78,6 +82,9 @@ function normalizeComparablePrice(value) {
 
 function buildSkuProfile(item = {}) {
   return {
+    style_no: normalizeComparableText(item.style_no),
+    item_no: normalizeComparableText(item.item_no),
+    sku: normalizeComparableText(item.sku),
     name_en: normalizeComparableText(item.name_en),
     size: normalizeComparableText(item.size),
     color: normalizeComparableText(item.color),
@@ -88,13 +95,30 @@ function buildSkuProfile(item = {}) {
 function collectIncomingSkuProfilesAndConflicts(items = []) {
   const profilesBySku = new Map();
   const conflictsBySku = new Map();
-  const fieldsToCheck = ['name_en', 'size', 'color', 'price'];
+  const fieldsToCheck = ['style_no', 'item_no', 'name_en', 'size', 'color', 'price'];
+  const skuShape = new Map();
 
   for (const item of items) {
+    // 衝突主鍵改為 SKU：允許同 item_no（同款同色）下存在不同尺寸、不同 SKU。
     const sku = normalizeComparableText(item?.sku);
     if (!sku) continue;
 
     const profile = buildSkuProfile(item);
+
+    const shape = skuShape.get(sku) || {
+      count: 0,
+      size: new Set(),
+      price: new Set(),
+      item_no: new Set(),
+      style_no: new Set()
+    };
+    shape.count += 1;
+    shape.size.add(profile.size);
+    shape.price.add(profile.price);
+    shape.item_no.add(profile.item_no);
+    shape.style_no.add(profile.style_no);
+    skuShape.set(sku, shape);
+
     const existingProfile = profilesBySku.get(sku);
     if (!existingProfile) {
       profilesBySku.set(sku, profile);
@@ -120,6 +144,24 @@ function collectIncomingSkuProfilesAndConflicts(items = []) {
     }
   }
 
+  const repeatedSkuShape = [...skuShape.entries()]
+    .filter(([, shape]) => shape.count > 1)
+    .map(([sku, shape]) => ({
+      sku,
+      rows: shape.count,
+      sizeValues: [...shape.size],
+      priceValues: [...shape.price],
+      itemNoValues: [...shape.item_no],
+      styleNoValues: [...shape.style_no]
+    }));
+
+  if (repeatedSkuShape.length > 0) {
+    console.log('[bulk-products][diag] incoming repeated sku profile', {
+      repeatedSkuCount: repeatedSkuShape.length,
+      sample: repeatedSkuShape.slice(0, 20)
+    });
+  }
+
   return {
     profilesBySku,
     conflicts: [...conflictsBySku.values()]
@@ -130,19 +172,30 @@ async function detectSkuConflictsAgainstDb(profilesBySku = new Map()) {
   const skus = [...profilesBySku.keys()].filter(Boolean);
   if (skus.length === 0) return [];
 
-  const result = await supabase
+  const bySku = await supabase
     .from('products')
-    .select('sku, name_en, size, color, price')
+    .select('sku, item_no, style_no, name_en, size, color, price')
     .in('sku', skus);
 
-  if (result.error) {
-    throw result.error;
-  }
+  if (bySku.error) throw bySku.error;
 
-  const fieldsToCheck = ['name_en', 'size', 'color', 'price'];
+  const mergedRows = bySku.data || [];
+  const conflictCheckMode = 'sku-only';
+  const supportsStyleNo = true;
+
+  console.log('[bulk-products] conflict-check mode', {
+    mode: conflictCheckMode,
+    incomingKeys: skus.length,
+    dbRows: mergedRows.length,
+    supportsStyleNo
+  });
+
+  const fieldsToCheck = supportsStyleNo
+      ? ['style_no', 'item_no', 'name_en', 'size', 'color', 'price']
+      : ['item_no', 'name_en', 'size', 'color', 'price'];
   const existingBySku = new Map();
 
-  (result.data || []).forEach((row) => {
+  mergedRows.forEach((row) => {
     const sku = normalizeComparableText(row?.sku);
     if (!sku) return;
 
@@ -153,6 +206,13 @@ async function detectSkuConflictsAgainstDb(profilesBySku = new Map()) {
       price: new Set()
     };
 
+    if (supportsStyleNo) {
+      existing.style_no = existing.style_no || new Set();
+      existing.style_no.add(normalizeComparableText(row?.style_no));
+    }
+
+    existing.item_no = existing.item_no || new Set();
+    existing.item_no.add(normalizeComparableText(row?.item_no));
     existing.name_en.add(normalizeComparableText(row?.name_en));
     existing.size.add(normalizeComparableText(row?.size));
     existing.color.add(normalizeComparableText(row?.color));
@@ -215,6 +275,12 @@ export default async function handler(req, res) {
 
     const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
     const validateOnly = req.body?.validate_only === true;
+
+    const [probeItemNo, probeStyleNo] = await Promise.all([
+      supabase.from('products').select('item_no').limit(1),
+      supabase.from('products').select('style_no').limit(1)
+    ]);
+
     if (rows.length === 0) {
       return res.status(400).json({ error: 'rows 不可為空' });
     }
@@ -223,6 +289,18 @@ export default async function handler(req, res) {
       rowsCount: rows.length,
       bodyKeys: Object.keys(req.body || {}),
       targetSupabaseHost,
+      schemaProbe: {
+        productsHasItemNo: !probeItemNo.error,
+        productsItemNoError: probeItemNo.error ? {
+          code: probeItemNo.error.code,
+          message: probeItemNo.error.message
+        } : null,
+        productsHasStyleNo: !probeStyleNo.error,
+        productsStyleNoError: probeStyleNo.error ? {
+          code: probeStyleNo.error.code,
+          message: probeStyleNo.error.message
+        } : null
+      },
       actorRole: auth.role,
       authMode: auth.mode
     });
@@ -237,6 +315,10 @@ export default async function handler(req, res) {
 
     const { profilesBySku, conflicts: inFileConflicts } = collectIncomingSkuProfilesAndConflicts(normalized);
     if (inFileConflicts.length > 0) {
+      console.warn('[bulk-products][diag] in-file sku conflicts', {
+        conflictCount: inFileConflicts.length,
+        sample: inFileConflicts.slice(0, 20)
+      });
       return res.status(409).json({
         error: 'SKU conflict detected',
         error_code: 'SKU_CONFLICT',
@@ -318,6 +400,8 @@ export default async function handler(req, res) {
       name_en: item.name_en,
       description_en: item.description_en,
       sku: item.sku || null,
+      style_no: item.style_no || null,
+      item_no: item.item_no || null,
       size: item.size || null,
       color: item.color || null,
       image_url: item.image_url,
@@ -386,6 +470,8 @@ export default async function handler(req, res) {
           epc_data: item.epc_data,
           product_id: productId,
           sku: item.sku || null,
+          style_no: item.style_no || null,
+          item_no: item.item_no || null,
           status: 'ACTIVE'
         };
       })

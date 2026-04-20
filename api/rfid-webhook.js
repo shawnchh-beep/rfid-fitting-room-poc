@@ -24,10 +24,19 @@ function zoneFromReader(readerId) {
 }
 
 function normalizeEventEnvelope({ readerId, bodyEventType, bodyEventSource, bodyFromZone, bodyToZone }) {
+  const normalizedBodyEventType = (() => {
+    const raw = String(bodyEventType || '').trim().toLowerCase();
+    if (!raw) return '';
+    if (raw === 'item_entered_fitting_room' || raw === 'item_added_to_session' || raw === 'enter_room') return 'enter_fitting_room';
+    if (raw === 'item_left_fitting_room' || raw === 'item_returned_to_floor' || raw === 'exit_room') return 'left_fitting_room';
+    if (raw === 'item_moved_to_checkout' || raw === 'direct_sale') return 'sale_completed';
+    return raw;
+  })();
+
   const inferredToZone = bodyToZone || zoneFromReader(readerId);
   const inferredFromZone = bodyFromZone || null;
 
-  const inferredEventType = bodyEventType || (() => {
+  const inferredEventType = normalizedBodyEventType || (() => {
     if (inferredToZone === 'fitting_room') return 'enter_fitting_room';
     if (inferredToZone === 'checkout') return 'move_to_checkout';
     if (inferredToZone === 'sold') return 'sale_completed';
@@ -40,6 +49,93 @@ function normalizeEventEnvelope({ readerId, bodyEventType, bodyEventSource, body
     eventSource: bodyEventSource || 'simulator',
     fromZone: inferredFromZone,
     toZone: inferredToZone
+  };
+}
+
+function isMissingInventoryTable(error) {
+  return error?.code === '42P01';
+}
+
+function isMissingInventoryColumns(error) {
+  return error?.code === '42703';
+}
+
+function resolveInventoryStatusByEvent(eventType, toZone) {
+  const type = String(eventType || '').trim().toLowerCase();
+  const zone = String(toZone || '').trim().toLowerCase();
+
+  if (type === 'sale_completed' || zone === 'sold') return 'SOLD';
+  if (type === 'move_to_checkout' || zone === 'checkout') return 'CHECKOUT';
+  if (type === 'enter_fitting_room' || zone === 'fitting_room') return 'FITTING_ROOM';
+  if (type === 'left_fitting_room' || type === 'return_to_sales_floor' || zone === 'sales_floor') return 'ACTIVE';
+  return null;
+}
+
+async function updateInventoryStatusByEpc({ epcData, status, eventType, readerId, fromZone, toZone, nowIso }) {
+  if (!epcData || !status) {
+    return { updated: false, skipped: true, reason: 'missing_epc_or_status', data: null, error: null };
+  }
+
+  const updateRes = await supabase
+    .from('inventory_items')
+    .update({
+      status,
+      updated_at: nowIso
+    })
+    .eq('epc_data', epcData)
+    .select('id,epc_data,product_id,sku,style_no,item_no,status')
+    .limit(1);
+
+  if (updateRes.error) {
+    if (isMissingInventoryTable(updateRes.error) || isMissingInventoryColumns(updateRes.error)) {
+      return {
+        updated: false,
+        skipped: true,
+        reason: 'inventory_schema_not_ready',
+        data: null,
+        error: null
+      };
+    }
+    return { updated: false, skipped: false, reason: 'update_failed', data: null, error: updateRes.error };
+  }
+
+  const row = Array.isArray(updateRes.data) ? updateRes.data[0] : null;
+  if (!row) {
+    return { updated: false, skipped: true, reason: 'inventory_item_not_found', data: null, error: null };
+  }
+
+  const eventLogInsert = await insertRfidEventCompat({
+    epc_data: epcData,
+    reader_id: readerId,
+    state: 'status_synced',
+    timestamp: nowIso,
+    event_type: 'inventory_status_updated',
+    event_source: 'rfid_webhook',
+    from_zone: fromZone || null,
+    to_zone: toZone || null,
+    metadata: {
+      inventory_status: status,
+      source_event_type: eventType,
+      product_id: row.product_id || null,
+      sku: row.sku || null,
+      style_no: row.style_no || null,
+      item_no: row.item_no || null
+    }
+  });
+
+  if (eventLogInsert.error) {
+    console.warn('[rfid-webhook] inventory status audit event insert failed', {
+      code: eventLogInsert.error?.code,
+      message: eventLogInsert.error?.message
+    });
+  }
+
+  return {
+    updated: true,
+    skipped: false,
+    reason: 'ok',
+    data: row,
+    error: null
   };
 }
 
@@ -159,21 +255,51 @@ async function clearFittingPresence(productKey) {
 }
 
 async function resolveProductSku(companyPrefix, itemReference) {
-  const result = await supabase
+  // 先嘗試完整鍵值（epc_company_prefix + item_reference + sku）
+  const byKey = await supabase
     .from('products')
     .select('sku')
     .eq('epc_company_prefix', companyPrefix)
     .eq('item_reference', itemReference)
     .maybeSingle();
 
-  // 部分環境 products 尚未建立 sku 欄位，避免整條 webhook 失敗
-  if (result.error?.code === '42703') {
-    console.warn('[rfid-webhook] products.sku column missing, fallback sku=null');
+  if (!byKey.error) {
+    return { sku: byKey.data?.sku || null, error: null };
+  }
+
+  // 欄位缺失（42703）時降級：不阻斷 webhook
+  if (byKey.error?.code !== '42703') {
+    return { sku: null, error: byKey.error };
+  }
+
+  // 第二層降級：若 products 尚有 epc_data，用 company/item 前綴比對
+  const epcFallback = await supabase
+    .from('products')
+    .select('sku,epc_data')
+    .limit(5000);
+
+  if (!epcFallback.error) {
+    const row = (epcFallback.data || []).find((it) => {
+      const epc = String(it?.epc_data || '').trim();
+      if (!/^[A-Fa-f0-9]{24}$/.test(epc)) return false;
+      try {
+        const decoded = decodeSGTIN96(epc);
+        return decoded.companyPrefix === companyPrefix && decoded.itemReference === itemReference;
+      } catch {
+        return false;
+      }
+    });
+
+    return { sku: row?.sku || null, error: null };
+  }
+
+  // 若連 epc_data/sku 都缺，視為可接受降級（sku=null）
+  if (epcFallback.error?.code === '42703') {
+    console.warn('[rfid-webhook] products schema partial, fallback sku=null');
     return { sku: null, error: null };
   }
 
-  if (result.error) return { sku: null, error: result.error };
-  return { sku: result.data?.sku || null, error: null };
+  return { sku: null, error: epcFallback.error };
 }
 
 function isMissingSessionsTable(error) {
@@ -296,7 +422,21 @@ export default async function handler(req, res) {
 
   try {
     // 1. 解碼 EPC
-    const { companyPrefix, itemReference } = decodeSGTIN96(epc_data);
+    let companyPrefix;
+    let itemReference;
+    try {
+      const decoded = decodeSGTIN96(epc_data);
+      companyPrefix = decoded.companyPrefix;
+      itemReference = decoded.itemReference;
+    } catch (decodeError) {
+      return res.status(400).json({
+        error: 'Invalid EPC payload',
+        debug: {
+          message: decodeError?.message || String(decodeError),
+          code: 'INVALID_EPC'
+        }
+      });
+    }
     const productKey = buildProductKey(companyPrefix, itemReference);
     const nowIso = new Date().toISOString();
     const isFittingReader = String(reader_id || '').toUpperCase().includes('FITTING');
@@ -345,7 +485,7 @@ export default async function handler(req, res) {
                 productKey,
                 leftAtIso: presenceUpsert.previousLastSeenAt
               });
-              if (closePrev.error && !isMissingSessionsTable(closePrev.error)) {
+              if (closePrev.error && !isMissingSessionsTable(closePrev.error) && !isMissingSessionColumns(closePrev.error)) {
                 throw closePrev.error;
               }
             }
@@ -357,7 +497,7 @@ export default async function handler(req, res) {
               sku,
               enteredAtIso: nowIso
             });
-            if (openRes.error && !isMissingSessionsTable(openRes.error)) {
+            if (openRes.error && !isMissingSessionsTable(openRes.error) && !isMissingSessionColumns(openRes.error)) {
               throw openRes.error;
             }
           }
@@ -415,7 +555,7 @@ export default async function handler(req, res) {
               productKey,
               leftAtIso: presenceUpsert.previousLastSeenAt
             });
-            if (closePrev.error && !isMissingSessionsTable(closePrev.error)) {
+            if (closePrev.error && !isMissingSessionsTable(closePrev.error) && !isMissingSessionColumns(closePrev.error)) {
               throw closePrev.error;
             }
           }
@@ -427,7 +567,7 @@ export default async function handler(req, res) {
             sku,
             enteredAtIso: nowIso
           });
-          if (openRes.error && !isMissingSessionsTable(openRes.error)) {
+          if (openRes.error && !isMissingSessionsTable(openRes.error) && !isMissingSessionColumns(openRes.error)) {
             throw openRes.error;
           }
         }
@@ -439,7 +579,7 @@ export default async function handler(req, res) {
       }
 
       const closeRes = await closeOpenSession({ productKey, leftAtIso: nowIso });
-      if (closeRes.error && !isMissingSessionsTable(closeRes.error)) {
+      if (closeRes.error && !isMissingSessionsTable(closeRes.error) && !isMissingSessionColumns(closeRes.error)) {
         throw closeRes.error;
       }
     }
@@ -460,6 +600,18 @@ export default async function handler(req, res) {
       };
     }
 
+    const targetInventoryStatus = resolveInventoryStatusByEvent(eventEnvelope.eventType, eventEnvelope.toZone);
+    const inventoryStatusUpdate = await updateInventoryStatusByEpc({
+      epcData: epc_data,
+      status: targetInventoryStatus,
+      eventType: eventEnvelope.eventType,
+      readerId: reader_id,
+      fromZone: eventEnvelope.fromZone,
+      toZone: eventEnvelope.toZone,
+      nowIso
+    });
+    if (inventoryStatusUpdate.error) throw inventoryStatusUpdate.error;
+
     return res.status(200).json({
       status: 'success',
       product: { companyPrefix, itemReference },
@@ -474,12 +626,27 @@ export default async function handler(req, res) {
         product_key: productKey,
         in_fitting_room: isFittingReader
       },
+      inventory_status: {
+        target: targetInventoryStatus,
+        updated: inventoryStatusUpdate.updated,
+        skipped: inventoryStatusUpdate.skipped,
+        reason: inventoryStatusUpdate.reason,
+        row: inventoryStatusUpdate.data
+      },
       conversion,
       segmentation_gap_seconds: FITTING_EXIT_TIMEOUT_MS / 1000
     });
 
   } catch (error) {
     console.error('Webhook Error:', error);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      debug: {
+        message: error?.message || String(error),
+        code: error?.code || null,
+        details: error?.details || null,
+        hint: error?.hint || null
+      }
+    });
   }
 }

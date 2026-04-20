@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Brown Tote Bag">
+  <rect width="240" height="240" rx="20" fill="#f5f5f4"/>
+  <rect x="62" y="94" width="116" height="96" rx="10" fill="#8b5e3c" stroke="#6b4226" stroke-width="3"/>
+  <path d="M90 94c0-22 10-36 30-36s30 14 30 36" fill="none" stroke="#6b4226" stroke-width="6" stroke-linecap="round"/>
+  <text x="120" y="220" text-anchor="middle" font-size="14" fill="#5b3a29" font-family="Arial">Brown Tote Bag</text>
+</svg>

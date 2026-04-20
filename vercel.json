@@ -3,27 +3,35 @@
   "rewrites": [
     {
       "source": "/product.html",
-      "destination": "/public/product.html"
+      "destination": "/public/index.html"
     },
     {
       "source": "/product",
-      "destination": "/public/product.html"
+      "destination": "/public/index.html"
     },
     {
       "source": "/csv-import.html",
-      "destination": "/public/csv-import.html"
+      "destination": "/public/index.html"
     },
     {
       "source": "/csv-import",
-      "destination": "/public/csv-import.html"
+      "destination": "/public/index.html"
     },
     {
       "source": "/setting.html",
-      "destination": "/public/setting.html"
+      "destination": "/public/index.html"
     },
     {
       "source": "/setting",
-      "destination": "/public/setting.html"
+      "destination": "/public/index.html"
+    },
+    {
+      "source": "/dashboard",
+      "destination": "/public/index.html"
+    },
+    {
+      "source": "/fitting-demo",
+      "destination": "/public/fitting-demo.html"
     },
     {
       "source": "/",

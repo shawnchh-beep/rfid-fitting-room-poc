@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Denim Jacket">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#eef6ff"/>
+      <stop offset="1" stop-color="#dbeafe"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" rx="20" fill="url(#bg)"/>
+  <path d="M70 60l30-18h40l30 18 14 40-18 10v88H74v-88l-18-10z" fill="#93c5fd" stroke="#60a5fa" stroke-width="3"/>
+  <path d="M120 42v156" stroke="#2563eb" stroke-width="3"/>
+  <rect x="85" y="86" width="28" height="16" rx="4" fill="#bfdbfe" stroke="#60a5fa"/>
+  <rect x="127" y="86" width="28" height="16" rx="4" fill="#bfdbfe" stroke="#60a5fa"/>
+  <text x="120" y="220" text-anchor="middle" font-size="14" fill="#1e3a8a" font-family="Arial">Denim Jacket</text>
+</svg>

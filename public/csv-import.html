@@ -33,7 +33,7 @@
 
     <section class="panel" aria-labelledby="groupedImportTitle">
       <h2 id="groupedImportTitle" data-i18n="importGrouped.title">Grouped CSV Import (Auto SGTIN-96)</h2>
-      <p class="hint" data-i18n="importGrouped.specHint">Required columns: sku_ean13, product_name, color, size, quantity, price_usd</p>
+      <p class="hint" data-i18n="importGrouped.specHint">Required columns: style_no, item_no, sku_ean13, product_name, color, size, quantity, price_usd</p>
       <form id="groupedCsvImportForm" class="stack-form">
         <label>
           <span data-i18n="importGrouped.partitionLabel">Partition</span>
@@ -73,7 +73,8 @@
     </section>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="js/main.js"></script>
+  <script>
+    window.location.replace('/csv-import');
+  </script>
 </body>
 </html>

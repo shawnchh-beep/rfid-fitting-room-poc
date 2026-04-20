@@ -27,6 +27,15 @@
   </section>
 
   <div id="appShell" hidden>
+    <nav class="top-nav" aria-label="Primary" style="margin: 12px 20px 0;">
+      <a href="/" data-route-link class="top-nav-link">Home</a>
+      <a href="/dashboard" data-route-link class="top-nav-link">Dashboard</a>
+      <a href="/product" data-route-link class="top-nav-link">Product</a>
+      <a href="/csv-import" data-route-link class="top-nav-link">CSV Import</a>
+      <a href="/setting" data-route-link class="top-nav-link">Setting</a>
+      <a href="/fitting-demo.html" class="top-nav-link">Fitting Demo</a>
+    </nav>
+
     <section id="homeView" class="home-view" hidden>
       <header class="page-header">
         <h1 data-i18n="home.title">Main Menu</h1>
@@ -55,7 +64,7 @@
               <h3 data-i18n="home.cards.setting.title">Setting</h3>
               <p data-i18n="home.cards.setting.desc">Open Supabase and system settings</p>
             </button>
-            <a id="homeCardCsvImport" href="/csv-import.html" class="home-card home-card--secondary">
+            <a id="homeCardCsvImport" href="/csv-import" data-route-link class="home-card home-card--secondary">
               <h3 data-i18n="home.cards.csv.title">CSV Import</h3>
               <p data-i18n="home.cards.csv.desc">Open import tools and upload data</p>
             </a>
@@ -117,9 +126,152 @@
           <div class="panel-actions">
             <button id="refreshButton" type="button" data-i18n="dashboard.refresh">Refresh</button>
           </div>
+
+          <section id="dashboard" class="dashboard-board" style="margin-top: 16px;"></section>
+        </section>
+
+        <section class="panel" aria-labelledby="timelineTitle">
+          <h2 id="timelineTitle" data-i18n="timeline.title">Recent Actions</h2>
+          <ul id="activityTimeline" class="event-log"></ul>
+        </section>
+
+        <section class="panel" aria-labelledby="eventLogTitle">
+          <h2 id="eventLogTitle" data-i18n="events.title">Latest Event Logs</h2>
+          <ul id="eventLog" class="event-log"></ul>
         </section>
       </main>
     </section>
+
+    <section id="productView" hidden>
+      <header class="page-header">
+        <h1 data-i18n="home.cards.product.title">Product</h1>
+      </header>
+
+      <main class="layout">
+        <section class="panel" aria-labelledby="productSummaryTitle">
+          <h2 id="productSummaryTitle" data-i18n="product.summary.title">Product Inventory</h2>
+          <p class="hint" data-i18n="product.summary.desc">Review style summaries first, then drill down to color groups, SKU rows, and EPC details.</p>
+          <div class="product-summary-view-toggle" role="group" aria-label="Product Summary View Mode">
+            <span class="product-summary-view-toggle__label" data-i18n="product.summary.view.label">View</span>
+            <button id="productSummaryViewSku" type="button" class="button-secondary" data-summary-view="sku" data-i18n="product.summary.view.sku">SKU View</button>
+            <button id="productSummaryViewNested" type="button" class="button-secondary is-active" data-summary-view="nested" data-i18n="product.summary.view.nested">Nested View</button>
+          </div>
+          <div class="stack-form product-summary-toolbar">
+            <label>
+              <span data-i18n="product.summary.filter.styleNo">Style No</span>
+              <input id="productStyleNoFilter" type="text" placeholder="e.g. 4520001" />
+            </label>
+            <label>
+              <span data-i18n="product.summary.filter.itemNo">Item No</span>
+              <input id="productItemNoFilter" type="text" placeholder="e.g. 82210101" />
+            </label>
+            <button id="productFilterReset" type="button" data-i18n="product.summary.filter.reset">Clear Filters</button>
+          </div>
+          <div id="productSkuSummary" class="product-sku-summary"></div>
+        </section>
+      </main>
+    </section>
+
+    <section id="csvImportView" hidden>
+      <header class="page-header">
+        <h1 data-i18n="home.cards.csv.title">CSV Import</h1>
+      </header>
+
+      <main class="layout">
+        <section class="panel" aria-labelledby="importTitle">
+          <h2 id="importTitle" data-i18n="import.title">CSV Product Import</h2>
+          <form id="csvImportForm" class="stack-form">
+            <input id="csvFile" type="file" accept=".csv,text/csv" required />
+            <button type="submit" data-i18n="import.submit">Upload & Import</button>
+          </form>
+          <pre id="importResult" class="result-box" data-i18n="import.notStarted">Not imported yet</pre>
+        </section>
+
+        <section class="panel" aria-labelledby="groupedImportTitle">
+          <h2 id="groupedImportTitle" data-i18n="importGrouped.title">Grouped CSV Import (Auto SGTIN-96)</h2>
+          <p class="hint" data-i18n="importGrouped.specHint">Required columns: style_no, item_no, sku_ean13, product_name, color, size, quantity, price_usd</p>
+          <form id="groupedCsvImportForm" class="stack-form">
+            <label>
+              <span data-i18n="importGrouped.partitionLabel">Partition</span>
+              <select id="groupedPartition">
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5" selected>5</option>
+                <option value="6">6</option>
+              </select>
+            </label>
+            <label>
+              <span data-i18n="importGrouped.filterLabel">Filter</span>
+              <select id="groupedFilter">
+                <option value="0" selected>0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+              </select>
+            </label>
+            <input id="groupedCsvFile" type="file" accept=".csv,text/csv" required />
+            <button type="submit" data-i18n="importGrouped.submit">Generate EPC & Import</button>
+          </form>
+          <pre id="groupedImportResult" class="result-box" data-i18n="importGrouped.notStarted">Not imported yet</pre>
+          <section aria-labelledby="groupedPreviewTitle">
+            <h3 id="groupedPreviewTitle" data-i18n="importGrouped.previewTitle">Validation & Preview</h3>
+            <div id="groupedPreviewResult" class="result-box grouped-preview-box" data-i18n="importGrouped.previewEmpty">No file parsed yet</div>
+          </section>
+        </section>
+      </main>
+    </section>
+
+    <section id="settingView" hidden>
+      <header class="page-header">
+        <h1 data-i18n="home.cards.setting.title">Setting</h1>
+      </header>
+
+      <main class="layout">
+        <section class="panel" aria-labelledby="configTitle">
+          <h2 id="configTitle" data-i18n="config.title">Supabase Connection</h2>
+          <form id="configForm" class="stack-form">
+            <label>
+              <span data-i18n="config.urlLabel">Supabase URL</span>
+              <input id="supabaseUrl" type="url" required placeholder="https://xxxx.supabase.co" />
+            </label>
+            <label>
+              <span data-i18n="config.anonKeyLabel">Supabase Publishable Key</span>
+              <input id="supabaseAnonKey" type="password" required placeholder="eyJ..." />
+            </label>
+            <label>
+              <span data-i18n="auth.apiTokenLabel">API Shared Token</span>
+              <input id="apiToken" type="password" placeholder="optional when auth disabled" />
+            </label>
+            <label>
+              <span data-i18n="auth.roleLabel">Role</span>
+              <select id="userRole" required>
+                <option value="trial" data-i18n="auth.role.trial">Trial</option>
+                <option value="user" data-i18n="auth.role.user">User</option>
+                <option value="admin" data-i18n="auth.role.admin">Admin</option>
+              </select>
+            </label>
+            <button type="submit" data-i18n="config.saveAndConnect">Save & Connect</button>
+          </form>
+        </section>
+      </main>
+    </section>
+
+    <div id="itemDetailOverlay" hidden>
+      <article class="panel" role="dialog" aria-modal="true" aria-labelledby="itemDetailTitle">
+        <header class="page-header">
+          <h2 id="itemDetailTitle" data-i18n="detail.title">Item Details</h2>
+          <button id="itemDetailClose" type="button" data-i18n="detail.close">Close</button>
+        </header>
+        <div id="itemDetailBody"></div>
+      </article>
+    </div>
   </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script type="module" src="js/main.js"></script>
