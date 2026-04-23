@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>驗證中</title>
+</head>
+<body>
+  <h1>驗證中...</h1>
+  <p id="message">請稍候</p>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/supabase-client.js"></script>
+  <script>
+    const message = document.getElementById('message')
+    const query = new URLSearchParams(window.location.search)
+    const next = query.get('next') || '/reset-password.html'
+
+    async function main() {
+      const hash = window.location.hash
+
+      if (!hash) {
+        message.textContent = '缺少驗證資訊'
+        setTimeout(() => {
+          window.location.href = '/login.html?error=missing_token'
+        }, 1500)
+        return
+      }
+
+      const params = new URLSearchParams(hash.substring(1))
+      const access_token = params.get('access_token')
+      const refresh_token = params.get('refresh_token')
+
+      if (!access_token || !refresh_token) {
+        message.textContent = '連結無效或已過期'
+        setTimeout(() => {
+          window.location.href = '/login.html?error=invalid_recovery_link'
+        }, 1500)
+        return
+      }
+
+      const { error } = await window.supabaseClient.auth.setSession({
+        access_token,
+        refresh_token
+      })
+
+      if (error) {
+        message.textContent = error.message
+        setTimeout(() => {
+          window.location.href = '/login.html?error=auth_callback_failed'
+        }, 1500)
+        return
+      }
+
+      window.location.href = next
+    }
+
+    main()
+  </script>
+</body>
+</html>

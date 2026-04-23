@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>登入</title>
+</head>
+<body>
+  <h1>登入</h1>
+
+  <form id="login-form">
+    <div>
+      <label>Email</label><br />
+      <input id="email" type="email" required />
+    </div>
+    <br />
+    <div>
+      <label>密碼</label><br />
+      <input id="password" type="password" required />
+    </div>
+    <br />
+    <button type="submit">登入</button>
+  </form>
+
+  <p><a href="/forgot-password.html">忘記密碼</a></p>
+  <p id="message"></p>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/supabase-client.js"></script>
+  <script>
+    const form = document.getElementById('login-form')
+    const message = document.getElementById('message')
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      message.textContent = ''
+
+      const email = document.getElementById('email').value
+      const password = document.getElementById('password').value
+
+      const { error } = await window.supabaseClient.auth.signInWithPassword({
+        email,
+        password
+      })
+
+      if (error) {
+        message.textContent = error.message
+        return
+      }
+
+      window.location.href = '/dashboard.html'
+    })
+  </script>
+</body>
+</html>
