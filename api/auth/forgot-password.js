@@ -12,16 +12,11 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Email is required' })
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    )
+    const SUPABASE_URL = 'https://trgxtbqjkhydvbfndmhk.supabase.co'
+    const SUPABASE_ANON_KEY = 'sb_publishable_RjeQR-HU84MRCpByTqZlxg_lwJHStMP'
+    const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3000'
 
-    const appBaseUrl = process.env.APP_BASE_URL
-
-    if (!appBaseUrl) {
-      return res.status(500).json({ error: 'APP_BASE_URL is not set' })
-    }
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${appBaseUrl}/auth-callback.html?next=/reset-password.html`
