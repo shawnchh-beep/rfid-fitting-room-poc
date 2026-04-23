@@ -27,13 +27,13 @@
   </section>
 
   <div id="appShell" hidden>
-    <nav class="top-nav" aria-label="Primary" style="margin: 12px 20px 0;">
-      <a href="/" data-route-link class="top-nav-link">Home</a>
-      <a href="/dashboard" data-route-link class="top-nav-link">Dashboard</a>
-      <a href="/product.html" data-route-link class="top-nav-link">Product</a>
-      <a href="/csv-import.html" data-route-link class="top-nav-link">CSV Import</a>
-      <a href="/setting" data-route-link class="top-nav-link">Setting</a>
-      <a href="/fitting-demo.html" class="top-nav-link">Fitting Demo</a>
+    <nav class="top-nav" aria-label="Primary" data-i18n-aria-label="aria.primaryNav" style="margin: 12px 20px 0;">
+      <a href="/" data-route-link class="top-nav-link" data-i18n="nav.home">Home</a>
+      <a href="/dashboard" data-route-link class="top-nav-link" data-i18n="home.cards.dashboard.title">Dashboard</a>
+      <a href="/product.html" data-route-link class="top-nav-link" data-i18n="nav.product">Product</a>
+      <a href="/csv-import.html" data-route-link class="top-nav-link" data-i18n="nav.csvImport">CSV Import</a>
+      <a href="/setting" data-route-link class="top-nav-link" data-i18n="nav.setting">Setting</a>
+      <a href="/fitting-demo.html" class="top-nav-link" data-i18n="nav.fittingDemo">Fitting Demo</a>
     </nav>
 
     <section id="homeView" class="home-view" hidden>
@@ -78,7 +78,7 @@
         <h1 data-i18n="app.title">RFID Fitting Room PoC Dashboard</h1>
         <div class="header-actions">
           <label for="languageSelect" class="language-label" data-i18n="language.label">Language</label>
-          <select id="languageSelect" class="language-select" aria-label="Language"></select>
+          <select id="languageSelect" class="language-select" aria-label="Language" data-i18n-aria-label="aria.languageSelect"></select>
           <button id="backToHome" type="button" class="button-secondary" data-i18n="home.actions.backHome">Back to Home</button>
           <button id="logoutButton" type="button" data-i18n="auth.logout">Logout</button>
           <p id="connectionStatus" class="status-badge">Initializing…</p>
@@ -297,11 +297,11 @@
           <div class="stack-form product-summary-toolbar">
             <label>
               <span data-i18n="product.summary.filter.styleNo">Style No</span>
-              <input id="productStyleNoFilter" type="text" placeholder="e.g. 4520001" />
+              <input id="productStyleNoFilter" type="text" placeholder="e.g. 4520001" data-i18n-placeholder="placeholder.productStyleNo" />
             </label>
             <label>
               <span data-i18n="product.summary.filter.itemNo">Item No</span>
-              <input id="productItemNoFilter" type="text" placeholder="e.g. 82210101" />
+              <input id="productItemNoFilter" type="text" placeholder="e.g. 82210101" data-i18n-placeholder="placeholder.productItemNo" />
             </label>
             <button id="productFilterReset" type="button" data-i18n="product.summary.filter.reset">Clear Filters</button>
           </div>
@@ -377,23 +377,11 @@
           <form id="configForm" class="stack-form">
             <label>
               <span data-i18n="config.urlLabel">Supabase URL</span>
-              <input id="supabaseUrl" type="url" required placeholder="https://xxxx.supabase.co" />
+              <input id="supabaseUrl" type="url" required placeholder="https://xxxx.supabase.co" data-i18n-placeholder="placeholder.supabaseUrl" />
             </label>
             <label>
               <span data-i18n="config.anonKeyLabel">Supabase Publishable Key</span>
-              <input id="supabaseAnonKey" type="password" required placeholder="eyJ..." />
-            </label>
-            <label>
-              <span data-i18n="auth.apiTokenLabel">API Shared Token</span>
-              <input id="apiToken" type="password" placeholder="optional when auth disabled" />
-            </label>
-            <label>
-              <span data-i18n="auth.roleLabel">Role</span>
-              <select id="userRole" required>
-                <option value="trial" data-i18n="auth.role.trial">Trial</option>
-                <option value="user" data-i18n="auth.role.user">User</option>
-                <option value="admin" data-i18n="auth.role.admin">Admin</option>
-              </select>
+              <input id="supabaseAnonKey" type="password" required placeholder="eyJ..." data-i18n-placeholder="placeholder.supabaseAnonKey" />
             </label>
             <button type="submit" data-i18n="config.saveAndConnect">Save & Connect</button>
           </form>

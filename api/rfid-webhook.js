@@ -406,9 +406,9 @@ async function markSessionConvertedWithinWindow({ productKey, saleTimeIso }) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
 
-  const auth = authorizeWebhook(req);
+  const auth = await authorizeWebhook(req);
   if (!auth.ok) {
-    return res.status(auth.status).json({ error: auth.error });
+    return res.status(auth.status).json(auth.errorBody || { error: auth.error });
   }
 
   const {

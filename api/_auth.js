@@ -1,85 +1,208 @@
-const LEGACY_ROLE_MAP = new Map([
-  ['demo_operator', 'user'],
-  ['analyst_admin', 'admin'],
-  ['viewer', 'trial']
-]);
+import { getSupabaseAdminClient } from './_supabase.js';
 
 const WEBHOOK_ALLOWED_ROLES = new Set(['trial', 'user', 'admin', 'service_backend']);
 const BULK_ALLOWED_ROLES = new Set(['user', 'admin', 'service_backend']);
+const ANY_APP_USER_ROLES = new Set(['guest', 'trial', 'user', 'admin']);
 
-function isAuthEnabled() {
-  return String(process.env.API_AUTH_ENABLED || '').toLowerCase() === 'true';
+function getHeader(req, key) {
+  return String(req?.headers?.[key] || '').trim();
 }
 
-function getRole(req) {
-  return String(req.headers['x-user-role'] || '').trim();
+function getBearerToken(req) {
+  const authorization = getHeader(req, 'authorization');
+  if (!authorization) return '';
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match ? String(match[1] || '').trim() : '';
 }
 
-function normalizeRole(role) {
-  const normalized = String(role || '').trim();
-  return LEGACY_ROLE_MAP.get(normalized) || normalized;
+function getServiceToken(req) {
+  return getHeader(req, 'x-api-token');
 }
 
-function getToken(req) {
-  return String(req.headers['x-api-token'] || '').trim();
+function baseError(status, code, message) {
+  return {
+    ok: false,
+    status,
+    error: message,
+    errorBody: {
+      error: {
+        code,
+        message
+      }
+    }
+  };
 }
 
-function checkAuth(req, allowedRoles) {
-  const rawRole = getRole(req);
-  const role = normalizeRole(rawRole);
-  const method = String(req?.method || 'UNKNOWN');
-  const path = String(req?.url || req?.headers?.['x-vercel-id'] || 'UNKNOWN_PATH');
+function isAuthModeEnabled() {
+  const raw = String(process.env.API_AUTH_ENABLED || '').trim().toLowerCase();
+  if (!raw) return true;
+  return raw === 'true';
+}
 
-  if (!isAuthEnabled()) {
-    console.log('[auth] bypass (disabled)', {
-      method,
-      path,
-      role: role || 'anonymous'
-    });
+function isProfileActive(profile) {
+  if (!profile) return false;
+  if (profile.status !== 'active') return false;
+  if (profile.role !== 'trial') return true;
+  if (!profile.trial_expires_at) return false;
+  return Date.parse(profile.trial_expires_at) > Date.now();
+}
+
+function buildPrincipalFromProfile({ user, profile }) {
+  return {
+    ok: true,
+    auth_mode: 'bearer',
+    mode: 'bearer',
+    role: profile.role,
+    user_id: user.id,
+    email: profile.email || user.email || null,
+    status: profile.status,
+    trial_expires_at: profile.trial_expires_at || null,
+    user: {
+      id: user.id,
+      email: profile.email || user.email || null,
+      role: profile.role,
+      status: profile.status,
+      trial_expires_at: profile.trial_expires_at || null
+    },
+    profile
+  };
+}
+
+function buildPermissions(role) {
+  const r = String(role || '').trim();
+  return {
+    canViewDashboard: ['guest', 'trial', 'user', 'admin'].includes(r),
+    canViewProduct: ['guest', 'trial', 'user', 'admin'].includes(r),
+    canViewFittingDemo: ['trial', 'user', 'admin'].includes(r),
+    canUseFittingDemo: ['trial', 'user', 'admin'].includes(r),
+    canUseCsvImport: ['user', 'admin'].includes(r),
+    canUseSetting: ['admin'].includes(r),
+    canManageAccounts: ['admin'].includes(r)
+  };
+}
+
+async function resolveBearerPrincipal(req) {
+  const token = getBearerToken(req);
+  if (!token) {
+    return baseError(401, 'UNAUTHORIZED', 'Missing or invalid access token');
+  }
+
+  let supabase;
+  try {
+    supabase = getSupabaseAdminClient();
+  } catch (error) {
+    return baseError(500, 'CONFIG_ERROR', error?.message || 'Supabase config error');
+  }
+
+  const userRes = await supabase.auth.getUser(token);
+  if (userRes.error || !userRes.data?.user) {
+    return baseError(401, 'UNAUTHORIZED', 'Missing or invalid access token');
+  }
+
+  const authUser = userRes.data.user;
+  const profileRes = await supabase
+    .from('user_profiles')
+    .select('user_id,email,full_name,company_name,job_title,role,status,trial_requested_at,trial_expires_at')
+    .eq('user_id', authUser.id)
+    .maybeSingle();
+
+  if (profileRes.error || !profileRes.data) {
+    return baseError(403, 'PROFILE_NOT_FOUND', 'User profile not found');
+  }
+
+  const profile = profileRes.data;
+  if (!ANY_APP_USER_ROLES.has(String(profile.role || '').trim())) {
+    return baseError(403, 'FORBIDDEN', 'Unknown account role');
+  }
+
+  if (!isProfileActive(profile)) {
+    if (profile.role === 'trial' && profile.trial_expires_at && Date.parse(profile.trial_expires_at) <= Date.now()) {
+      return baseError(403, 'ACCOUNT_EXPIRED', 'Trial account has expired');
+    }
+    return baseError(403, 'FORBIDDEN', 'Account is not active');
+  }
+
+  return buildPrincipalFromProfile({ user: authUser, profile });
+}
+
+function resolveServicePrincipal(req) {
+  const expectedToken = String(process.env.API_SHARED_TOKEN || '').trim();
+  const providedToken = getServiceToken(req);
+  if (!expectedToken) {
+    return baseError(500, 'CONFIG_ERROR', 'API_SHARED_TOKEN is required for service auth');
+  }
+  if (!providedToken || providedToken !== expectedToken) {
+    return baseError(401, 'UNAUTHORIZED', 'Invalid service token');
+  }
+
+  return {
+    ok: true,
+    auth_mode: 'service_token',
+    mode: 'service_token',
+    role: 'service_backend',
+    user_id: null,
+    email: null,
+    status: 'active',
+    trial_expires_at: null,
+    user: {
+      id: null,
+      email: null,
+      role: 'service_backend',
+      status: 'active',
+      trial_expires_at: null
+    },
+    profile: null
+  };
+}
+
+async function authorize(req, allowedRoles = new Set()) {
+  if (!isAuthModeEnabled()) {
     return {
       ok: true,
-      role: role || 'anonymous',
-      rawRole: rawRole || null,
-      mode: 'disabled'
+      auth_mode: 'disabled',
+      mode: 'disabled',
+      role: 'admin',
+      user_id: null,
+      email: null,
+      status: 'active',
+      trial_expires_at: null,
+      user: {
+        id: null,
+        email: null,
+        role: 'admin',
+        status: 'active',
+        trial_expires_at: null
+      },
+      profile: null
     };
   }
 
-  const expectedToken = String(process.env.API_SHARED_TOKEN || '').trim();
-  const providedToken = getToken(req);
-  console.log('[auth] enforce mode', {
-    method,
-    path,
-    role: role || 'anonymous',
-    expectedTokenLength: expectedToken.length,
-    providedTokenLength: providedToken.length,
-    providedTokenPreview: providedToken ? `${providedToken.slice(0, 4)}***` : null
-  });
-  if (!expectedToken) {
-    return { ok: false, status: 500, error: 'API_SHARED_TOKEN is required when API_AUTH_ENABLED=true' };
+  const hasBearer = Boolean(getBearerToken(req));
+  const principal = hasBearer ? await resolveBearerPrincipal(req) : resolveServicePrincipal(req);
+  if (!principal.ok) return principal;
+
+  if (allowedRoles.size > 0 && !allowedRoles.has(principal.role)) {
+    return baseError(403, 'FORBIDDEN', 'You do not have permission to perform this action');
   }
 
-  if (!providedToken || providedToken !== expectedToken) {
-    console.warn('[auth] unauthorized token mismatch', {
-      method,
-      path,
-      role: role || 'anonymous',
-      expectedTokenLength: expectedToken.length,
-      providedTokenLength: providedToken.length
-    });
-    return { ok: false, status: 401, error: 'Unauthorized' };
-  }
-
-  if (!allowedRoles.has(role)) {
-    return { ok: false, status: 403, error: 'Forbidden' };
-  }
-
-  return { ok: true, role, rawRole: rawRole || null, mode: 'enforced' };
+  return {
+    ...principal,
+    permissions: buildPermissions(principal.role)
+  };
 }
 
-export function authorizeWebhook(req) {
-  return checkAuth(req, WEBHOOK_ALLOWED_ROLES);
+export async function authorizeWebhook(req) {
+  return authorize(req, WEBHOOK_ALLOWED_ROLES);
 }
 
-export function authorizeBulkProducts(req) {
-  return checkAuth(req, BULK_ALLOWED_ROLES);
+export async function authorizeBulkProducts(req) {
+  return authorize(req, BULK_ALLOWED_ROLES);
+}
+
+export async function authorizeAnySignedIn(req) {
+  return authorize(req, ANY_APP_USER_ROLES);
+}
+
+export async function authorizeAdmin(req) {
+  return authorize(req, new Set(['admin']));
 }

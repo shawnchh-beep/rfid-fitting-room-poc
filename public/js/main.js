@@ -12,11 +12,7 @@ const MODE_KEY = STORAGE_KEYS.mode;
 const PRODUCT_SUMMARY_VIEW_KEY = STORAGE_KEYS.productSummaryView;
 const OVERSTAY_DEMO_KEY = STORAGE_KEYS.overstayDemoMinutes;
 const OVERSTAY_OPERATIONAL_KEY = STORAGE_KEYS.overstayOperationalMinutes;
-const API_TOKEN_KEY = STORAGE_KEYS.apiToken;
-const USER_ROLE_KEY = STORAGE_KEYS.userRole;
 const SESSION_KEY = STORAGE_KEYS.session;
-const USER_ROLE_DEFAULT = 'trial';
-const USER_ROLE_OPTIONS = ['trial', 'user', 'admin'];
 const DEFAULT_SUPABASE_URL = 'https://trgxtbqjkhydvbfndmhk.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_RjeQR-HU84MRCpByTqZlxg_lwJHStMP';
 const DEFAULT_LANG = 'en';
@@ -29,7 +25,8 @@ const MODE_DEFAULT_THRESHOLDS = {
 };
 const SUPPORTED_LANGS = ['en', 'zh-Hant', 'zh-Hans', 'ja'];
 const SUPPORTED_MODES = ['demo', 'operational'];
-const FITTING_EXIT_TIMEOUT_MS = 10_000;
+// Keep in sync with server-side timeout in api/rfid-webhook.js
+const FITTING_EXIT_TIMEOUT_MS = 30_000;
 const STATES = ['RACK', 'FITTING_ROOM', 'CHECKOUT', 'SOLD'];
 const BOARD_STATES = ['RACK', 'FITTING_ROOM', 'CHECKOUT'];
 const SGTIN96_PARTITIONS = {
@@ -41,11 +38,6 @@ const SGTIN96_PARTITIONS = {
   5: { companyPrefixBits: 24, itemReferenceBits: 20, companyPrefixDigits: 7, itemReferenceDigits: 6 },
   6: { companyPrefixBits: 20, itemReferenceBits: 24, companyPrefixDigits: 6, itemReferenceDigits: 7 }
 };
-
-function normalizeUserRole(value) {
-  const role = String(value || '').trim();
-  return USER_ROLE_OPTIONS.includes(role) ? role : USER_ROLE_DEFAULT;
-}
 
 function todayStartIso() {
   const d = new Date();
@@ -105,8 +97,6 @@ const el = {
   configForm: document.getElementById('configForm'),
   supabaseUrl: document.getElementById('supabaseUrl'),
   supabaseAnonKey: document.getElementById('supabaseAnonKey'),
-  apiToken: document.getElementById('apiToken'),
-  userRole: document.getElementById('userRole'),
   csvImportForm: document.getElementById('csvImportForm'),
   csvFile: document.getElementById('csvFile'),
   importResult: document.getElementById('importResult'),
@@ -179,6 +169,11 @@ const I18N = {
     'login.submit': 'Sign in',
     'auth.logout': 'Logout',
     'language.label': 'Language',
+    'nav.home': 'Home',
+    'nav.product': 'Product',
+    'nav.csvImport': 'CSV Import',
+    'nav.setting': 'Setting',
+    'nav.fittingDemo': 'Fitting Demo',
     'config.title': 'Supabase Connection',
     'config.urlLabel': 'Supabase URL',
     'config.anonKeyLabel': 'Supabase Publishable Key',
@@ -420,7 +415,54 @@ const I18N = {
     'analytics.c3.score': 'Score',
     'analytics.label.critical': 'Critical',
     'analytics.label.warning': 'Warning',
-    'analytics.label.info': 'Info'
+    'analytics.label.info': 'Info',
+    'analytics.hero.noFitting': 'No fitting activity yet today. Monitor store flow and conversion once sessions begin.',
+    'analytics.hero.abnormal': 'Try-on activity is live with {todayFitting} sessions, but {abnormalCount} abnormal dwell alerts need attention.',
+    'analytics.hero.normal': 'Store is active with {todayFitting} try-on sessions and {conversionRate}% conversion today.',
+    'analytics.hero.liveStore': 'Live store: {status}',
+    'analytics.hero.liveStoreActive': 'Active',
+    'analytics.hero.liveStoreQuiet': 'Quiet',
+    'analytics.hero.tracking': 'RFID tracking: {status}',
+    'analytics.hero.trackingNormal': 'Normal',
+    'analytics.hero.trackingNoProducts': 'No products',
+    'analytics.hero.aiAssistant': 'AI assistant: {status}',
+    'analytics.hero.aiReady': 'Ready',
+    'analytics.hero.aiMonitoring': 'Monitoring',
+    'analytics.snapshot.rack': 'Rack',
+    'analytics.snapshot.fittingRoom': 'Fitting Room',
+    'analytics.snapshot.checkout': 'Checkout',
+    'analytics.snapshot.activeAlerts': 'Active alerts',
+    'analytics.snapshot.todaySales': 'Today sales',
+    'analytics.snapshot.noActiveTryOnItems': 'No active try-on items',
+    'analytics.aiSummary.opportunity': '{name} shows high try-on interest with {conversion}% conversion.',
+    'analytics.aiSummary.abnormal': '{abnormalCount} abnormal dwell items detected. Prioritize fitting room follow-up.',
+    'analytics.aiSummary.lowConversion': 'Conversion is below 20%. Review styling guidance near fitting rooms.',
+    'analytics.aiSummary.stable': 'Store performance is stable. Continue monitoring try-on and conversion trend.',
+    'analytics.aiSummary.viewFullInsights': 'View full insights',
+    'analytics.aiSummary.askAi': 'Ask AI',
+    'analytics.overview.tryOnUnit': 'try-on',
+    'placeholder.productStyleNo': 'e.g. 4520001',
+    'placeholder.productItemNo': 'e.g. 82210101',
+    'placeholder.supabaseUrl': 'https://xxxx.supabase.co',
+    'placeholder.supabaseAnonKey': 'eyJ...',
+    'placeholder.apiToken': 'optional when auth disabled',
+    'aria.languageSelect': 'Language',
+    'aria.primaryNav': 'Primary',
+    'demo.button.running': 'Running...',
+    'demo.button.seeding': 'Seeding...',
+    'demo.button.clearing': 'Clearing...',
+    'demo.button.resetting': 'Resetting...',
+    'demo.quickAction.selectProduct': 'Select a product',
+    'demo.toast.actionCompleted': 'Action completed',
+    'demo.toast.actionFailed': 'Failed to execute action',
+    'demo.toast.scenarioExecuted': 'Scenario executed',
+    'demo.toast.scenarioFailed': 'Failed to execute scenario: {message}',
+    'demo.toast.generated': 'Demo data generated',
+    'demo.toast.generateFailed': 'Unable to generate demo data: {message}',
+    'demo.toast.alertsCleared': 'Alerts cleared',
+    'demo.toast.alertsClearFailed': 'Unable to clear alerts: {message}',
+    'demo.toast.resetDone': 'Demo environment reset',
+    'demo.toast.resetFailed': 'Reset failed: {message}'
   },
   'zh-Hant': {
     'app.title': 'RFID 試衣間 PoC 後台',
@@ -445,6 +487,11 @@ const I18N = {
     'login.submit': '登入',
     'auth.logout': '登出',
     'language.label': '語言',
+    'nav.home': '首頁',
+    'nav.product': '商品',
+    'nav.csvImport': 'CSV 匯入',
+    'nav.setting': '設定',
+    'nav.fittingDemo': '試衣間 Demo',
     'config.title': 'Supabase 連線設定',
     'auth.apiTokenLabel': 'API 共用 Token',
     'auth.roleLabel': '角色',
@@ -633,7 +680,54 @@ const I18N = {
     'error.quickActionRequiredRoom': '請先選擇試衣間',
     'error.quickActionRequiredAction': '請先選擇動作',
     'error.resolveAlertNeedActive': 'Resolve Alert 需要該商品目前有 active alert',
-    'error.eventSendFailed': '送出失敗：{message}'
+    'error.eventSendFailed': '送出失敗：{message}',
+    'analytics.hero.noFitting': '今日尚無試穿活動，待有 session 後再觀察動線與轉換。',
+    'analytics.hero.abnormal': '目前有 {todayFitting} 筆試穿活動，但有 {abnormalCount} 筆異常停留需優先處理。',
+    'analytics.hero.normal': '門店目前活躍，今日試穿 {todayFitting} 次，轉化率 {conversionRate}%。',
+    'analytics.hero.liveStore': '門店即時：{status}',
+    'analytics.hero.liveStoreActive': '活躍',
+    'analytics.hero.liveStoreQuiet': '平穩',
+    'analytics.hero.tracking': 'RFID 追蹤：{status}',
+    'analytics.hero.trackingNormal': '正常',
+    'analytics.hero.trackingNoProducts': '無商品資料',
+    'analytics.hero.aiAssistant': 'AI 助理：{status}',
+    'analytics.hero.aiReady': '已就緒',
+    'analytics.hero.aiMonitoring': '監控中',
+    'analytics.snapshot.rack': '貨架',
+    'analytics.snapshot.fittingRoom': '試衣間',
+    'analytics.snapshot.checkout': '結帳櫃檯',
+    'analytics.snapshot.activeAlerts': '進行中警示',
+    'analytics.snapshot.todaySales': '今日成交',
+    'analytics.snapshot.noActiveTryOnItems': '目前沒有進行中的試穿商品',
+    'analytics.aiSummary.opportunity': '{name} 試穿熱度高，目前轉化率為 {conversion}%。',
+    'analytics.aiSummary.abnormal': '偵測到 {abnormalCount} 筆異常停留，請優先跟進試衣間。',
+    'analytics.aiSummary.lowConversion': '轉化率低於 20%，建議檢視試衣間周邊導購流程。',
+    'analytics.aiSummary.stable': '目前門店表現穩定，持續觀察試穿與轉化趨勢。',
+    'analytics.aiSummary.viewFullInsights': '查看完整洞察',
+    'analytics.aiSummary.askAi': '詢問 AI',
+    'analytics.overview.tryOnUnit': '試穿',
+    'placeholder.productStyleNo': '例如 4520001',
+    'placeholder.productItemNo': '例如 82210101',
+    'placeholder.supabaseUrl': 'https://xxxx.supabase.co',
+    'placeholder.supabaseAnonKey': 'eyJ...',
+    'placeholder.apiToken': '未啟用 auth 時可留空',
+    'aria.languageSelect': '語言',
+    'aria.primaryNav': '主要導覽',
+    'demo.button.running': '執行中...',
+    'demo.button.seeding': '建立中...',
+    'demo.button.clearing': '清除中...',
+    'demo.button.resetting': '重置中...',
+    'demo.quickAction.selectProduct': '請選擇商品',
+    'demo.toast.actionCompleted': '動作已完成',
+    'demo.toast.actionFailed': '動作執行失敗',
+    'demo.toast.scenarioExecuted': '情境已執行',
+    'demo.toast.scenarioFailed': '情境執行失敗：{message}',
+    'demo.toast.generated': '已產生 Demo 資料',
+    'demo.toast.generateFailed': '無法產生 Demo 資料：{message}',
+    'demo.toast.alertsCleared': '警示已清除',
+    'demo.toast.alertsClearFailed': '無法清除警示：{message}',
+    'demo.toast.resetDone': 'Demo 環境已重置',
+    'demo.toast.resetFailed': '重置失敗：{message}'
   },
   'zh-Hans': {
     'app.title': 'RFID 试衣间 PoC 后台',
@@ -644,6 +738,11 @@ const I18N = {
     'login.submit': '登录',
     'auth.logout': '登出',
     'language.label': '语言',
+    'nav.home': '首页',
+    'nav.product': '商品',
+    'nav.csvImport': 'CSV 导入',
+    'nav.setting': '设置',
+    'nav.fittingDemo': '试衣间 Demo',
     'config.title': 'Supabase 连接设置',
     'config.saveAndConnect': '保存设置并连接',
     'dashboard.title': '商品状态看板',
@@ -759,6 +858,11 @@ const I18N = {
     'login.submit': 'サインイン',
     'auth.logout': 'ログアウト',
     'language.label': '言語',
+    'nav.home': 'ホーム',
+    'nav.product': '商品',
+    'nav.csvImport': 'CSV インポート',
+    'nav.setting': '設定',
+    'nav.fittingDemo': '試着室デモ',
     'config.title': 'Supabase 接続設定',
     'config.saveAndConnect': '保存して接続',
     'dashboard.title': '商品ステータスボード',
@@ -883,6 +987,24 @@ function applyI18nToStaticText() {
     node.textContent = t(key);
   });
 
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((node) => {
+    const key = node.getAttribute('data-i18n-placeholder');
+    if (!key) return;
+    node.setAttribute('placeholder', t(key));
+  });
+
+  document.querySelectorAll('[data-i18n-aria-label]').forEach((node) => {
+    const key = node.getAttribute('data-i18n-aria-label');
+    if (!key) return;
+    node.setAttribute('aria-label', t(key));
+  });
+
+  document.querySelectorAll('[data-i18n-title]').forEach((node) => {
+    const key = node.getAttribute('data-i18n-title');
+    if (!key) return;
+    node.setAttribute('title', t(key));
+  });
+
   document.documentElement.lang = currentLang;
   document.title = t('app.title');
 }
@@ -907,16 +1029,11 @@ function getSession() {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
-    if (!parsed?.token || !parsed?.role || !parsed?.expiresAt) return null;
-    if (!parsed?.supabaseAccessToken || !parsed?.supabaseTokenExpiresAt) {
+    if (!parsed?.accessToken || !parsed?.expiresAt) {
       writeStorage(SESSION_KEY, null);
       return null;
     }
     if (Date.parse(parsed.expiresAt) <= Date.now()) {
-      writeStorage(SESSION_KEY, null);
-      return null;
-    }
-    if (Date.parse(parsed.supabaseTokenExpiresAt) <= Date.now()) {
       writeStorage(SESSION_KEY, null);
       return null;
     }
@@ -960,62 +1077,61 @@ async function handleLoginSubmit(event) {
     el.loginError.textContent = '';
   }
 
-  const username = String(el.loginUsername?.value || '').trim();
+  const email = String(el.loginUsername?.value || '').trim();
   const password = String(el.loginPassword?.value || '');
 
   try {
-    const response = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
+    const url = String(el.supabaseUrl?.value || readStorage(URL_KEY, DEFAULT_SUPABASE_URL) || '').trim();
+    const anonKey = String(el.supabaseAnonKey?.value || readStorage(ANON_KEY, DEFAULT_SUPABASE_ANON_KEY) || '').trim();
+    if (!url || !anonKey) {
+      throw new Error('Supabase URL / Publishable Key 尚未設定');
+    }
+
+    const authClient = createSupabaseClient(url, anonKey, null);
+    const signInRes = await authClient.auth.signInWithPassword({
+      email,
+      password
     });
 
-    const { data } = await parseApiResponse(response, 'login');
-    if (!response.ok) {
-      throw new Error(getApiErrorMessage(data, 'Login failed'));
+    if (signInRes.error || !signInRes.data?.session?.access_token) {
+      throw new Error(signInRes.error?.message || 'Login failed');
     }
 
-    const session = data?.session;
-    if (!session?.token || !session?.role || !session?.expiresAt) {
-      throw new Error('Invalid session payload');
+    const accessToken = String(signInRes.data.session.access_token || '').trim();
+    const refreshToken = String(signInRes.data.session.refresh_token || '').trim() || null;
+    const expiresAt = new Date(Number(signInRes.data.session.expires_at || 0) * 1000).toISOString();
+
+    const meResponse = await fetch('/api/auth/me', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+    const { data: meData } = await parseApiResponse(meResponse, 'auth-me');
+    if (!meResponse.ok) {
+      throw new Error(getApiErrorMessage(meData, 'Failed to fetch profile'));
     }
 
-    const supabaseAccessToken = String(
-      session?.supabaseAccessToken
-      || data?.supabase_access_token
-      || ''
-    ).trim();
-    const supabaseTokenExpiresAt = String(
-      session?.supabaseTokenExpiresAt
-      || data?.supabase_token_expires_at
-      || ''
-    ).trim();
-    if (!supabaseAccessToken || !supabaseTokenExpiresAt) {
-      throw new Error('Invalid Supabase token payload');
-    }
-
-    const mergedSession = {
-      ...session,
-      supabaseAccessToken,
-      supabaseTokenExpiresAt
+    const nextSession = {
+      accessToken,
+      refreshToken,
+      expiresAt,
+      user: meData?.user || null,
+      profile: meData?.profile || null,
+      permissions: meData?.permissions || {}
     };
 
-    setSession(mergedSession);
-    writeStorage(USER_ROLE_KEY, normalizeUserRole(mergedSession.role));
+    setSession(nextSession);
+    setAppState({ session: nextSession });
     setAppVisibility(true);
+    applyAuthUi(nextSession);
     navigate('/');
 
-    if (el.userRole) {
-      el.userRole.value = normalizeUserRole(mergedSession.role);
-    }
-
-    const url = readStorage(URL_KEY, DEFAULT_SUPABASE_URL);
-    const anonKey = readStorage(ANON_KEY, DEFAULT_SUPABASE_ANON_KEY);
     if (el.supabaseUrl) el.supabaseUrl.value = url;
     if (el.supabaseAnonKey) el.supabaseAnonKey.value = anonKey;
 
     if (url && anonKey) {
-      await connectSupabase(url, anonKey, supabaseAccessToken);
+      await connectSupabase(url, anonKey, accessToken);
     } else {
       setStatus(t('status.needSupabaseConfig'), 'warn');
     }
@@ -1037,6 +1153,7 @@ function handleLogout() {
   resetSupabaseClient();
   setAppState({ session: null, supabaseClient: null, connectionStatus: 'idle' });
   setAppVisibility(false);
+  applyAuthUi(null);
   navigate('/', { replace: true });
   if (el.loginPassword) el.loginPassword.value = '';
   if (el.loginError) {
@@ -1190,6 +1307,7 @@ function closeDemoControls() {
 }
 
 function handleHomeCardNavigation(type) {
+  const session = getSession();
   console.info('[nav] home card navigation', {
     type,
     fromPath: window.location.pathname,
@@ -1212,10 +1330,20 @@ function handleHomeCardNavigation(type) {
     return;
   }
   if (type === 'setting') {
+    if (!canUseSetting(session)) {
+      setStatus('目前帳號無設定頁權限', 'warn');
+      navigate('/');
+      return;
+    }
     navigate('/setting');
     return;
   }
   if (type === 'csv') {
+    if (!canUseCsvImport(session)) {
+      setStatus('目前帳號無 CSV 匯入權限', 'warn');
+      navigate('/');
+      return;
+    }
     navigate('/csv-import.html');
   }
 }
@@ -1260,7 +1388,7 @@ function populateQuickActionProducts(products = lastRenderContext?.products || [
     })
     .join('');
 
-  el.quickActionProduct.innerHTML = `<option value="">Select a product</option>${options}`;
+  el.quickActionProduct.innerHTML = `<option value="">${escapeHtml(t('demo.quickAction.selectProduct'))}</option>${options}`;
 }
 
 function getQuickActionProduct() {
@@ -1331,10 +1459,10 @@ async function handleQuickActionSubmit(event) {
     const button = el.quickActionRun;
     if (button) {
       button.disabled = true;
-      button.textContent = 'Running...';
+      button.textContent = t('demo.button.running');
     }
     await runQuickAction({ product, room, action, note });
-    showToast('Action completed', 'ok');
+    showToast(t('demo.toast.actionCompleted'), 'ok');
     if (el.dashboard) {
       await fetchAndRenderDashboard();
     }
@@ -1343,7 +1471,7 @@ async function handleQuickActionSubmit(event) {
       el.quickActionError.hidden = false;
       el.quickActionError.textContent = error.message;
     }
-    showToast('Failed to execute action', 'err');
+    showToast(t('demo.toast.actionFailed'), 'err');
   } finally {
     const button = el.quickActionRun;
     if (button) {
@@ -1398,12 +1526,12 @@ async function handleScenarioRun(event) {
   const original = button.textContent;
   try {
     button.disabled = true;
-    button.textContent = 'Running...';
+    button.textContent = t('demo.button.running');
     await runScenario(scenario);
-    showToast('Scenario executed', 'ok');
+    showToast(t('demo.toast.scenarioExecuted'), 'ok');
     await fetchAndRenderDashboard();
   } catch (error) {
-    showToast(`Failed to execute scenario: ${error.message}`, 'err');
+    showToast(t('demo.toast.scenarioFailed', { message: error.message }), 'err');
   } finally {
     button.disabled = false;
     button.textContent = original || t('demoControls.scenarios.run');
@@ -1414,14 +1542,14 @@ async function handleSeedTodayData() {
   try {
     if (el.seedTodayData) {
       el.seedTodayData.disabled = true;
-      el.seedTodayData.textContent = 'Seeding...';
+      el.seedTodayData.textContent = t('demo.button.seeding');
     }
     await runScenario('normal');
     await runScenario('purchase');
-    showToast('Demo data generated', 'ok');
+    showToast(t('demo.toast.generated'), 'ok');
     await fetchAndRenderDashboard();
   } catch (error) {
-    showToast(`Unable to generate demo data: ${error.message}`, 'err');
+    showToast(t('demo.toast.generateFailed', { message: error.message }), 'err');
   } finally {
     if (el.seedTodayData) {
       el.seedTodayData.disabled = false;
@@ -1434,16 +1562,16 @@ async function handleClearActiveAlerts() {
   try {
     if (el.clearActiveAlerts) {
       el.clearActiveAlerts.disabled = true;
-      el.clearActiveAlerts.textContent = 'Clearing...';
+      el.clearActiveAlerts.textContent = t('demo.button.clearing');
     }
     const products = (lastRenderContext?.products || []).filter((p) => hasActiveAlert(p)).slice(0, 6);
     for (const product of products) {
       await runQuickAction({ product, room: '1', action: 'resolve', note: 'utility:clear-alerts' });
     }
-    showToast('Alerts cleared', 'ok');
+    showToast(t('demo.toast.alertsCleared'), 'ok');
     await fetchAndRenderDashboard();
   } catch (error) {
-    showToast(`Unable to clear alerts: ${error.message}`, 'err');
+    showToast(t('demo.toast.alertsClearFailed', { message: error.message }), 'err');
   } finally {
     if (el.clearActiveAlerts) {
       el.clearActiveAlerts.disabled = false;
@@ -1458,7 +1586,7 @@ async function handleResetDemoData() {
   try {
     if (el.resetDemoData) {
       el.resetDemoData.disabled = true;
-      el.resetDemoData.textContent = 'Resetting...';
+      el.resetDemoData.textContent = t('demo.button.resetting');
     }
     localLaneOverrides.clear();
     const products = (lastRenderContext?.products || []).slice(0, 8);
@@ -1469,10 +1597,10 @@ async function handleResetDemoData() {
         // ignore per-item failure in reset flow
       }
     }
-    showToast('Demo environment reset', 'warn');
+    showToast(t('demo.toast.resetDone'), 'warn');
     await fetchAndRenderDashboard();
   } catch (error) {
-    showToast(`Reset failed: ${error.message}`, 'err');
+    showToast(t('demo.toast.resetFailed', { message: error.message }), 'err');
   } finally {
     if (el.resetDemoData) {
       el.resetDemoData.disabled = false;
@@ -1495,13 +1623,70 @@ function isValidEpcData(value) {
 }
 
 function getApiAuthHeaders() {
-  const apiToken = String(readStorage(API_TOKEN_KEY, '') || '').trim();
-  const userRole = normalizeUserRole(readStorage(USER_ROLE_KEY, USER_ROLE_DEFAULT));
+  const session = getSession();
+  const accessToken = String(session?.accessToken || '').trim();
   const headers = {};
 
-  if (apiToken) headers['x-api-token'] = apiToken;
-  if (userRole) headers['x-user-role'] = userRole;
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   return headers;
+}
+
+function canUseCsvImport(session = getSession()) {
+  const role = String(session?.profile?.role || '').trim();
+  const fromPermissions = session?.permissions?.canUseCsvImport;
+  if (typeof fromPermissions === 'boolean') return fromPermissions;
+  return role === 'user' || role === 'admin';
+}
+
+function canUseSetting(session = getSession()) {
+  const role = String(session?.profile?.role || '').trim();
+  const fromPermissions = session?.permissions?.canUseSetting;
+  if (typeof fromPermissions === 'boolean') return fromPermissions;
+  return role === 'admin';
+}
+
+function canViewFittingDemo(session = getSession()) {
+  const role = String(session?.profile?.role || '').trim();
+  const fromPermissions = session?.permissions?.canViewFittingDemo;
+  if (typeof fromPermissions === 'boolean') return fromPermissions;
+  return role === 'trial' || role === 'user' || role === 'admin';
+}
+
+function toggleEntryVisibility(node, visible) {
+  if (!node) return;
+  if ('hidden' in node) node.hidden = !visible;
+  node.classList.toggle('is-disabled', !visible);
+  if (node.tagName === 'A') {
+    node.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    node.setAttribute('tabindex', visible ? '0' : '-1');
+    if (!visible) {
+      node.removeAttribute('aria-current');
+    }
+  }
+}
+
+function applyAuthUi(session = getSession()) {
+  const canCsv = canUseCsvImport(session);
+  const canSettingPage = canUseSetting(session);
+  const canFittingPage = canViewFittingDemo(session);
+
+  toggleEntryVisibility(el.homeCardCsvImport, canCsv);
+  toggleEntryVisibility(el.homeCardSetting, canSettingPage);
+  toggleEntryVisibility(el.homeCardFittingDemo, canFittingPage);
+
+  const navLinks = Array.from(document.querySelectorAll('.top-nav-link'));
+  navLinks.forEach((link) => {
+    const href = String(link.getAttribute('href') || '').trim();
+    if (href === '/csv-import.html' || href === '/csv-import') {
+      toggleEntryVisibility(link, canCsv);
+    }
+    if (href === '/setting' || href === '/setting.html') {
+      toggleEntryVisibility(link, canSettingPage);
+    }
+    if (href === '/fitting-demo.html') {
+      toggleEntryVisibility(link, canFittingPage);
+    }
+  });
 }
 
 function buildJsonHeaders() {
@@ -2006,14 +2191,13 @@ async function handleGroupedCsvImport(event) {
     hasFileInput: !!el.groupedCsvFile,
     hasResultBox: !!el.groupedImportResult,
     fileSelected: !!el.groupedCsvFile?.files?.[0],
-    role: normalizeUserRole(readStorage(USER_ROLE_KEY, USER_ROLE_DEFAULT))
+    role: String(getSession()?.profile?.role || '').trim() || 'unknown'
   });
 
-  const currentRole = normalizeUserRole(readStorage(USER_ROLE_KEY, USER_ROLE_DEFAULT));
-  if (currentRole === 'trial') {
+  if (!canUseCsvImport()) {
     console.warn('[grouped-import] blocked by role policy', {
       at: new Date().toISOString(),
-      role: currentRole
+      role: String(getSession()?.profile?.role || '').trim() || 'unknown'
     });
     el.groupedImportResult.textContent = [
       '匯入失敗',
@@ -2221,6 +2405,8 @@ function buildPresenceMap(rows = []) {
 
 function deriveStateByPresence(productKey, latestEvent, presence, nowMs, overstayMs) {
   const stateFromEvent = latestEvent ? normalizeStateFromEvent(latestEvent) : 'RACK';
+  const eventMs = Date.parse(latestEvent?.timestamp);
+  const eventAgeMs = Number.isFinite(eventMs) ? (nowMs - eventMs) : null;
   if (presence) {
     const lastSeenMs = Date.parse(presence.last_seen_at);
     const enteredMs = Date.parse(presence.entered_at);
@@ -2236,6 +2422,7 @@ function deriveStateByPresence(productKey, latestEvent, presence, nowMs, oversta
       stateFromEvent,
       lastSeenAgeMs,
       enteredAgeMs,
+      eventAgeMs,
       fittingExitTimeoutMs: FITTING_EXIT_TIMEOUT_MS,
       overstayMs,
       lastSeenAt: presence.last_seen_at,
@@ -2243,20 +2430,30 @@ function deriveStateByPresence(productKey, latestEvent, presence, nowMs, oversta
       eventType: latestEvent?.event_type || null,
       eventTimestamp: latestEvent?.timestamp || null
     });
-    return { state: 'RACK', abnormal: false };
+
+    if (stateFromEvent === 'FITTING_ROOM') {
+      const abnormalFromEvent = Number.isFinite(eventMs) && eventAgeMs >= overstayMs;
+      return { state: 'FITTING_ROOM', abnormal: abnormalFromEvent };
+    }
+    return { state: stateFromEvent, abnormal: false };
   }
 
   // 相容舊環境：若 presence 表不可用/空值，回退到最新事件狀態。
   // 只要沒有 left/return/sale 事件覆蓋，enter_fitting_room 會維持為 FITTING_ROOM。
   // 避免切頁後因 heartbeat 缺失導致 live snapshot 掉回 0。
   if (stateFromEvent === 'FITTING_ROOM') {
+    const abnormalFromEvent = Number.isFinite(eventMs) && eventAgeMs >= overstayMs;
     console.debug('[abnormal] no presence row, using latest event fallback', {
       productKey,
       stateFromEvent,
       overstayMs,
+      eventAgeMs,
+      abnormalFromEvent,
+      note: 'fallback abnormal derived from latest fitting event timestamp',
       eventType: latestEvent?.event_type || null,
       eventTimestamp: latestEvent?.timestamp || null
     });
+    return { state: 'FITTING_ROOM', abnormal: abnormalFromEvent };
   }
   const state = stateFromEvent;
   return { state, abnormal: false };
@@ -3066,37 +3263,49 @@ function renderManagerOverview({ grouped, todaySessions, todaySaleEvents, produc
 
   if (el.heroNarrative) {
     if (todayFitting === 0) {
-      el.heroNarrative.textContent = 'No fitting activity yet today. Monitor store flow and conversion once sessions begin.';
+      el.heroNarrative.textContent = t('analytics.hero.noFitting');
     } else if (abnormalCount > 0) {
-      el.heroNarrative.textContent = `Try-on activity is live with ${todayFitting} sessions, but ${abnormalCount} abnormal dwell alerts need attention.`;
+      el.heroNarrative.textContent = t('analytics.hero.abnormal', {
+        todayFitting,
+        abnormalCount
+      });
     } else {
-      el.heroNarrative.textContent = `Store is active with ${todayFitting} try-on sessions and ${conversionRate.toFixed(1)}% conversion today.`;
+      el.heroNarrative.textContent = t('analytics.hero.normal', {
+        todayFitting,
+        conversionRate: conversionRate.toFixed(1)
+      });
     }
   }
 
   if (el.heroLiveStatus) {
-    el.heroLiveStatus.textContent = `Live store: ${todayFitting > 0 ? 'Active' : 'Quiet'}`;
+    el.heroLiveStatus.textContent = t('analytics.hero.liveStore', {
+      status: todayFitting > 0 ? t('analytics.hero.liveStoreActive') : t('analytics.hero.liveStoreQuiet')
+    });
     el.heroLiveStatus.classList.toggle('text-warn', todayFitting === 0);
   }
   if (el.heroTrackingStatus) {
-    el.heroTrackingStatus.textContent = `RFID tracking: ${products.length > 0 ? 'Normal' : 'No products'}`;
+    el.heroTrackingStatus.textContent = t('analytics.hero.tracking', {
+      status: products.length > 0 ? t('analytics.hero.trackingNormal') : t('analytics.hero.trackingNoProducts')
+    });
     el.heroTrackingStatus.classList.toggle('text-warn', products.length === 0);
   }
   if (el.heroAiStatus) {
-    el.heroAiStatus.textContent = `AI assistant: ${opportunityRows.length > 0 || alertRows.length > 0 ? 'Ready' : 'Monitoring'}`;
+    el.heroAiStatus.textContent = t('analytics.hero.aiAssistant', {
+      status: opportunityRows.length > 0 || alertRows.length > 0 ? t('analytics.hero.aiReady') : t('analytics.hero.aiMonitoring')
+    });
   }
 
   if (el.overviewSnapshotBody) {
     const topProducts = (grouped?.FITTING_ROOM || []).slice(0, 5).map((row) => row?.product?.display_name || row?.product?.name_en || row?.product?.name || '-');
     el.overviewSnapshotBody.innerHTML = `
       <div class="snapshot-grid">
-        <article class="snapshot-chip"><p class="snapshot-chip-label">Rack</p><p class="snapshot-chip-value">${escapeHtml(String(rackCount))}</p></article>
-        <article class="snapshot-chip"><p class="snapshot-chip-label">Fitting Room</p><p class="snapshot-chip-value">${escapeHtml(String(fittingCount))}</p></article>
-        <article class="snapshot-chip"><p class="snapshot-chip-label">Checkout</p><p class="snapshot-chip-value">${escapeHtml(String(checkoutCount))}</p></article>
+        <article class="snapshot-chip"><p class="snapshot-chip-label">${escapeHtml(t('analytics.snapshot.rack'))}</p><p class="snapshot-chip-value">${escapeHtml(String(rackCount))}</p></article>
+        <article class="snapshot-chip"><p class="snapshot-chip-label">${escapeHtml(t('analytics.snapshot.fittingRoom'))}</p><p class="snapshot-chip-value">${escapeHtml(String(fittingCount))}</p></article>
+        <article class="snapshot-chip"><p class="snapshot-chip-label">${escapeHtml(t('analytics.snapshot.checkout'))}</p><p class="snapshot-chip-value">${escapeHtml(String(checkoutCount))}</p></article>
       </div>
-      <p class="hint">Active alerts: <strong>${escapeHtml(String(alertRows.length))}</strong> / Today sales: <strong>${escapeHtml(String(todaySales))}</strong></p>
+      <p class="hint">${escapeHtml(t('analytics.snapshot.activeAlerts'))}: <strong>${escapeHtml(String(alertRows.length))}</strong> / ${escapeHtml(t('analytics.snapshot.todaySales'))}: <strong>${escapeHtml(String(todaySales))}</strong></p>
       <div class="snapshot-mini-products">
-        ${(topProducts.length > 0 ? topProducts : ['No active try-on items']).map((name) => `<span class="snapshot-mini-product">${escapeHtml(name)}</span>`).join('')}
+        ${(topProducts.length > 0 ? topProducts : [t('analytics.snapshot.noActiveTryOnItems')]).map((name) => `<span class="snapshot-mini-product">${escapeHtml(name)}</span>`).join('')}
       </div>
     `;
   }
@@ -3105,24 +3314,24 @@ function renderManagerOverview({ grouped, todaySessions, todaySaleEvents, produc
     const summaryItems = [];
     if (opportunityRows.length > 0) {
       const top = opportunityRows[0];
-      summaryItems.push(`${top.name} shows high try-on interest with ${top.conversion.toFixed(1)}% conversion.`);
+      summaryItems.push(t('analytics.aiSummary.opportunity', { name: top.name, conversion: top.conversion.toFixed(1) }));
     }
     if (abnormalCount > 0) {
-      summaryItems.push(`${abnormalCount} abnormal dwell items detected. Prioritize fitting room follow-up.`);
+      summaryItems.push(t('analytics.aiSummary.abnormal', { abnormalCount }));
     }
     if (todayFitting > 0 && conversionRate < 20) {
-      summaryItems.push('Conversion is below 20%. Review styling guidance near fitting rooms.');
+      summaryItems.push(t('analytics.aiSummary.lowConversion'));
     }
     if (summaryItems.length === 0) {
-      summaryItems.push('Store performance is stable. Continue monitoring try-on and conversion trend.');
+      summaryItems.push(t('analytics.aiSummary.stable'));
     }
     el.overviewAiSummaryBody.innerHTML = `
       <ul class="ai-summary-list">
         ${summaryItems.slice(0, 4).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
       </ul>
       <div class="ai-summary-actions">
-        <button type="button" class="button-secondary">View full insights</button>
-        <button type="button" class="button-secondary">Ask AI</button>
+        <button type="button" class="button-secondary">${escapeHtml(t('analytics.aiSummary.viewFullInsights'))}</button>
+        <button type="button" class="button-secondary">${escapeHtml(t('analytics.aiSummary.askAi'))}</button>
       </div>
     `;
   }
@@ -3248,7 +3457,7 @@ function renderAnalyticsModules({ products, grouped, todaySessions, todaySaleEve
       el.overviewOpportunityBody.innerHTML = rows.map((row) => `
         <div class="analytics-opportunity-row">
           <strong>${escapeHtml(row.name)}</strong>
-          <span>${escapeHtml(row.tryOn)} try-on</span>
+          <span>${escapeHtml(row.tryOn)} ${escapeHtml(t('analytics.overview.tryOnUnit'))}</span>
           <span>${escapeHtml(row.conversion.toFixed(1))}%</span>
         </div>
       `).join('');
@@ -3417,6 +3626,18 @@ function renderDashboard(products, latestEventMap, presenceMap, todaySessions = 
 
   console.table(debugStateRows.slice(0, 20));
   console.log('[abnormal] pipeline diagnostics', abnormalDiag);
+  if (abnormalDiag.fittingRows > 0 && abnormalDiag.abnormalRows === 0) {
+    console.warn('[abnormal][diag] fitting items exist but abnormal is zero', {
+      likelyCauseA: 'presence rows are stale (front-end timeout too strict or heartbeat not updated)',
+      likelyCauseB: 'no presence row for fitting items, so fallback keeps abnormal=false',
+      fittingRows: abnormalDiag.fittingRows,
+      stalePresenceRows: abnormalDiag.stalePresenceRows,
+      stalePresenceAndEventFittingRows: abnormalDiag.stalePresenceAndEventFittingRows,
+      noPresenceButEventSaysFittingRows: abnormalDiag.noPresenceButEventSaysFittingRows,
+      overstayThresholdMinutes: abnormalDiag.overstayThresholdMinutes,
+      fittingExitTimeoutMs: FITTING_EXIT_TIMEOUT_MS
+    });
+  }
   const stateReconcileDiag = {
     productsCount: products.length,
     latestEventKeyCount: latestEventMap.size,
@@ -4097,17 +4318,13 @@ async function handleConfigSubmit(event) {
 
   const url = el.supabaseUrl.value.trim();
   const anonKey = el.supabaseAnonKey.value.trim();
-  const apiToken = (el.apiToken?.value || '').trim();
-  const userRole = normalizeUserRole(el.userRole?.value);
 
   try {
     writeStorage(URL_KEY, url);
     writeStorage(ANON_KEY, anonKey);
-    writeStorage(API_TOKEN_KEY, apiToken);
-    writeStorage(USER_ROLE_KEY, userRole);
     writeJsonStorage(STORAGE_KEY, { url, anonKey });
     const session = getSession();
-    await connectSupabase(url, anonKey, session?.supabaseAccessToken || null);
+    await connectSupabase(url, anonKey, session?.accessToken || null);
   } catch (error) {
     setStatus(t('status.connectionFailed', { message: error.message }), 'err');
   }
@@ -4115,11 +4332,10 @@ async function handleConfigSubmit(event) {
 
 async function handleCsvImport(event) {
   event.preventDefault();
-  const currentRole = normalizeUserRole(readStorage(USER_ROLE_KEY, USER_ROLE_DEFAULT));
-  if (currentRole === 'trial') {
+  if (!canUseCsvImport()) {
     el.importResult.textContent = [
       '匯入失敗',
-      '原因：trial 角色無匯入權限',
+      '原因：目前帳號無匯入權限',
       '資料筆數（inventory_items）：0',
       '產品總數（products）：0'
     ].join('\n');
@@ -4255,6 +4471,7 @@ function boot() {
   const session = getSession();
   setAppState({ session });
   setAppVisibility(Boolean(session));
+  applyAuthUi(session);
   setMainView(session ? 'home' : 'home');
 
   if (el.loginForm) {
@@ -4481,15 +4698,6 @@ function boot() {
 
   if (el.supabaseUrl) el.supabaseUrl.value = url;
   if (el.supabaseAnonKey) el.supabaseAnonKey.value = anonKey;
-  if (el.apiToken) {
-    el.apiToken.value = String(readStorage(API_TOKEN_KEY, '') || '').trim();
-  }
-  if (el.userRole) {
-    const role = normalizeUserRole(readStorage(USER_ROLE_KEY, USER_ROLE_DEFAULT));
-    writeStorage(USER_ROLE_KEY, role);
-    el.userRole.value = role;
-  }
-
   onRouteChange(({ path }) => {
     const activeSession = getSession();
     const authenticated = Boolean(activeSession);
@@ -4499,11 +4707,29 @@ function boot() {
       at: new Date().toISOString()
     });
     setShellAuthVisibility(authenticated);
+    applyAuthUi(activeSession);
     if (!authenticated) {
       setShellViewByPath('/');
       syncTopNavActiveState('/');
       return;
     }
+
+    if ((path === '/setting' || path === '/setting.html') && !canUseSetting(activeSession)) {
+      setStatus('目前帳號無設定頁權限', 'warn');
+      navigate('/', { replace: true });
+      return;
+    }
+    if ((path === '/csv-import' || path === '/csv-import.html') && !canUseCsvImport(activeSession)) {
+      setStatus('目前帳號無 CSV 匯入權限', 'warn');
+      navigate('/', { replace: true });
+      return;
+    }
+    if (path === '/fitting-demo.html' && !canViewFittingDemo(activeSession)) {
+      setStatus('目前帳號無試衣間 Demo 權限', 'warn');
+      navigate('/', { replace: true });
+      return;
+    }
+
     setShellViewByPath(path);
     syncTopNavActiveState(path);
   });
@@ -4512,9 +4738,10 @@ function boot() {
 
   if (session) {
     setShellAuthVisibility(true);
+    applyAuthUi(session);
     syncTopNavActiveState(getCurrentPath());
     if (url && anonKey) {
-      connectSupabase(url, anonKey, session?.supabaseAccessToken || null).catch((error) => {
+      connectSupabase(url, anonKey, session?.accessToken || null).catch((error) => {
         setStatus(t('status.autoConnectFailed', { message: error.message }), 'err');
       });
       return;

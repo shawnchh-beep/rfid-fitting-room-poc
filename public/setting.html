@@ -10,14 +10,14 @@
   <header class="page-header">
     <h1 data-i18n="home.cards.setting.title">Setting</h1>
     <div class="header-actions">
-      <nav class="top-nav" aria-label="Primary">
-        <a href="/" class="top-nav-link">Home</a>
-        <a href="/product.html" class="top-nav-link">Product</a>
-        <a href="/csv-import.html" class="top-nav-link">CSV Import</a>
-        <a href="/setting" class="top-nav-link is-active" aria-current="page">Setting</a>
+      <nav class="top-nav" aria-label="Primary" data-i18n-aria-label="aria.primaryNav">
+        <a href="/" class="top-nav-link" data-i18n="nav.home">Home</a>
+        <a href="/product.html" class="top-nav-link" data-i18n="nav.product">Product</a>
+        <a href="/csv-import.html" class="top-nav-link" data-i18n="nav.csvImport">CSV Import</a>
+        <a href="/setting" class="top-nav-link is-active" aria-current="page" data-i18n="nav.setting">Setting</a>
       </nav>
       <label for="languageSelect" class="language-label" data-i18n="language.label">Language</label>
-      <select id="languageSelect" class="language-select" aria-label="Language"></select>
+      <select id="languageSelect" class="language-select" aria-label="Language" data-i18n-aria-label="aria.languageSelect"></select>
       <p id="connectionStatus" class="status-badge">Initializing…</p>
     </div>
   </header>
@@ -28,23 +28,11 @@
       <form id="configForm" class="stack-form">
         <label>
           <span data-i18n="config.urlLabel">Supabase URL</span>
-          <input id="supabaseUrl" type="url" required placeholder="https://xxxx.supabase.co" />
+          <input id="supabaseUrl" type="url" required placeholder="https://xxxx.supabase.co" data-i18n-placeholder="placeholder.supabaseUrl" />
         </label>
         <label>
           <span data-i18n="config.anonKeyLabel">Supabase Publishable Key</span>
-          <input id="supabaseAnonKey" type="password" required placeholder="eyJ..." />
-        </label>
-        <label>
-          <span data-i18n="auth.apiTokenLabel">API Shared Token</span>
-          <input id="apiToken" type="password" placeholder="optional when auth disabled" />
-        </label>
-        <label>
-          <span data-i18n="auth.roleLabel">Role</span>
-          <select id="userRole" required>
-            <option value="trial" data-i18n="auth.role.trial">Trial</option>
-            <option value="user" data-i18n="auth.role.user">User</option>
-            <option value="admin" data-i18n="auth.role.admin">Admin</option>
-          </select>
+          <input id="supabaseAnonKey" type="password" required placeholder="eyJ..." data-i18n-placeholder="placeholder.supabaseAnonKey" />
         </label>
         <button type="submit" data-i18n="config.saveAndConnect">Save & Connect</button>
       </form>

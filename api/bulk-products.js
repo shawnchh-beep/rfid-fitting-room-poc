@@ -254,9 +254,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const auth = authorizeBulkProducts(req);
+  const auth = await authorizeBulkProducts(req);
   if (!auth.ok) {
-    return res.status(auth.status).json({ error: auth.error });
+    return res.status(auth.status).json(auth.errorBody || { error: auth.error });
   }
 
   // v2 規則：trial 永遠不可匯入（即使 API_AUTH_ENABLED=false 也維持限制）

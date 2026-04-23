@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { authorizeWebhook } from './_auth.js';
+import { authorizeAnySignedIn } from './_auth.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -68,9 +68,9 @@ function resolveText(...values) {
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
 
-  const auth = authorizeWebhook(req);
+  const auth = await authorizeAnySignedIn(req);
   if (!auth.ok) {
-    return res.status(auth.status).json({ error: auth.error });
+    return res.status(auth.status).json(auth.errorBody || { error: auth.error });
   }
 
   try {
@@ -189,4 +189,3 @@ export default async function handler(req, res) {
     });
   }
 }
-

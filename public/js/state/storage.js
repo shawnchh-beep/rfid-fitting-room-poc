@@ -7,8 +7,6 @@ export const STORAGE_KEYS = {
   productSummaryView: 'rfid_poc_product_summary_view_v1',
   overstayDemoMinutes: 'rfid_poc_overstay_demo_minutes_v1',
   overstayOperationalMinutes: 'rfid_poc_overstay_operational_minutes_v1',
-  apiToken: 'rfid_poc_api_token_v1',
-  userRole: 'rfid_poc_user_role_v1',
   session: 'rfid_poc_login_session_v1'
 };
 
@@ -42,4 +40,3 @@ export function writeJsonStorage(key, value) {
   }
   window.localStorage.setItem(key, JSON.stringify(value));
 }
-
