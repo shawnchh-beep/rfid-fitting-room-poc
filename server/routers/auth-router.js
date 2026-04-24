@@ -17,7 +17,7 @@ function toSegments(routeParam) {
 
 export async function routeAuthRequest(req, res) {
   const method = String(req.method || '').toUpperCase();
-  const segments = toSegments(req.query?.route);
+  const segments = toSegments(req.query?.['...route'] ?? req.query?.route);
   const [head] = segments;
 
   console.info('[auth-router] resolved route', {

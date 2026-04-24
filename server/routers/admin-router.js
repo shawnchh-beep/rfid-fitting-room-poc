@@ -25,7 +25,7 @@ function toSegments(routeParam) {
 
 export async function routeAdminRequest(req, res) {
   const method = String(req.method || '').toUpperCase();
-  const segments = toSegments(req.query?.route);
+  const segments = toSegments(req.query?.['...route'] ?? req.query?.route);
   const [head, second, third] = segments;
 
   if (head === 'trial-requests' && segments.length === 1) {
@@ -61,4 +61,3 @@ export async function routeAdminRequest(req, res) {
 
   return jsonError(res, 404, 'NOT_FOUND', 'Not Found');
 }
-

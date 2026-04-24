@@ -1,0 +1,15 @@
+Retrieving project…
+> Ready! Available at http://localhost:4123
+[api/auth] incoming request {
+  method: 'GET',
+  url: '/api/auth/me?...route=me',
+  route: [],
+  queryKeys: [ '...route' ]
+}
+[auth-router] resolved route {
+  method: 'GET',
+  url: '/api/auth/me?...route=me',
+  segments: [ 'me' ],
+  hasAuthorizationHeader: false
+}
+[auth-router] dispatching handleAuthMe
