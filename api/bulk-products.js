@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { authorizeBulkProducts } from './_auth.js';
-import { decodeSGTIN96 } from './sgtin96.js';
+import { authorizeBulkProducts } from '../server/auth.js';
+import { decodeSGTIN96 } from '../server/sgtin96.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,

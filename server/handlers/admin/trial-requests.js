@@ -1,5 +1,5 @@
-import { authorizeAdmin } from '../_auth.js';
-import { getSupabaseAdminClient } from '../_supabase.js';
+import { authorizeAdmin } from '../../auth.js';
+import { getSupabaseAdminClient } from '../../supabase.js';
 
 const REQUEST_STATUSES = new Set([
   'pending',
@@ -20,11 +20,7 @@ function parseNumber(value, fallback) {
   return n;
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return jsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Method Not Allowed');
-  }
-
+export async function handleAdminTrialRequests(req, res) {
   const auth = await authorizeAdmin(req);
   if (!auth.ok) {
     return res.status(auth.status).json(auth.errorBody || { error: { code: 'FORBIDDEN', message: auth.error || 'Forbidden' } });

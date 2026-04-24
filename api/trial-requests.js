@@ -1,5 +1,5 @@
-import { getSupabaseAdminClient, normalizeBody, toIsoDate, toTrialExpiresAtIso } from './_supabase.js';
-import { sendInviteEmail } from './_mailer.js';
+import { getSupabaseAdminClient, normalizeBody, toIsoDate, toTrialExpiresAtIso } from '../server/supabase.js';
+import { sendInviteEmail } from '../server/mailer.js';
 
 const OPEN_REQUEST_STATUSES = ['pending', 'account_created', 'email_sent', 'email_failed'];
 const TRIAL_REQUEST_RATE_LIMIT_MAX = 5;

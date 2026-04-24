@@ -1,16 +1,11 @@
-import { authorizeAdmin } from '../../../_auth.js';
-import { getSupabaseAdminClient, normalizeBody, toTrialExpiresAtIso } from '../../../_supabase.js';
+import { authorizeAdmin } from '../../auth.js';
+import { getSupabaseAdminClient, normalizeBody, toTrialExpiresAtIso } from '../../supabase.js';
 
 const ROLES = new Set(['guest', 'trial', 'user', 'admin']);
 const STATUSES = new Set(['pending_activation', 'active', 'expired', 'disabled']);
 
 function jsonError(res, status, code, message) {
   return res.status(status).json({ error: { code, message } });
-}
-
-function readUserId(req) {
-  const raw = req?.query?.userId;
-  return String(Array.isArray(raw) ? raw[0] : (raw || '')).trim();
 }
 
 function sanitizeRole(value) {
@@ -48,7 +43,19 @@ async function loadTargetProfile(supabase, userId) {
     .maybeSingle();
 }
 
-async function handlePatch(req, res, auth, supabase, userId) {
+export async function handleAdminUserPatch(req, res, userId) {
+  const auth = await authorizeAdmin(req);
+  if (!auth.ok) {
+    return res.status(auth.status).json(auth.errorBody || { error: { code: 'FORBIDDEN', message: auth.error || 'Forbidden' } });
+  }
+
+  let supabase;
+  try {
+    supabase = getSupabaseAdminClient();
+  } catch (error) {
+    return jsonError(res, 500, 'CONFIG_ERROR', error?.message || 'Supabase config error');
+  }
+
   const profileRes = await loadTargetProfile(supabase, userId);
   if (profileRes.error || !profileRes.data) {
     return jsonError(res, 404, 'USER_NOT_FOUND', 'User profile not found');
@@ -148,7 +155,19 @@ async function handlePatch(req, res, auth, supabase, userId) {
   });
 }
 
-async function handleDelete(req, res, auth, supabase, userId) {
+export async function handleAdminUserDelete(req, res, userId) {
+  const auth = await authorizeAdmin(req);
+  if (!auth.ok) {
+    return res.status(auth.status).json(auth.errorBody || { error: { code: 'FORBIDDEN', message: auth.error || 'Forbidden' } });
+  }
+
+  let supabase;
+  try {
+    supabase = getSupabaseAdminClient();
+  } catch (error) {
+    return jsonError(res, 500, 'CONFIG_ERROR', error?.message || 'Supabase config error');
+  }
+
   if (String(auth.user_id || '') === userId) {
     return jsonError(res, 400, 'SELF_PROTECTION', 'Admin cannot delete self');
   }
@@ -185,33 +204,5 @@ async function handleDelete(req, res, auth, supabase, userId) {
   });
 
   return res.status(200).json({ ok: true, deleted: true, user_id: userId });
-}
-
-export default async function handler(req, res) {
-  const auth = await authorizeAdmin(req);
-  if (!auth.ok) {
-    return res.status(auth.status).json(auth.errorBody || { error: { code: 'FORBIDDEN', message: auth.error || 'Forbidden' } });
-  }
-
-  const userId = readUserId(req);
-  if (!userId) {
-    return jsonError(res, 400, 'VALIDATION_ERROR', 'userId is required');
-  }
-
-  let supabase;
-  try {
-    supabase = getSupabaseAdminClient();
-  } catch (error) {
-    return jsonError(res, 500, 'CONFIG_ERROR', error?.message || 'Supabase config error');
-  }
-
-  if (req.method === 'PATCH') {
-    return handlePatch(req, res, auth, supabase, userId);
-  }
-  if (req.method === 'DELETE') {
-    return handleDelete(req, res, auth, supabase, userId);
-  }
-
-  return jsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Method Not Allowed');
 }
 

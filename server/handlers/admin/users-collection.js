@@ -1,6 +1,6 @@
-import { authorizeAdmin } from '../../_auth.js';
-import { sendInviteEmail } from '../../_mailer.js';
-import { getSupabaseAdminClient, normalizeBody, toTrialExpiresAtIso } from '../../_supabase.js';
+import { authorizeAdmin } from '../../auth.js';
+import { sendInviteEmail } from '../../mailer.js';
+import { getSupabaseAdminClient, normalizeBody, toTrialExpiresAtIso } from '../../supabase.js';
 
 const ROLES = new Set(['guest', 'trial', 'user', 'admin']);
 const STATUSES = new Set(['pending_activation', 'active', 'expired', 'disabled']);
@@ -62,7 +62,52 @@ function normalizeProfile(row = {}) {
   };
 }
 
-async function listUsers(req, res, auth, supabase) {
+function validateCreateBody(body) {
+  const fullName = String(body.full_name || '').trim();
+  const companyName = String(body.company_name || '').trim();
+  const jobTitle = String(body.job_title || '').trim();
+  const email = String(body.email || '').trim().toLowerCase();
+  const locale = String(body.locale || 'zh-Hant').trim() || 'zh-Hant';
+  const role = sanitizeRole(body.role);
+  const status = sanitizeStatus(body.status) || 'active';
+  const trialExpiresAtRaw = toIsoOrNull(body.trial_expires_at);
+
+  if (fullName.length < 1 || fullName.length > 80) return { ok: false, message: 'full_name length must be between 1 and 80' };
+  if (companyName.length < 1 || companyName.length > 120) return { ok: false, message: 'company_name length must be between 1 and 120' };
+  if (jobTitle.length < 1 || jobTitle.length > 120) return { ok: false, message: 'job_title length must be between 1 and 120' };
+  if (!validateEmail(email)) return { ok: false, message: 'email is invalid' };
+  if (!role) return { ok: false, message: 'role is invalid' };
+  if (!STATUSES.has(status)) return { ok: false, message: 'status is invalid' };
+
+  const trialExpiresAt = role === 'trial' ? (trialExpiresAtRaw || toTrialExpiresAtIso()) : null;
+  return {
+    ok: true,
+    value: {
+      full_name: fullName,
+      company_name: companyName,
+      job_title: jobTitle,
+      email,
+      role,
+      status,
+      locale,
+      trial_expires_at: trialExpiresAt
+    }
+  };
+}
+
+export async function handleAdminUsersList(req, res) {
+  const auth = await authorizeAdmin(req);
+  if (!auth.ok) {
+    return res.status(auth.status).json(auth.errorBody || { error: { code: 'FORBIDDEN', message: auth.error || 'Forbidden' } });
+  }
+
+  let supabase;
+  try {
+    supabase = getSupabaseAdminClient();
+  } catch (error) {
+    return jsonError(res, 500, 'CONFIG_ERROR', error?.message || 'Supabase config error');
+  }
+
   const q = String(req.query?.q || '').trim();
   const role = sanitizeRole(req.query?.role);
   const status = sanitizeStatus(req.query?.status);
@@ -104,40 +149,19 @@ async function listUsers(req, res, auth, supabase) {
   });
 }
 
-function validateCreateBody(body) {
-  const fullName = String(body.full_name || '').trim();
-  const companyName = String(body.company_name || '').trim();
-  const jobTitle = String(body.job_title || '').trim();
-  const email = String(body.email || '').trim().toLowerCase();
-  const locale = String(body.locale || 'zh-Hant').trim() || 'zh-Hant';
-  const role = sanitizeRole(body.role);
-  const status = sanitizeStatus(body.status) || 'active';
-  const trialExpiresAtRaw = toIsoOrNull(body.trial_expires_at);
+export async function handleAdminUsersCreate(req, res) {
+  const auth = await authorizeAdmin(req);
+  if (!auth.ok) {
+    return res.status(auth.status).json(auth.errorBody || { error: { code: 'FORBIDDEN', message: auth.error || 'Forbidden' } });
+  }
 
-  if (fullName.length < 1 || fullName.length > 80) return { ok: false, message: 'full_name length must be between 1 and 80' };
-  if (companyName.length < 1 || companyName.length > 120) return { ok: false, message: 'company_name length must be between 1 and 120' };
-  if (jobTitle.length < 1 || jobTitle.length > 120) return { ok: false, message: 'job_title length must be between 1 and 120' };
-  if (!validateEmail(email)) return { ok: false, message: 'email is invalid' };
-  if (!role) return { ok: false, message: 'role is invalid' };
-  if (!STATUSES.has(status)) return { ok: false, message: 'status is invalid' };
+  let supabase;
+  try {
+    supabase = getSupabaseAdminClient();
+  } catch (error) {
+    return jsonError(res, 500, 'CONFIG_ERROR', error?.message || 'Supabase config error');
+  }
 
-  const trialExpiresAt = role === 'trial' ? (trialExpiresAtRaw || toTrialExpiresAtIso()) : null;
-  return {
-    ok: true,
-    value: {
-      full_name: fullName,
-      company_name: companyName,
-      job_title: jobTitle,
-      email,
-      role,
-      status,
-      locale,
-      trial_expires_at: trialExpiresAt
-    }
-  };
-}
-
-async function createUser(req, res, auth, supabase) {
   const body = normalizeBody(req.body);
   const validated = validateCreateBody(body);
   if (!validated.ok) return jsonError(res, 400, 'VALIDATION_ERROR', validated.message);
@@ -241,28 +265,5 @@ async function createUser(req, res, auth, supabase) {
     user: normalizeProfile(profileRes.data || { user_id: createdUser.id, ...payload }),
     invite_sent: inviteSent
   });
-}
-
-export default async function handler(req, res) {
-  const auth = await authorizeAdmin(req);
-  if (!auth.ok) {
-    return res.status(auth.status).json(auth.errorBody || { error: { code: 'FORBIDDEN', message: auth.error || 'Forbidden' } });
-  }
-
-  let supabase;
-  try {
-    supabase = getSupabaseAdminClient();
-  } catch (error) {
-    return jsonError(res, 500, 'CONFIG_ERROR', error?.message || 'Supabase config error');
-  }
-
-  if (req.method === 'GET') {
-    return listUsers(req, res, auth, supabase);
-  }
-  if (req.method === 'POST') {
-    return createUser(req, res, auth, supabase);
-  }
-
-  return jsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Method Not Allowed');
 }
 

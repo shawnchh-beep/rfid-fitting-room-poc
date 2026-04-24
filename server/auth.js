@@ -1,4 +1,4 @@
-import { getSupabaseAdminClient } from './_supabase.js';
+import { getSupabaseAdminClient } from './supabase.js';
 
 const WEBHOOK_ALLOWED_ROLES = new Set(['trial', 'user', 'admin', 'service_backend']);
 const BULK_ALLOWED_ROLES = new Set(['user', 'admin', 'service_backend']);

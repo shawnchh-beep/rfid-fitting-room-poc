@@ -1,6 +1,6 @@
-import { authorizeAdmin } from '../../../_auth.js';
-import { sendInviteEmail } from '../../../_mailer.js';
-import { getSupabaseAdminClient, normalizeBody } from '../../../_supabase.js';
+import { authorizeAdmin } from '../../auth.js';
+import { sendInviteEmail } from '../../mailer.js';
+import { getSupabaseAdminClient, normalizeBody } from '../../supabase.js';
 
 function jsonError(res, status, code, message) {
   return res.status(status).json({
@@ -8,24 +8,10 @@ function jsonError(res, status, code, message) {
   });
 }
 
-function readUserId(req) {
-  const raw = req?.query?.userId;
-  return String(Array.isArray(raw) ? raw[0] : (raw || '')).trim();
-}
-
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return jsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Method Not Allowed');
-  }
-
+export async function handleAdminUsersResendInvite(req, res, userId) {
   const auth = await authorizeAdmin(req);
   if (!auth.ok) {
     return res.status(auth.status).json(auth.errorBody || { error: { code: 'FORBIDDEN', message: auth.error || 'Forbidden' } });
-  }
-
-  const userId = readUserId(req);
-  if (!userId) {
-    return jsonError(res, 400, 'VALIDATION_ERROR', 'userId is required');
   }
 
   const body = normalizeBody(req.body);

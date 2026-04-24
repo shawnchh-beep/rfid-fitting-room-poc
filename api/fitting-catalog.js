@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { authorizeAnySignedIn } from './_auth.js';
+import { authorizeAnySignedIn } from '../server/auth.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,

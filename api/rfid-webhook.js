@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { decodeSGTIN96 } from './sgtin96.js';
-import { authorizeWebhook } from './_auth.js';
+import { decodeSGTIN96 } from '../server/sgtin96.js';
+import { authorizeWebhook } from '../server/auth.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,

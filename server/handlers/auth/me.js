@@ -1,15 +1,6 @@
-import { authorizeAnySignedIn } from '../_auth.js';
+import { authorizeAnySignedIn } from '../../auth.js';
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({
-      error: {
-        code: 'METHOD_NOT_ALLOWED',
-        message: 'Method Not Allowed'
-      }
-    });
-  }
-
+export async function handleAuthMe(req, res) {
   const auth = await authorizeAnySignedIn(req);
   if (!auth.ok) {
     return res.status(auth.status).json(auth.errorBody || {
