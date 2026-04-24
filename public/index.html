@@ -7,25 +7,6 @@
   <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
-  <section id="loginView" class="login-screen" aria-labelledby="loginTitle">
-    <article class="login-card">
-      <h1 id="loginTitle" data-i18n="login.title">Sign in to RFID Fitting Room PoC</h1>
-      <p class="hint" data-i18n="login.subtitle">Please sign in to continue to dashboard.</p>
-      <form id="loginForm" class="stack-form">
-        <label>
-          <span data-i18n="login.username">Username</span>
-          <input id="loginUsername" name="username" autocomplete="username" required />
-        </label>
-        <label>
-          <span data-i18n="login.password">Password</span>
-          <input id="loginPassword" name="password" type="password" autocomplete="current-password" required />
-        </label>
-        <button type="submit" data-i18n="login.submit">Sign in</button>
-      </form>
-      <p id="loginError" class="status-badge text-err" hidden></p>
-    </article>
-  </section>
-
   <div id="appShell" hidden>
     <nav class="top-nav" aria-label="Primary" data-i18n-aria-label="aria.primaryNav" style="margin: 12px 20px 0;">
       <a href="/" data-route-link class="top-nav-link" data-i18n="nav.home">Home</a>
@@ -372,19 +353,171 @@
       </header>
 
       <main class="layout">
-        <section class="panel" aria-labelledby="configTitle">
-          <h2 id="configTitle" data-i18n="config.title">Supabase Connection</h2>
-          <form id="configForm" class="stack-form">
-            <label>
-              <span data-i18n="config.urlLabel">Supabase URL</span>
-              <input id="supabaseUrl" type="url" required placeholder="https://xxxx.supabase.co" data-i18n-placeholder="placeholder.supabaseUrl" />
-            </label>
-            <label>
-              <span data-i18n="config.anonKeyLabel">Supabase Publishable Key</span>
-              <input id="supabaseAnonKey" type="password" required placeholder="eyJ..." data-i18n-placeholder="placeholder.supabaseAnonKey" />
-            </label>
-            <button type="submit" data-i18n="config.saveAndConnect">Save & Connect</button>
-          </form>
+        <section class="panel" aria-labelledby="settingWorkspaceTitle">
+          <h2 id="settingWorkspaceTitle">Setting Workspace</h2>
+          <p class="hint">管理系統連線、帳號管理與 trial 申請紀錄。</p>
+
+          <div id="settingSubnav" class="setting-subnav" role="tablist" aria-label="Setting sub navigation">
+            <button type="button" class="button-secondary is-active" data-setting-tab="general" aria-selected="true">系統設定</button>
+            <button type="button" class="button-secondary" data-setting-tab="accounts" aria-selected="false">帳號管理</button>
+            <button type="button" class="button-secondary" data-setting-tab="trials" aria-selected="false">Trial 申請紀錄</button>
+          </div>
+
+          <section id="settingPanelGeneral" class="setting-subpanel" aria-labelledby="configTitle">
+            <h3 id="configTitle" data-i18n="config.title">Supabase Connection</h3>
+            <form id="configForm" class="stack-form">
+              <label>
+                <span data-i18n="config.urlLabel">Supabase URL</span>
+                <input id="supabaseUrl" type="url" required placeholder="https://xxxx.supabase.co" data-i18n-placeholder="placeholder.supabaseUrl" />
+              </label>
+              <label>
+                <span data-i18n="config.anonKeyLabel">Supabase Publishable Key</span>
+                <input id="supabaseAnonKey" type="password" required placeholder="eyJ..." data-i18n-placeholder="placeholder.supabaseAnonKey" />
+              </label>
+              <button type="submit" data-i18n="config.saveAndConnect">Save & Connect</button>
+            </form>
+          </section>
+
+          <section id="settingPanelAccounts" class="setting-subpanel" aria-labelledby="accountMgmtTitle" hidden>
+            <div class="panel-title-row">
+              <h3 id="accountMgmtTitle">帳號管理</h3>
+              <div class="panel-actions">
+                <button id="adminUserRefreshButton" type="button" class="button-secondary">重新整理</button>
+              </div>
+            </div>
+
+            <div class="setting-inline-filters">
+              <input id="adminUserSearch" type="search" placeholder="搜尋姓名 / 公司 / email" />
+              <select id="adminUserRoleFilter">
+                <option value="">全部角色</option>
+                <option value="guest">guest</option>
+                <option value="trial">trial</option>
+                <option value="user">user</option>
+                <option value="admin">admin</option>
+              </select>
+              <select id="adminUserStatusFilter">
+                <option value="">全部狀態</option>
+                <option value="active">active</option>
+                <option value="pending_activation">pending_activation</option>
+                <option value="expired">expired</option>
+                <option value="disabled">disabled</option>
+              </select>
+            </div>
+
+            <div class="setting-admin-summary">
+              <span class="status-badge" id="adminUserTotalBadge">帳號總數：0</span>
+              <span class="status-badge" id="adminActiveAdminBadge">啟用 admin：0</span>
+            </div>
+
+            <div class="setting-table-wrap">
+              <table class="setting-table" aria-label="Account list">
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>姓名 / 公司</th>
+                    <th>角色</th>
+                    <th>狀態</th>
+                    <th>Trial 到期</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="adminUserTableBody"></tbody>
+              </table>
+            </div>
+            <p id="adminUserEmptyHint" class="hint" hidden>目前查無帳號資料。</p>
+            <p id="adminUserMessage" class="hint" aria-live="polite"></p>
+            <button id="adminUserLoadMoreButton" type="button" class="button-secondary" hidden>載入更多</button>
+
+            <hr class="setting-divider" />
+
+            <h4 id="accountEditorTitle">新增 / 編輯帳號</h4>
+            <form id="adminUserForm" class="stack-form" novalidate>
+              <input id="adminUserEditingId" type="hidden" />
+              <label>
+                <span>Email</span>
+                <input id="adminUserEmail" type="email" required placeholder="name@company.com" />
+              </label>
+              <label>
+                <span>姓名</span>
+                <input id="adminUserFullName" type="text" required maxlength="80" />
+              </label>
+              <label>
+                <span>公司</span>
+                <input id="adminUserCompanyName" type="text" required maxlength="120" />
+              </label>
+              <label>
+                <span>職稱</span>
+                <input id="adminUserJobTitle" type="text" required maxlength="120" />
+              </label>
+              <label>
+                <span>角色</span>
+                <select id="adminUserRole" required>
+                  <option value="guest">guest</option>
+                  <option value="trial">trial</option>
+                  <option value="user">user</option>
+                  <option value="admin">admin</option>
+                </select>
+              </label>
+              <label>
+                <span>狀態</span>
+                <select id="adminUserStatus" required>
+                  <option value="active">active</option>
+                  <option value="pending_activation">pending_activation</option>
+                  <option value="expired">expired</option>
+                  <option value="disabled">disabled</option>
+                </select>
+              </label>
+              <label>
+                <span>Trial 到期時間（僅 trial 需要）</span>
+                <input id="adminUserTrialExpiresAt" type="datetime-local" />
+              </label>
+              <div class="setting-form-actions">
+                <button id="adminUserSubmitButton" type="submit">建立帳號</button>
+                <button id="adminUserDeleteButton" type="button" class="button-danger" hidden>刪除此帳號</button>
+                <button id="adminUserResetButton" type="button" class="button-secondary">清空表單</button>
+              </div>
+            </form>
+          </section>
+
+          <section id="settingPanelTrials" class="setting-subpanel" aria-labelledby="trialRequestTitle" hidden>
+            <div class="panel-title-row">
+              <h3 id="trialRequestTitle">Trial 申請紀錄</h3>
+              <div class="panel-actions">
+                <button id="adminTrialRefreshButton" type="button" class="button-secondary">重新整理</button>
+              </div>
+            </div>
+
+            <div class="setting-inline-filters">
+              <input id="adminTrialSearch" type="search" placeholder="搜尋姓名 / 公司 / email" />
+              <select id="adminTrialStatusFilter">
+                <option value="">全部狀態</option>
+                <option value="pending">pending</option>
+                <option value="account_created">account_created</option>
+                <option value="email_sent">email_sent</option>
+                <option value="email_failed">email_failed</option>
+                <option value="duplicate">duplicate</option>
+                <option value="rejected">rejected</option>
+              </select>
+            </div>
+
+            <div class="setting-table-wrap">
+              <table class="setting-table" aria-label="Trial request list">
+                <thead>
+                  <tr>
+                    <th>申請人</th>
+                    <th>Email</th>
+                    <th>申請時間</th>
+                    <th>狀態</th>
+                    <th>寄信結果</th>
+                  </tr>
+                </thead>
+                <tbody id="adminTrialTableBody"></tbody>
+              </table>
+            </div>
+            <p id="adminTrialEmptyHint" class="hint" hidden>目前查無 trial 申請紀錄。</p>
+            <p id="adminTrialMessage" class="hint" aria-live="polite"></p>
+            <button id="adminTrialLoadMoreButton" type="button" class="button-secondary" hidden>載入更多</button>
+          </section>
         </section>
       </main>
     </section>

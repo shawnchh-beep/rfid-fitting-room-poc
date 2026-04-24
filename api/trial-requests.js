@@ -6,6 +6,70 @@ const TRIAL_REQUEST_RATE_LIMIT_MAX = 5;
 const TRIAL_REQUEST_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const memoryRateLimit = new Map();
 
+function debugLog(stage, payload = {}) {
+  try {
+    console.log('[trial-requests]', JSON.stringify({ stage, ...payload }));
+  } catch {
+    console.log('[trial-requests]', stage, payload);
+  }
+}
+
+function getSupabaseTargetSummary() {
+  const rawUrl = String(process.env.SUPABASE_URL || '').trim();
+  if (!rawUrl) {
+    return { configured: false };
+  }
+
+  try {
+    const parsed = new URL(rawUrl);
+    const host = String(parsed.host || '').trim() || null;
+    const projectRef = host ? host.split('.')[0] : null;
+    return {
+      configured: true,
+      host,
+      projectRef
+    };
+  } catch {
+    return {
+      configured: true,
+      invalidUrl: true
+    };
+  }
+}
+
+function isSchemaCacheMiss(error, tableName) {
+  const message = String(error?.message || '');
+  return message.includes('schema cache') && message.includes(tableName);
+}
+
+async function collectSchemaDiagnostics(supabase) {
+  const checks = {};
+
+  const userProfilesProbe = await supabase
+    .from('user_profiles')
+    .select('user_id', { head: true, count: 'exact' });
+
+  checks.user_profiles = {
+    ok: !userProfilesProbe.error,
+    code: userProfilesProbe.error?.code || null,
+    message: userProfilesProbe.error?.message || null,
+    count: typeof userProfilesProbe.count === 'number' ? userProfilesProbe.count : null
+  };
+
+  const authAuditLogsProbe = await supabase
+    .from('auth_audit_logs')
+    .select('id', { head: true, count: 'exact' });
+
+  checks.auth_audit_logs = {
+    ok: !authAuditLogsProbe.error,
+    code: authAuditLogsProbe.error?.code || null,
+    message: authAuditLogsProbe.error?.message || null,
+    count: typeof authAuditLogsProbe.count === 'number' ? authAuditLogsProbe.count : null
+  };
+
+  return checks;
+}
+
 function jsonError(res, status, code, message) {
   return res.status(status).json({
     error: {
@@ -80,25 +144,44 @@ async function insertAuditLog(supabase, payload) {
 }
 
 export default async function handler(req, res) {
+  debugLog('request.received', {
+    method: req.method,
+    hasBody: Boolean(req.body)
+  });
+
   if (req.method !== 'POST') {
+    debugLog('request.rejected.method_not_allowed', { method: req.method });
     return jsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Method Not Allowed');
   }
 
   let supabase;
   try {
     supabase = getSupabaseAdminClient();
+    debugLog('request.supabase_target', getSupabaseTargetSummary());
   } catch (error) {
+    debugLog('request.failed.config_error', {
+      code: 'CONFIG_ERROR',
+      message: error?.message
+    });
     return jsonError(res, 500, 'CONFIG_ERROR', error?.message || 'Supabase config error');
   }
 
   const body = normalizeBody(req.body);
   const validated = validateBody(body);
   if (!validated.ok) {
+    debugLog('request.failed.validation', {
+      code: 'VALIDATION_ERROR',
+      message: validated.message
+    });
     return jsonError(res, 400, 'VALIDATION_ERROR', validated.message);
   }
 
   const payload = validated.value;
   if (!checkRateLimit(req, payload.email)) {
+    debugLog('request.failed.rate_limited', {
+      code: 'RATE_LIMITED',
+      email: payload.email
+    });
     return jsonError(res, 429, 'RATE_LIMITED', 'Too many trial requests, please try later');
   }
 
@@ -116,7 +199,33 @@ export default async function handler(req, res) {
     .maybeSingle();
 
   if (!duplicateRequest.error && duplicateRequest.data?.id) {
+    debugLog('request.failed.duplicate_request', {
+      code: 'DUPLICATE_REQUEST',
+      requestId: duplicateRequest.data.id,
+      status: duplicateRequest.data.request_status,
+      email: payload.email
+    });
     return jsonError(res, 409, 'DUPLICATE_REQUEST', 'A pending trial request already exists for this email');
+  }
+
+  if (duplicateRequest.error) {
+    const extraDiagnostics = isSchemaCacheMiss(duplicateRequest.error, 'trial_requests')
+      ? await collectSchemaDiagnostics(supabase)
+      : null;
+
+    debugLog('db.warn.duplicate_check_error', {
+      code: duplicateRequest.error.code,
+      message: duplicateRequest.error.message,
+      supabaseTarget: getSupabaseTargetSummary(),
+      schemaCacheMiss: isSchemaCacheMiss(duplicateRequest.error, 'trial_requests'),
+      schemaDiagnostics: extraDiagnostics
+    });
+    return jsonError(
+      res,
+      500,
+      'DB_QUERY_FAILED_DUPLICATE_CHECK',
+      duplicateRequest.error.message || 'Failed to check duplicate trial request'
+    );
   }
 
   const existingProfile = await supabase
@@ -136,8 +245,27 @@ export default async function handler(req, res) {
       && Date.parse(existingProfile.data.trial_expires_at) > Date.now();
     const isRegisteredRole = ['guest', 'user', 'admin'].includes(role);
     if (isTrialStillValid || isRegisteredRole) {
+      debugLog('request.failed.email_registered', {
+        code: 'EMAIL_ALREADY_REGISTERED',
+        role,
+        status,
+        email: payload.email
+      });
       return jsonError(res, 409, 'EMAIL_ALREADY_REGISTERED', 'This email is already registered');
     }
+  }
+
+  if (existingProfile.error) {
+    debugLog('db.warn.profile_lookup_error', {
+      code: existingProfile.error.code,
+      message: existingProfile.error.message
+    });
+    return jsonError(
+      res,
+      500,
+      'DB_QUERY_FAILED_PROFILE_LOOKUP',
+      existingProfile.error.message || 'Failed to check existing profile'
+    );
   }
 
   const createRequest = await supabase
@@ -157,10 +285,22 @@ export default async function handler(req, res) {
     .single();
 
   if (createRequest.error || !createRequest.data?.id) {
-    return jsonError(res, 500, 'TRIAL_PROVISION_FAILED', 'Failed to provision trial account');
+    debugLog('request.failed.create_trial_request', {
+      code: 'TRIAL_REQUEST_INSERT_FAILED',
+      dbCode: createRequest.error?.code,
+      dbMessage: createRequest.error?.message,
+      email: payload.email
+    });
+    return jsonError(
+      res,
+      500,
+      'TRIAL_REQUEST_INSERT_FAILED',
+      createRequest.error?.message || 'Failed to create trial request record'
+    );
   }
 
   const requestId = createRequest.data.id;
+  debugLog('request.trial_request_created', { requestId, email: payload.email });
 
   try {
     await insertAuditLog(supabase, {
@@ -194,6 +334,12 @@ export default async function handler(req, res) {
     });
 
     if (userCreate.error || !userCreate.data?.user?.id) {
+      debugLog('request.failed.create_user', {
+        code: 'TRIAL_USER_CREATE_FAILED',
+        requestId,
+        supabaseCode: userCreate.error?.code,
+        supabaseMessage: userCreate.error?.message
+      });
       await supabase
         .from('trial_requests')
         .update({
@@ -202,10 +348,16 @@ export default async function handler(req, res) {
           error_message: userCreate.error?.message || 'createUser failed'
         })
         .eq('id', requestId);
-      return jsonError(res, 500, 'TRIAL_PROVISION_FAILED', 'Failed to provision trial account');
+      return jsonError(
+        res,
+        500,
+        'TRIAL_USER_CREATE_FAILED',
+        userCreate.error?.message || 'Failed to create trial user'
+      );
     }
 
     const createdUser = userCreate.data.user;
+    debugLog('request.user_created', { requestId, userId: createdUser.id });
 
     await supabase
       .from('trial_requests')
@@ -242,6 +394,14 @@ export default async function handler(req, res) {
 
     const actionLink = linkRes.data?.properties?.action_link || null;
     if (linkRes.error || !actionLink) {
+      debugLog('request.failed.generate_link', {
+        code: 'TRIAL_LINK_GENERATE_FAILED',
+        requestId,
+        supabaseCode: linkRes.error?.code,
+        supabaseMessage: linkRes.error?.message,
+        hasActionLink: Boolean(actionLink),
+        redirectTo: process.env.APP_BASE_URL || null
+      });
       await supabase
         .from('trial_requests')
         .update({
@@ -250,8 +410,21 @@ export default async function handler(req, res) {
           error_message: linkRes.error?.message || 'Failed to generate invite link'
         })
         .eq('id', requestId);
-      return jsonError(res, 500, 'TRIAL_PROVISION_FAILED', 'Failed to provision trial account');
+      return jsonError(
+        res,
+        500,
+        'TRIAL_LINK_GENERATE_FAILED',
+        linkRes.error?.message || 'Failed to generate invite link'
+      );
     }
+
+    debugLog('request.email_send.start', {
+      requestId,
+      email: payload.email,
+      locale: payload.locale,
+      hasActionLink: Boolean(actionLink),
+      appBaseUrlConfigured: Boolean(String(process.env.APP_BASE_URL || '').trim())
+    });
 
     const mailRes = await sendInviteEmail({
       to: payload.email,
@@ -262,6 +435,12 @@ export default async function handler(req, res) {
     });
 
     if (!mailRes.ok) {
+      debugLog('request.failed.send_email', {
+        code: 'TRIAL_EMAIL_SEND_FAILED',
+        requestId,
+        mailStatus: mailRes.status,
+        mailError: mailRes.error
+      });
       await supabase
         .from('trial_requests')
         .update({
@@ -271,7 +450,12 @@ export default async function handler(req, res) {
           error_message: mailRes.error || 'Failed to send email'
         })
         .eq('id', requestId);
-      return jsonError(res, 500, 'TRIAL_PROVISION_FAILED', 'Failed to provision trial account');
+      return jsonError(
+        res,
+        500,
+        'TRIAL_EMAIL_SEND_FAILED',
+        mailRes.error || 'Failed to send invite email'
+      );
     }
 
     await supabase
@@ -306,6 +490,14 @@ export default async function handler(req, res) {
       message: 'Trial account created. Please check your email to set password.'
     });
   } catch (error) {
+    debugLog('request.failed.unexpected', {
+      code: 'TRIAL_UNEXPECTED_FAILED',
+      requestId,
+      errorCode: error?.code,
+      errorMessage: error?.message,
+      stack: error?.stack
+    });
+
     await supabase
       .from('trial_requests')
       .update({
@@ -315,7 +507,11 @@ export default async function handler(req, res) {
       })
       .eq('id', requestId);
 
-    return jsonError(res, 500, 'TRIAL_PROVISION_FAILED', 'Failed to provision trial account');
+    return jsonError(
+      res,
+      500,
+      'TRIAL_UNEXPECTED_FAILED',
+      error?.message || 'Unexpected trial provisioning error'
+    );
   }
 }
-

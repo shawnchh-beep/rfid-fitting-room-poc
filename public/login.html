@@ -4,52 +4,127 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>登入</title>
+  <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
-  <h1>登入</h1>
+  <main class="auth-page" aria-labelledby="loginTitle">
+    <section class="auth-hero" aria-label="Product value proposition">
+      <p class="auth-hero-eyebrow" data-i18n="login.hero.eyebrow">Retail Intelligence Platform</p>
+      <h1 id="loginTitle" data-i18n="login.title">登入</h1>
+      <p class="auth-hero-subtitle" data-i18n="login.subtitle">用即時 RFID 資料掌握試穿、轉單與補貨決策。</p>
 
-  <form id="login-form">
-    <div>
-      <label>Email</label><br />
-      <input id="email" type="email" required />
-    </div>
-    <br />
-    <div>
-      <label>密碼</label><br />
-      <input id="password" type="password" required />
-    </div>
-    <br />
-    <button type="submit">登入</button>
-  </form>
+      <ul class="auth-hero-list" aria-label="Core capabilities">
+        <li data-i18n="login.hero.point.1">即時掌握試衣間動態與熱門商品流向</li>
+        <li data-i18n="login.hero.point.2">快速洞察高機會商品與轉換瓶頸</li>
+        <li data-i18n="login.hero.point.3">以可執行的清單支援店務決策</li>
+      </ul>
+    </section>
 
-  <p><a href="/forgot-password.html">忘記密碼</a></p>
-  <p id="message"></p>
+    <section class="auth-card" aria-label="Sign in form">
+      <div class="auth-card-head">
+        <label for="lang" data-i18n="common.language">語言</label>
+        <select id="lang" aria-label="Language">
+          <option value="en">English</option>
+          <option value="zh-Hant">繁體中文</option>
+          <option value="zh-Hans">简体中文</option>
+          <option value="ja">日本語</option>
+        </select>
+      </div>
+
+      <p class="auth-form-title" data-i18n="login.form.title">使用你的帳號登入</p>
+
+      <form id="login-form" class="auth-form">
+        <div class="auth-field">
+          <label for="email" data-i18n="login.email">Email</label>
+          <input id="email" type="email" autocomplete="username" required data-i18n-placeholder="login.placeholder.email" placeholder="name@company.com" />
+        </div>
+        <div class="auth-field">
+          <label for="password" data-i18n="login.password">密碼</label>
+          <input id="password" type="password" autocomplete="current-password" required data-i18n-placeholder="login.placeholder.password" placeholder="••••••••" />
+        </div>
+        <button type="submit" class="auth-submit" data-i18n="login.submit">登入</button>
+      </form>
+
+      <div class="auth-links-row">
+        <a href="/forgot-password.html" class="auth-link" data-i18n="login.forgot">忘記密碼</a>
+      </div>
+
+      <a href="/trial-request.html" class="trial-entry-button" data-i18n="login.trialCta">申請 14 天試用帳號</a>
+      <p class="trial-entry-hint" data-i18n="login.trialHint">尚未有正式帳號？先開通試用環境，由系統寄送啟用信。</p>
+
+      <p id="message" class="auth-message" aria-live="polite"></p>
+    </section>
+  </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/js/supabase-client.js"></script>
-  <script>
-    const form = document.getElementById('login-form')
-    const message = document.getElementById('message')
+  <script type="module">
+    import {
+      applyI18n,
+      bindLangSelect,
+      createAuthClient,
+      getSafeNextPath,
+      t,
+      writeSession
+    } from '/js/auth-page-utils.js';
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault()
-      message.textContent = ''
+    const form = document.getElementById('login-form');
+    const message = document.getElementById('message');
+    const langSelect = document.getElementById('lang');
+    const query = new URLSearchParams(window.location.search);
+    const nextPath = getSafeNextPath(query.get('next'), '/');
 
-      const email = document.getElementById('email').value
-      const password = document.getElementById('password').value
+    applyI18n();
+    bindLangSelect(langSelect);
 
-      const { error } = await window.supabaseClient.auth.signInWithPassword({
-        email,
-        password
-      })
+    const errorCode = String(query.get('error') || '').trim();
+    if (errorCode) {
+      message.textContent = t(`login.error.${errorCode}`);
+    }
 
-      if (error) {
-        message.textContent = error.message
-        return
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      message.textContent = '';
+
+      const email = String(document.getElementById('email')?.value || '').trim();
+      const password = String(document.getElementById('password')?.value || '');
+
+      try {
+        const authClient = createAuthClient();
+        const signInRes = await authClient.auth.signInWithPassword({ email, password });
+        if (signInRes.error || !signInRes.data?.session?.access_token) {
+          throw new Error(signInRes.error?.message || 'Login failed');
+        }
+
+        const accessToken = String(signInRes.data.session.access_token || '').trim();
+        const refreshToken = String(signInRes.data.session.refresh_token || '').trim() || null;
+        const expiresAt = new Date(Number(signInRes.data.session.expires_at || 0) * 1000).toISOString();
+
+        const meResponse = await fetch('/api/auth/me', {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const meData = await meResponse.json();
+        if (!meResponse.ok) {
+          throw new Error(meData?.error?.message || meData?.message || 'Failed to fetch profile');
+        }
+
+        writeSession({
+          accessToken,
+          refreshToken,
+          expiresAt,
+          user: meData?.user || null,
+          profile: meData?.profile || null,
+          permissions: meData?.permissions || {}
+        });
+
+        message.textContent = t('login.success');
+        message.classList.remove('is-error');
+        window.location.href = nextPath;
+      } catch (error) {
+        message.textContent = error?.message || 'Login failed';
+        message.classList.add('is-error');
       }
-
-      window.location.href = '/dashboard.html'
-    })
+    });
   </script>
 </body>
 </html>

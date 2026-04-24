@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="trial.meta.title">申請試用帳號</title>
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <main class="auth-page" aria-labelledby="trialRequestTitle">
+    <section class="auth-hero" aria-label="Trial value proposition">
+      <p class="auth-hero-eyebrow" data-i18n="trial.hero.eyebrow">RFID Fitting Room Platform</p>
+      <h1 id="trialRequestTitle" data-i18n="trial.title">申請 14 天試用帳號</h1>
+      <p class="auth-hero-subtitle" data-i18n="trial.subtitle">
+        透過 RFID 即時資料，快速看見試穿行為、轉單機會與補貨風險。先開通試用環境，體驗完整決策流程。
+      </p>
+
+      <ul class="auth-hero-list" aria-label="Trial benefits">
+        <li data-i18n="trial.hero.point.1">即時掌握試衣間與熱門商品流向，縮短店務反應時間</li>
+        <li data-i18n="trial.hero.point.2">聚焦高機會商品與異常停留，讓現場行動更精準</li>
+        <li data-i18n="trial.hero.point.3">用可執行的清單支援管理決策，提升營運透明度</li>
+      </ul>
+
+      <aside class="trial-hero-note" aria-label="Trial information">
+        <h2 data-i18n="trial.note.title">試用說明</h2>
+        <p data-i18n="trial.note.body">送出申請後，系統將審核並寄送啟用通知至你的郵箱。</p>
+      </aside>
+    </section>
+
+    <section class="auth-card" aria-label="Trial request form">
+      <div class="auth-card-head">
+        <label for="lang" data-i18n="common.language">語言</label>
+        <select id="lang" aria-label="Language">
+          <option value="en">English</option>
+          <option value="zh-Hant">繁體中文</option>
+          <option value="zh-Hans">简体中文</option>
+          <option value="ja">日本語</option>
+        </select>
+      </div>
+
+      <p class="auth-form-title" data-i18n="trial.form.title">填寫資料取得試用資格</p>
+
+      <form id="trial-request-form" class="auth-form" novalidate>
+        <div class="auth-field">
+          <label for="fullName" data-i18n="trial.field.fullName">姓名</label>
+          <input id="fullName" name="fullName" type="text" autocomplete="name" data-i18n-placeholder="trial.placeholder.fullName" placeholder="請輸入姓名" required />
+        </div>
+
+        <div class="auth-field">
+          <label for="companyName" data-i18n="trial.field.company">公司</label>
+          <input id="companyName" name="companyName" type="text" autocomplete="organization" data-i18n-placeholder="trial.placeholder.company" placeholder="請輸入公司名稱" required />
+        </div>
+
+        <div class="auth-field">
+          <label for="jobTitle" data-i18n="trial.field.jobTitle">職稱</label>
+          <input id="jobTitle" name="jobTitle" type="text" autocomplete="organization-title" data-i18n-placeholder="trial.placeholder.jobTitle" placeholder="請輸入職稱" required />
+        </div>
+
+        <div class="auth-field">
+          <label for="email" data-i18n="trial.field.email">郵箱</label>
+          <input id="email" name="email" type="email" autocomplete="email" data-i18n-placeholder="trial.placeholder.email" placeholder="name@company.com" required />
+        </div>
+
+        <button type="submit" class="auth-submit" data-i18n="trial.submit">送出試用申請</button>
+      </form>
+
+      <p class="trial-form-disclaimer" data-i18n="trial.disclaimer">我們僅用於試用帳號審核與啟用通知，不作為其他行銷用途。</p>
+      <p id="trialRequestMessage" class="auth-message" aria-live="polite"></p>
+
+      <div class="auth-links-row">
+        <a href="/login.html" class="auth-link" data-i18n="trial.backToLogin">返回登入</a>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { applyI18n, bindLangSelect, getCurrentLang, t } from '/js/auth-page-utils.js';
+
+    const form = document.getElementById('trial-request-form');
+    const message = document.getElementById('trialRequestMessage');
+    const langSelect = document.getElementById('lang');
+
+    const renderTitle = () => {
+      const titleEl = document.querySelector('title[data-i18n]');
+      if (!titleEl) return;
+      titleEl.textContent = t('trial.meta.title');
+    };
+
+    applyI18n();
+    bindLangSelect(langSelect);
+    renderTitle();
+
+    langSelect?.addEventListener('change', () => {
+      renderTitle();
+    });
+
+    const submitButton = form?.querySelector('button[type="submit"]');
+
+    function setMessage(text, isError = false) {
+      message.textContent = text;
+      message.classList.toggle('is-error', Boolean(isError));
+    }
+
+    function setSubmitting(isSubmitting) {
+      if (!submitButton) return;
+      submitButton.disabled = isSubmitting;
+      submitButton.textContent = isSubmitting ? t('trial.submit.loading') : t('trial.submit');
+    }
+
+    function mapApiError(errorCode) {
+      switch (String(errorCode || '')) {
+        case 'VALIDATION_ERROR':
+          return t('trial.error.validation');
+        case 'DUPLICATE_REQUEST':
+          return t('trial.error.duplicate');
+        case 'EMAIL_ALREADY_REGISTERED':
+          return t('trial.error.registered');
+        case 'RATE_LIMITED':
+          return t('trial.error.rateLimited');
+        default:
+          return t('trial.error.submitFailed');
+      }
+    }
+
+    function withDebugCode(messageText, errorCode) {
+      const code = String(errorCode || '').trim();
+      if (!code) return messageText;
+      return `${messageText} [${code}]`;
+    }
+
+    form?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      if (!form.checkValidity()) {
+        setMessage(t('trial.error.required'), true);
+        return;
+      }
+
+      const fullName = String(form.fullName?.value || '').trim();
+      const companyName = String(form.companyName?.value || '').trim();
+      const jobTitle = String(form.jobTitle?.value || '').trim();
+      const email = String(form.email?.value || '').trim().toLowerCase();
+
+      setSubmitting(true);
+      setMessage('');
+
+      try {
+        const response = await fetch('/api/trial-requests', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            full_name: fullName,
+            company_name: companyName,
+            job_title: jobTitle,
+            email,
+            locale: getCurrentLang()
+          })
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          const apiCode = result?.error?.code;
+          setMessage(withDebugCode(mapApiError(apiCode), apiCode), true);
+          return;
+        }
+
+        setMessage(t('trial.success'), false);
+        form.reset();
+      } catch (_) {
+        setMessage(withDebugCode(t('trial.error.submitFailed'), 'NETWORK_OR_RUNTIME_ERROR'), true);
+      } finally {
+        setSubmitting(false);
+      }
+    });
+
+    langSelect?.addEventListener('change', () => {
+      if (submitButton) {
+        submitButton.textContent = submitButton.disabled ? t('trial.submit.loading') : t('trial.submit');
+      }
+    });
+  </script>
+</body>
+</html>

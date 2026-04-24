@@ -81,6 +81,54 @@ function buildPermissions(role) {
   };
 }
 
+function mapRoleBindingToAppRole(bindingRole) {
+  const raw = String(bindingRole || '').trim();
+  if (!raw) return '';
+  if (raw === 'admin') return 'admin';
+  if (raw === 'guest') return 'guest';
+  if (raw === 'trial') return 'trial';
+  if (raw === 'user') return 'user';
+  if (raw === 'store_manager' || raw === 'store_clerk') return 'user';
+  return '';
+}
+
+function pickPrimaryBindingRole(bindings = []) {
+  if (!Array.isArray(bindings) || bindings.length === 0) return '';
+  const globalBinding = bindings.find((row) => row?.store_id == null);
+  const chosen = globalBinding || bindings[0] || null;
+  return mapRoleBindingToAppRole(chosen?.role);
+}
+
+async function resolveUserProfileCompat(supabase, authUserId) {
+  // v3: user_profiles.id = auth.users.id
+  const byId = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('id', authUserId)
+    .maybeSingle();
+
+  if (!byId.error && byId.data) {
+    return { profile: byId.data, source: 'id', error: null };
+  }
+
+  // v2: user_profiles.user_id = auth.users.id
+  const byUserId = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('user_id', authUserId)
+    .maybeSingle();
+
+  if (!byUserId.error && byUserId.data) {
+    return { profile: byUserId.data, source: 'user_id', error: null };
+  }
+
+  return {
+    profile: null,
+    source: 'none',
+    error: byId.error || byUserId.error || null
+  };
+}
+
 async function resolveBearerPrincipal(req) {
   const token = getBearerToken(req);
   if (!token) {
@@ -100,17 +148,34 @@ async function resolveBearerPrincipal(req) {
   }
 
   const authUser = userRes.data.user;
-  const profileRes = await supabase
-    .from('user_profiles')
-    .select('user_id,email,full_name,company_name,job_title,role,status,trial_requested_at,trial_expires_at')
+  const profileLookup = await resolveUserProfileCompat(supabase, authUser.id);
+  const roleBindingRes = await supabase
+    .from('user_role_bindings')
+    .select('user_id,role,store_id')
     .eq('user_id', authUser.id)
-    .maybeSingle();
+    .limit(5);
 
-  if (profileRes.error || !profileRes.data) {
+  if (profileLookup.error || !profileLookup.profile) {
     return baseError(403, 'PROFILE_NOT_FOUND', 'User profile not found');
   }
 
-  const profile = profileRes.data;
+  const rawProfile = profileLookup.profile;
+  const bindingRole = pickPrimaryBindingRole(roleBindingRes?.data || []);
+  const normalizedRole = String(rawProfile.role || '').trim() || bindingRole;
+  const normalizedStatus = String(rawProfile.status || '').trim()
+    || (rawProfile.is_active === false ? 'disabled' : 'active');
+
+  const profile = {
+    ...rawProfile,
+    email: rawProfile.email || authUser.email || null,
+    full_name: rawProfile.full_name || rawProfile.display_name || null,
+    company_name: rawProfile.company_name || null,
+    job_title: rawProfile.job_title || null,
+    role: normalizedRole,
+    status: normalizedStatus,
+    trial_expires_at: rawProfile.trial_expires_at || null
+  };
+
   if (!ANY_APP_USER_ROLES.has(String(profile.role || '').trim())) {
     return baseError(403, 'FORBIDDEN', 'Unknown account role');
   }

@@ -29,6 +29,8 @@ const SUPPORTED_MODES = ['demo', 'operational'];
 const FITTING_EXIT_TIMEOUT_MS = 30_000;
 const STATES = ['RACK', 'FITTING_ROOM', 'CHECKOUT', 'SOLD'];
 const BOARD_STATES = ['RACK', 'FITTING_ROOM', 'CHECKOUT'];
+const SETTING_TABS = ['general', 'accounts', 'trials'];
+const ADMIN_PAGE_SIZE = 20;
 const SGTIN96_PARTITIONS = {
   0: { companyPrefixBits: 40, itemReferenceBits: 4, companyPrefixDigits: 12, itemReferenceDigits: 1 },
   1: { companyPrefixBits: 37, itemReferenceBits: 7, companyPrefixDigits: 11, itemReferenceDigits: 2 },
@@ -54,16 +56,35 @@ const localLaneOverrides = new Map();
 let lastRenderContext = null;
 let lastSkuSummary = { rows: [], conflicts: [] };
 let currentProductSummaryView = DEFAULT_PRODUCT_SUMMARY_VIEW;
+let currentSettingTab = 'general';
+const adminUserState = {
+  page: 1,
+  total: 0,
+  loading: false,
+  loaded: false,
+  items: [],
+  filters: {
+    q: '',
+    role: '',
+    status: ''
+  }
+};
+const adminTrialState = {
+  page: 1,
+  total: 0,
+  loading: false,
+  loaded: false,
+  items: [],
+  filters: {
+    q: '',
+    status: ''
+  }
+};
 
 const el = {
-  loginView: document.getElementById('loginView'),
   appShell: document.getElementById('appShell'),
   homeView: document.getElementById('homeView'),
   dashboardView: document.getElementById('dashboardView'),
-  loginForm: document.getElementById('loginForm'),
-  loginUsername: document.getElementById('loginUsername'),
-  loginPassword: document.getElementById('loginPassword'),
-  loginError: document.getElementById('loginError'),
   homeToDashboardTop: document.getElementById('homeToDashboardTop'),
   homeCardDashboard: document.getElementById('homeCardDashboard'),
   homeCardFittingDemo: document.getElementById('homeCardFittingDemo'),
@@ -142,7 +163,40 @@ const el = {
   replenishmentPriorityBody: document.getElementById('replenishmentPriorityBody'),
   modeSelect: document.getElementById('modeSelect'),
   overstayThresholdMinutes: document.getElementById('overstayThresholdMinutes'),
-  activityTimeline: document.getElementById('activityTimeline')
+  activityTimeline: document.getElementById('activityTimeline'),
+  settingSubnav: document.getElementById('settingSubnav'),
+  settingPanelGeneral: document.getElementById('settingPanelGeneral'),
+  settingPanelAccounts: document.getElementById('settingPanelAccounts'),
+  settingPanelTrials: document.getElementById('settingPanelTrials'),
+  adminUserRefreshButton: document.getElementById('adminUserRefreshButton'),
+  adminUserSearch: document.getElementById('adminUserSearch'),
+  adminUserRoleFilter: document.getElementById('adminUserRoleFilter'),
+  adminUserStatusFilter: document.getElementById('adminUserStatusFilter'),
+  adminUserTotalBadge: document.getElementById('adminUserTotalBadge'),
+  adminActiveAdminBadge: document.getElementById('adminActiveAdminBadge'),
+  adminUserTableBody: document.getElementById('adminUserTableBody'),
+  adminUserEmptyHint: document.getElementById('adminUserEmptyHint'),
+  adminUserMessage: document.getElementById('adminUserMessage'),
+  adminUserLoadMoreButton: document.getElementById('adminUserLoadMoreButton'),
+  adminUserForm: document.getElementById('adminUserForm'),
+  adminUserEditingId: document.getElementById('adminUserEditingId'),
+  adminUserEmail: document.getElementById('adminUserEmail'),
+  adminUserFullName: document.getElementById('adminUserFullName'),
+  adminUserCompanyName: document.getElementById('adminUserCompanyName'),
+  adminUserJobTitle: document.getElementById('adminUserJobTitle'),
+  adminUserRole: document.getElementById('adminUserRole'),
+  adminUserStatus: document.getElementById('adminUserStatus'),
+  adminUserTrialExpiresAt: document.getElementById('adminUserTrialExpiresAt'),
+  adminUserSubmitButton: document.getElementById('adminUserSubmitButton'),
+  adminUserDeleteButton: document.getElementById('adminUserDeleteButton'),
+  adminUserResetButton: document.getElementById('adminUserResetButton'),
+  adminTrialRefreshButton: document.getElementById('adminTrialRefreshButton'),
+  adminTrialSearch: document.getElementById('adminTrialSearch'),
+  adminTrialStatusFilter: document.getElementById('adminTrialStatusFilter'),
+  adminTrialTableBody: document.getElementById('adminTrialTableBody'),
+  adminTrialEmptyHint: document.getElementById('adminTrialEmptyHint'),
+  adminTrialMessage: document.getElementById('adminTrialMessage'),
+  adminTrialLoadMoreButton: document.getElementById('adminTrialLoadMoreButton')
 };
 
 const I18N = {
@@ -1070,79 +1124,6 @@ function navigateToHome() {
   navigate('/');
 }
 
-async function handleLoginSubmit(event) {
-  event.preventDefault();
-  if (el.loginError) {
-    el.loginError.hidden = true;
-    el.loginError.textContent = '';
-  }
-
-  const email = String(el.loginUsername?.value || '').trim();
-  const password = String(el.loginPassword?.value || '');
-
-  try {
-    const url = String(el.supabaseUrl?.value || readStorage(URL_KEY, DEFAULT_SUPABASE_URL) || '').trim();
-    const anonKey = String(el.supabaseAnonKey?.value || readStorage(ANON_KEY, DEFAULT_SUPABASE_ANON_KEY) || '').trim();
-    if (!url || !anonKey) {
-      throw new Error('Supabase URL / Publishable Key 尚未設定');
-    }
-
-    const authClient = createSupabaseClient(url, anonKey, null);
-    const signInRes = await authClient.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (signInRes.error || !signInRes.data?.session?.access_token) {
-      throw new Error(signInRes.error?.message || 'Login failed');
-    }
-
-    const accessToken = String(signInRes.data.session.access_token || '').trim();
-    const refreshToken = String(signInRes.data.session.refresh_token || '').trim() || null;
-    const expiresAt = new Date(Number(signInRes.data.session.expires_at || 0) * 1000).toISOString();
-
-    const meResponse = await fetch('/api/auth/me', {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    });
-    const { data: meData } = await parseApiResponse(meResponse, 'auth-me');
-    if (!meResponse.ok) {
-      throw new Error(getApiErrorMessage(meData, 'Failed to fetch profile'));
-    }
-
-    const nextSession = {
-      accessToken,
-      refreshToken,
-      expiresAt,
-      user: meData?.user || null,
-      profile: meData?.profile || null,
-      permissions: meData?.permissions || {}
-    };
-
-    setSession(nextSession);
-    setAppState({ session: nextSession });
-    setAppVisibility(true);
-    applyAuthUi(nextSession);
-    navigate('/');
-
-    if (el.supabaseUrl) el.supabaseUrl.value = url;
-    if (el.supabaseAnonKey) el.supabaseAnonKey.value = anonKey;
-
-    if (url && anonKey) {
-      await connectSupabase(url, anonKey, accessToken);
-    } else {
-      setStatus(t('status.needSupabaseConfig'), 'warn');
-    }
-  } catch (error) {
-    if (el.loginError) {
-      el.loginError.hidden = false;
-      el.loginError.textContent = t('error.loginFailed', { message: error.message });
-    }
-  }
-}
-
 function handleLogout() {
   clearSession();
   if (subscription) {
@@ -1154,12 +1135,7 @@ function handleLogout() {
   setAppState({ session: null, supabaseClient: null, connectionStatus: 'idle' });
   setAppVisibility(false);
   applyAuthUi(null);
-  navigate('/', { replace: true });
-  if (el.loginPassword) el.loginPassword.value = '';
-  if (el.loginError) {
-    el.loginError.hidden = true;
-    el.loginError.textContent = '';
-  }
+  window.location.replace('/login.html');
 }
 
 function modeThresholdStorageKey(mode) {
@@ -1698,10 +1674,389 @@ function buildJsonHeaders() {
 
 function getApiErrorMessage(data, fallbackMessage) {
   if (data && typeof data === 'object') {
-    const serverMessage = data.error || data.message;
+    const rawError = data.error;
+    if (rawError && typeof rawError === 'object' && rawError.message) {
+      return String(rawError.message);
+    }
+    const serverMessage = rawError || data.message;
     if (serverMessage) return String(serverMessage);
   }
   return fallbackMessage;
+}
+
+function getSettingTabFromHash() {
+  const hash = String(window.location.hash || '').replace(/^#/, '').trim();
+  return SETTING_TABS.includes(hash) ? hash : 'general';
+}
+
+function getSettingPanelByTab(tab) {
+  if (tab === 'accounts') return el.settingPanelAccounts;
+  if (tab === 'trials') return el.settingPanelTrials;
+  return el.settingPanelGeneral;
+}
+
+function setSettingTab(tab, { updateHash = true } = {}) {
+  const nextTab = SETTING_TABS.includes(tab) ? tab : 'general';
+  currentSettingTab = nextTab;
+
+  if (el.settingSubnav) {
+    Array.from(el.settingSubnav.querySelectorAll('[data-setting-tab]')).forEach((button) => {
+      const buttonTab = String(button.getAttribute('data-setting-tab') || '').trim();
+      const isActive = buttonTab === nextTab;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+  }
+
+  SETTING_TABS.forEach((itemTab) => {
+    const panel = getSettingPanelByTab(itemTab);
+    if (!panel) return;
+    panel.hidden = itemTab !== nextTab;
+  });
+
+  if (updateHash) {
+    const hash = `#${nextTab}`;
+    if (window.location.hash !== hash) {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
+    }
+  }
+
+  ensureSettingTabData(nextTab).catch((error) => {
+    const message = error?.message || '設定子頁資料載入失敗';
+    if (nextTab === 'accounts') {
+      setAdminMessage(el.adminUserMessage, message, 'err');
+      return;
+    }
+    if (nextTab === 'trials') {
+      setAdminMessage(el.adminTrialMessage, message, 'err');
+    }
+  });
+}
+
+function formatDateTime(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleString();
+}
+
+function toLocalDatetimeInputValue(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function fromLocalDatetimeInputValue(value) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
+function getAdminApiError(error, fallback = '操作失敗') {
+  return error?.message || fallback;
+}
+
+function setAdminMessage(node, message, level = 'warn') {
+  if (!node) return;
+  node.textContent = String(message || '');
+  node.classList.remove('text-ok', 'text-warn', 'text-err');
+  if (message) {
+    node.classList.add(`text-${level}`);
+  }
+}
+
+function resetAdminUserForm() {
+  if (!el.adminUserForm) return;
+  el.adminUserForm.reset();
+  if (el.adminUserEditingId) el.adminUserEditingId.value = '';
+  if (el.adminUserEmail) el.adminUserEmail.disabled = false;
+  if (el.adminUserDeleteButton) el.adminUserDeleteButton.hidden = true;
+  if (el.adminUserSubmitButton) el.adminUserSubmitButton.textContent = '建立帳號';
+}
+
+function syncAdminUserTrialInputState() {
+  if (!el.adminUserRole || !el.adminUserTrialExpiresAt) return;
+  const isTrial = String(el.adminUserRole.value || '') === 'trial';
+  el.adminUserTrialExpiresAt.disabled = !isTrial;
+  if (!isTrial) {
+    el.adminUserTrialExpiresAt.value = '';
+  }
+}
+
+function fillAdminUserForm(user) {
+  if (!user) return;
+  if (el.adminUserEditingId) el.adminUserEditingId.value = String(user.user_id || '');
+  if (el.adminUserEmail) {
+    el.adminUserEmail.value = String(user.email || '');
+    el.adminUserEmail.disabled = true;
+  }
+  if (el.adminUserFullName) el.adminUserFullName.value = String(user.full_name || '');
+  if (el.adminUserCompanyName) el.adminUserCompanyName.value = String(user.company_name || '');
+  if (el.adminUserJobTitle) el.adminUserJobTitle.value = String(user.job_title || '');
+  if (el.adminUserRole) el.adminUserRole.value = String(user.role || 'guest');
+  if (el.adminUserStatus) el.adminUserStatus.value = String(user.status || 'active');
+  if (el.adminUserTrialExpiresAt) el.adminUserTrialExpiresAt.value = toLocalDatetimeInputValue(user.trial_expires_at);
+  if (el.adminUserDeleteButton) el.adminUserDeleteButton.hidden = false;
+  if (el.adminUserSubmitButton) el.adminUserSubmitButton.textContent = '儲存變更';
+  syncAdminUserTrialInputState();
+}
+
+function getAdminUserPayloadFromForm() {
+  const role = String(el.adminUserRole?.value || '').trim();
+  const payload = {
+    full_name: String(el.adminUserFullName?.value || '').trim(),
+    company_name: String(el.adminUserCompanyName?.value || '').trim(),
+    job_title: String(el.adminUserJobTitle?.value || '').trim(),
+    role,
+    status: String(el.adminUserStatus?.value || '').trim()
+  };
+
+  if (!payload.full_name || !payload.company_name || !payload.job_title || !payload.role || !payload.status) {
+    throw new Error('請完整填寫帳號資料');
+  }
+
+  if (!el.adminUserEditingId?.value) {
+    payload.email = String(el.adminUserEmail?.value || '').trim().toLowerCase();
+    if (!payload.email) throw new Error('請填寫有效 Email');
+  }
+
+  if (role === 'trial') {
+    const trialIso = fromLocalDatetimeInputValue(el.adminUserTrialExpiresAt?.value);
+    if (!trialIso) throw new Error('trial 角色需要有效到期時間');
+    payload.trial_expires_at = trialIso;
+  }
+
+  return payload;
+}
+
+async function adminApiFetch(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: {
+      ...buildJsonHeaders(),
+      ...(options.headers || {})
+    }
+  });
+  const { data } = await parseApiResponse(response, `admin:${path}`);
+  if (!response.ok) {
+    throw new Error(getApiErrorMessage(data, 'Admin API failed'));
+  }
+  return data;
+}
+
+function renderAdminUserRows() {
+  if (!el.adminUserTableBody) return;
+  const rows = adminUserState.items;
+  el.adminUserTableBody.innerHTML = rows
+    .map((row) => {
+      const userId = escapeHtml(row.user_id || '');
+      return `
+        <tr>
+          <td>${escapeHtml(row.email || '-')}</td>
+          <td>
+            <strong>${escapeHtml(row.full_name || '-')}</strong><br />
+            <span class="hint">${escapeHtml(row.company_name || '-')}</span>
+          </td>
+          <td>${escapeHtml(row.role || '-')}</td>
+          <td>${escapeHtml(row.status || '-')}</td>
+          <td>${escapeHtml(formatDateTime(row.trial_expires_at))}</td>
+          <td>
+            <div class="setting-row-actions">
+              <button type="button" class="button-secondary" data-user-action="edit" data-user-id="${userId}">編輯</button>
+              <button type="button" class="button-danger" data-user-action="delete" data-user-id="${userId}">刪除</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  if (el.adminUserEmptyHint) {
+    el.adminUserEmptyHint.hidden = rows.length > 0;
+  }
+  if (el.adminUserLoadMoreButton) {
+    el.adminUserLoadMoreButton.hidden = rows.length >= adminUserState.total;
+    el.adminUserLoadMoreButton.disabled = adminUserState.loading;
+  }
+}
+
+function renderAdminUserMeta(meta = {}) {
+  const total = Number(meta.total ?? adminUserState.total ?? 0);
+  const activeAdmins = Number(meta.active_admin_count ?? 0);
+  if (el.adminUserTotalBadge) el.adminUserTotalBadge.textContent = `帳號總數：${total}`;
+  if (el.adminActiveAdminBadge) el.adminActiveAdminBadge.textContent = `啟用 admin：${activeAdmins}`;
+}
+
+async function fetchAdminUsers({ append = false } = {}) {
+  if (adminUserState.loading) return;
+  adminUserState.loading = true;
+  setAdminMessage(el.adminUserMessage, '帳號資料讀取中...', 'warn');
+
+  try {
+    const page = append ? adminUserState.page + 1 : 1;
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(ADMIN_PAGE_SIZE)
+    });
+    if (adminUserState.filters.q) params.set('q', adminUserState.filters.q);
+    if (adminUserState.filters.role) params.set('role', adminUserState.filters.role);
+    if (adminUserState.filters.status) params.set('status', adminUserState.filters.status);
+
+    const data = await adminApiFetch(`/api/admin/users?${params.toString()}`);
+    const incoming = Array.isArray(data?.items) ? data.items : [];
+    adminUserState.page = Number(data?.page || page);
+    adminUserState.total = Number(data?.total || incoming.length);
+    adminUserState.loaded = true;
+    adminUserState.items = append ? [...adminUserState.items, ...incoming] : incoming;
+    renderAdminUserRows();
+    renderAdminUserMeta(data);
+    setAdminMessage(el.adminUserMessage, `已載入 ${adminUserState.items.length} / ${adminUserState.total} 筆`, 'ok');
+  } catch (error) {
+    setAdminMessage(el.adminUserMessage, getAdminApiError(error, '帳號資料讀取失敗'), 'err');
+  } finally {
+    adminUserState.loading = false;
+    renderAdminUserRows();
+  }
+}
+
+function renderTrialRows() {
+  if (!el.adminTrialTableBody) return;
+  const rows = adminTrialState.items;
+  el.adminTrialTableBody.innerHTML = rows
+    .map((row) => {
+      const mailResult = row.request_status === 'email_sent'
+        ? `寄送成功 (${escapeHtml(row.resend_message_id || '-')})`
+        : (row.error_message ? `失敗：${escapeHtml(row.error_message)}` : '-');
+      return `
+        <tr>
+          <td>
+            <strong>${escapeHtml(row.full_name || '-')}</strong><br />
+            <span class="hint">${escapeHtml(row.company_name || '-')}</span>
+          </td>
+          <td>${escapeHtml(row.email || '-')}</td>
+          <td>${escapeHtml(formatDateTime(row.created_at))}</td>
+          <td>${escapeHtml(row.request_status || '-')}</td>
+          <td>${mailResult}</td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  if (el.adminTrialEmptyHint) {
+    el.adminTrialEmptyHint.hidden = rows.length > 0;
+  }
+  if (el.adminTrialLoadMoreButton) {
+    el.adminTrialLoadMoreButton.hidden = rows.length >= adminTrialState.total;
+    el.adminTrialLoadMoreButton.disabled = adminTrialState.loading;
+  }
+}
+
+async function fetchTrialRequests({ append = false } = {}) {
+  if (adminTrialState.loading) return;
+  adminTrialState.loading = true;
+  setAdminMessage(el.adminTrialMessage, 'Trial 申請紀錄讀取中...', 'warn');
+
+  try {
+    const page = append ? adminTrialState.page + 1 : 1;
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(ADMIN_PAGE_SIZE)
+    });
+    if (adminTrialState.filters.q) params.set('q', adminTrialState.filters.q);
+    if (adminTrialState.filters.status) params.set('status', adminTrialState.filters.status);
+
+    const data = await adminApiFetch(`/api/admin/trial-requests?${params.toString()}`);
+    const incoming = Array.isArray(data?.items) ? data.items : [];
+    adminTrialState.page = Number(data?.page || page);
+    adminTrialState.total = Number(data?.total || incoming.length);
+    adminTrialState.loaded = true;
+    adminTrialState.items = append ? [...adminTrialState.items, ...incoming] : incoming;
+    renderTrialRows();
+    setAdminMessage(el.adminTrialMessage, `已載入 ${adminTrialState.items.length} / ${adminTrialState.total} 筆`, 'ok');
+  } catch (error) {
+    setAdminMessage(el.adminTrialMessage, getAdminApiError(error, 'Trial 申請紀錄讀取失敗'), 'err');
+  } finally {
+    adminTrialState.loading = false;
+    renderTrialRows();
+  }
+}
+
+async function handleAdminUserSubmit(event) {
+  event.preventDefault();
+  try {
+    const editingId = String(el.adminUserEditingId?.value || '').trim();
+    const payload = getAdminUserPayloadFromForm();
+    if (!editingId) {
+      await adminApiFetch('/api/admin/users', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      setAdminMessage(el.adminUserMessage, '帳號建立成功', 'ok');
+    } else {
+      await adminApiFetch(`/api/admin/users/${encodeURIComponent(editingId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload)
+      });
+      setAdminMessage(el.adminUserMessage, '帳號更新成功', 'ok');
+    }
+    resetAdminUserForm();
+    await fetchAdminUsers({ append: false });
+  } catch (error) {
+    setAdminMessage(el.adminUserMessage, getAdminApiError(error, '帳號操作失敗'), 'err');
+  }
+}
+
+async function handleDeleteUserById(userId) {
+  if (!userId) return;
+  const ok = window.confirm('確定要刪除此帳號？此操作不可還原。');
+  if (!ok) return;
+  try {
+    await adminApiFetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
+      method: 'DELETE'
+    });
+    setAdminMessage(el.adminUserMessage, '帳號刪除成功', 'ok');
+    const editingId = String(el.adminUserEditingId?.value || '').trim();
+    if (editingId === userId) {
+      resetAdminUserForm();
+    }
+    await fetchAdminUsers({ append: false });
+  } catch (error) {
+    setAdminMessage(el.adminUserMessage, getAdminApiError(error, '帳號刪除失敗'), 'err');
+  }
+}
+
+async function ensureSettingTabData(tab = currentSettingTab) {
+  if (tab === 'accounts' && !adminUserState.loaded) {
+    await fetchAdminUsers({ append: false });
+  }
+  if (tab === 'trials' && !adminTrialState.loaded) {
+    await fetchTrialRequests({ append: false });
+  }
+}
+
+function applyAdminUserFiltersFromInputs() {
+  adminUserState.filters.q = String(el.adminUserSearch?.value || '').trim();
+  adminUserState.filters.role = String(el.adminUserRoleFilter?.value || '').trim();
+  adminUserState.filters.status = String(el.adminUserStatusFilter?.value || '').trim();
+  adminUserState.page = 1;
+  adminUserState.total = 0;
+  adminUserState.items = [];
+  adminUserState.loaded = false;
+  fetchAdminUsers({ append: false });
+}
+
+function applyAdminTrialFiltersFromInputs() {
+  adminTrialState.filters.q = String(el.adminTrialSearch?.value || '').trim();
+  adminTrialState.filters.status = String(el.adminTrialStatusFilter?.value || '').trim();
+  adminTrialState.page = 1;
+  adminTrialState.total = 0;
+  adminTrialState.items = [];
+  adminTrialState.loaded = false;
+  fetchTrialRequests({ append: false });
 }
 
 function normalizeConflictDisplayValue(value) {
@@ -4474,10 +4829,6 @@ function boot() {
   applyAuthUi(session);
   setMainView(session ? 'home' : 'home');
 
-  if (el.loginForm) {
-    el.loginForm.addEventListener('submit', handleLoginSubmit);
-  }
-
   if (el.logoutButton) {
     el.logoutButton.addEventListener('click', handleLogout);
   }
@@ -4638,6 +4989,86 @@ function boot() {
   if (el.groupedPartition) {
     el.groupedPartition.addEventListener('change', previewGroupedCsvFile);
   }
+  if (el.settingSubnav) {
+    el.settingSubnav.addEventListener('click', (event) => {
+      const target = event.target.closest('[data-setting-tab]');
+      if (!target) return;
+      const tab = String(target.getAttribute('data-setting-tab') || '').trim();
+      if (!SETTING_TABS.includes(tab)) return;
+      setSettingTab(tab);
+    });
+  }
+  if (el.adminUserRole) {
+    el.adminUserRole.addEventListener('change', syncAdminUserTrialInputState);
+  }
+  if (el.adminUserRefreshButton) {
+    el.adminUserRefreshButton.addEventListener('click', () => {
+      adminUserState.loaded = false;
+      fetchAdminUsers({ append: false });
+    });
+  }
+  if (el.adminUserLoadMoreButton) {
+    el.adminUserLoadMoreButton.addEventListener('click', () => {
+      fetchAdminUsers({ append: true });
+    });
+  }
+  if (el.adminTrialRefreshButton) {
+    el.adminTrialRefreshButton.addEventListener('click', () => {
+      adminTrialState.loaded = false;
+      fetchTrialRequests({ append: false });
+    });
+  }
+  if (el.adminTrialLoadMoreButton) {
+    el.adminTrialLoadMoreButton.addEventListener('click', () => {
+      fetchTrialRequests({ append: true });
+    });
+  }
+  if (el.adminUserSearch) {
+    el.adminUserSearch.addEventListener('change', applyAdminUserFiltersFromInputs);
+  }
+  if (el.adminUserRoleFilter) {
+    el.adminUserRoleFilter.addEventListener('change', applyAdminUserFiltersFromInputs);
+  }
+  if (el.adminUserStatusFilter) {
+    el.adminUserStatusFilter.addEventListener('change', applyAdminUserFiltersFromInputs);
+  }
+  if (el.adminTrialSearch) {
+    el.adminTrialSearch.addEventListener('change', applyAdminTrialFiltersFromInputs);
+  }
+  if (el.adminTrialStatusFilter) {
+    el.adminTrialStatusFilter.addEventListener('change', applyAdminTrialFiltersFromInputs);
+  }
+  if (el.adminUserForm) {
+    el.adminUserForm.addEventListener('submit', handleAdminUserSubmit);
+  }
+  if (el.adminUserResetButton) {
+    el.adminUserResetButton.addEventListener('click', resetAdminUserForm);
+  }
+  if (el.adminUserDeleteButton) {
+    el.adminUserDeleteButton.addEventListener('click', () => {
+      const userId = String(el.adminUserEditingId?.value || '').trim();
+      if (!userId) return;
+      handleDeleteUserById(userId);
+    });
+  }
+  if (el.adminUserTableBody) {
+    el.adminUserTableBody.addEventListener('click', (event) => {
+      const target = event.target.closest('[data-user-action]');
+      if (!target) return;
+      const action = String(target.getAttribute('data-user-action') || '').trim();
+      const userId = String(target.getAttribute('data-user-id') || '').trim();
+      if (!action || !userId) return;
+      const selected = adminUserState.items.find((item) => String(item.user_id || '') === userId);
+      if (!selected) return;
+      if (action === 'edit') {
+        fillAdminUserForm(selected);
+        return;
+      }
+      if (action === 'delete') {
+        handleDeleteUserById(userId);
+      }
+    });
+  }
   if (el.groupedFilter) {
     el.groupedFilter.addEventListener('change', previewGroupedCsvFile);
   }
@@ -4698,6 +5129,13 @@ function boot() {
 
   if (el.supabaseUrl) el.supabaseUrl.value = url;
   if (el.supabaseAnonKey) el.supabaseAnonKey.value = anonKey;
+  resetAdminUserForm();
+  syncAdminUserTrialInputState();
+  setSettingTab(getSettingTabFromHash(), { updateHash: false });
+  window.addEventListener('hashchange', () => {
+    if (!window.location.pathname.startsWith('/setting')) return;
+    setSettingTab(getSettingTabFromHash(), { updateHash: false });
+  });
   onRouteChange(({ path }) => {
     const activeSession = getSession();
     const authenticated = Boolean(activeSession);
@@ -4709,8 +5147,8 @@ function boot() {
     setShellAuthVisibility(authenticated);
     applyAuthUi(activeSession);
     if (!authenticated) {
-      setShellViewByPath('/');
-      syncTopNavActiveState('/');
+      const target = encodeURIComponent(path || '/');
+      window.location.replace(`/login.html?next=${target}`);
       return;
     }
 
@@ -4732,6 +5170,9 @@ function boot() {
 
     setShellViewByPath(path);
     syncTopNavActiveState(path);
+    if (path === '/setting' || path === '/setting.html') {
+      setSettingTab(getSettingTabFromHash(), { updateHash: false });
+    }
   });
 
   startRouter();
@@ -4749,10 +5190,9 @@ function boot() {
 
     setStatus(t('status.needSupabaseConfig'), 'warn');
   } else {
-    if (getCurrentPath() !== '/') {
-      navigate('/', { replace: true });
-    }
-    setStatus('請先登入後再查詢 Dashboard', 'warn');
+    const target = encodeURIComponent(getCurrentPath() || '/');
+    window.location.replace(`/login.html?next=${target}`);
+    return;
   }
 
   populateQuickActionProducts(lastRenderContext?.products || []);

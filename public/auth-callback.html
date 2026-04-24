@@ -6,56 +6,72 @@
   <title>驗證中</title>
 </head>
 <body>
-  <h1>驗證中...</h1>
-  <p id="message">請稍候</p>
+  <main>
+    <label for="lang" data-i18n="common.language">語言</label>
+    <select id="lang">
+      <option value="en">English</option>
+      <option value="zh-Hant">繁體中文</option>
+      <option value="zh-Hans">简体中文</option>
+      <option value="ja">日本語</option>
+    </select>
+
+    <h1 data-i18n="callback.title">驗證中</h1>
+    <p id="message" data-i18n="callback.wait">請稍候</p>
+  </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/js/supabase-client.js"></script>
-  <script>
-    const message = document.getElementById('message')
-    const query = new URLSearchParams(window.location.search)
-    const next = query.get('next') || '/reset-password.html'
+  <script type="module">
+    import { applyI18n, bindLangSelect, createAuthClient, getSafeNextPath, t } from '/js/auth-page-utils.js';
+
+    const message = document.getElementById('message');
+    const langSelect = document.getElementById('lang');
+    const query = new URLSearchParams(window.location.search);
+    const next = getSafeNextPath(query.get('next'), '/reset-password.html');
+
+    applyI18n();
+    bindLangSelect(langSelect);
 
     async function main() {
-      const hash = window.location.hash
+      const hash = window.location.hash;
 
       if (!hash) {
-        message.textContent = '缺少驗證資訊'
+        message.textContent = t('callback.error.missingInfo');
         setTimeout(() => {
-          window.location.href = '/login.html?error=missing_token'
-        }, 1500)
-        return
+          window.location.href = '/login.html?error=missing_token';
+        }, 1500);
+        return;
       }
 
-      const params = new URLSearchParams(hash.substring(1))
-      const access_token = params.get('access_token')
-      const refresh_token = params.get('refresh_token')
+      const params = new URLSearchParams(hash.substring(1));
+      const access_token = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
 
       if (!access_token || !refresh_token) {
-        message.textContent = '連結無效或已過期'
+        message.textContent = t('callback.error.invalidLink');
         setTimeout(() => {
-          window.location.href = '/login.html?error=invalid_recovery_link'
-        }, 1500)
-        return
+          window.location.href = '/login.html?error=invalid_recovery_link';
+        }, 1500);
+        return;
       }
 
-      const { error } = await window.supabaseClient.auth.setSession({
+      const authClient = createAuthClient();
+      const { error } = await authClient.auth.setSession({
         access_token,
         refresh_token
-      })
+      });
 
       if (error) {
-        message.textContent = error.message
+        message.textContent = error.message;
         setTimeout(() => {
-          window.location.href = '/login.html?error=auth_callback_failed'
-        }, 1500)
-        return
+          window.location.href = '/login.html?error=auth_callback_failed';
+        }, 1500);
+        return;
       }
 
-      window.location.href = next
+      window.location.href = next;
     }
 
-    main()
+    main();
   </script>
 </body>
 </html>
