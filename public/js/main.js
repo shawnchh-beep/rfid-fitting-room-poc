@@ -1841,8 +1841,12 @@ async function adminApiFetch(path, options = {}) {
       ...(options.headers || {})
     }
   });
-  const { data } = await parseApiResponse(response, `admin:${path}`);
+  const { data, rawText, parsed } = await parseApiResponse(response, `admin:${path}`);
   if (!response.ok) {
+    if (!parsed) {
+      const fallbackText = String(rawText || '').trim();
+      throw new Error(fallbackText || 'Admin API failed');
+    }
     throw new Error(getApiErrorMessage(data, 'Admin API failed'));
   }
   return data;
@@ -2101,6 +2105,37 @@ function formatSkuConflictDetails(errorData) {
   return lines.join('\n');
 }
 
+function normalizeSupabaseError(error) {
+  if (!error || typeof error !== 'object') return null;
+  return {
+    code: error.code || null,
+    message: error.message || null,
+    details: error.details || null,
+    hint: error.hint || null,
+    status: error.status || null,
+    name: error.name || null
+  };
+}
+
+function inferSchemaMismatchFromError(error, tableName) {
+  const e = normalizeSupabaseError(error);
+  const haystack = [e?.message, e?.details, e?.hint].filter(Boolean).join(' | ');
+  const missingColumnMatch = haystack.match(/column\s+([^\s]+)\s+does\s+not\s+exist/i);
+  const missingTableMatch = haystack.match(/relation\s+([^\s]+)\s+does\s+not\s+exist/i);
+  const undefinedFunctionMatch = haystack.match(/function\s+([^\s(]+)\s*\(/i);
+  return {
+    hasError: !!e,
+    tableName,
+    pgCode: e?.code || null,
+    isBadRequestLike: e?.code === '42703' || e?.code === '42P01' || e?.status === 400,
+    isServerErrorLike: Number(e?.status) >= 500,
+    missingColumn: missingColumnMatch ? missingColumnMatch[1] : null,
+    missingTable: missingTableMatch ? missingTableMatch[1] : null,
+    maybeUndefinedFunction: undefinedFunctionMatch ? undefinedFunctionMatch[1] : null,
+    raw: e
+  };
+}
+
 async function parseApiResponse(response, tag) {
   const contentType = response.headers.get('content-type') || '';
   const rawText = await response.text();
@@ -2113,14 +2148,17 @@ async function parseApiResponse(response, tag) {
   });
 
   if (!rawText) {
-    return { data: null, contentType, rawText };
+    return { data: null, contentType, rawText, parsed: true };
   }
 
   try {
     const data = JSON.parse(rawText);
-    return { data, contentType, rawText };
+    return { data, contentType, rawText, parsed: true };
   } catch (error) {
     console.error(`[api:${tag}] JSON parse failed`, error);
+    if (!response.ok) {
+      return { data: null, contentType, rawText, parsed: false };
+    }
     throw new Error(t('error.apiNotJson', { status: response.status }));
   }
 }
@@ -4468,11 +4506,19 @@ async function fetchAndRenderDashboard() {
   }
 
   if (productsRes.error) {
+    const productsSchemaDiag = inferSchemaMismatchFromError(productsRes.error, 'products');
     console.warn('[dashboard] products primary query failed, fallback to select(*)', {
       code: productsRes.error.code,
       message: productsRes.error.message,
       details: productsRes.error.details,
-      hint: productsRes.error.hint
+      hint: productsRes.error.hint,
+      diag: {
+        queryColumns: ['id', 'name', 'name_en', 'description_en', 'image_url', 'price', 'size', 'color', 'sku', 'style_no', 'item_no', 'epc_data', 'epc_company_prefix', 'item_reference'],
+        likelySchemaMismatch: productsSchemaDiag.isBadRequestLike,
+        missingColumn: productsSchemaDiag.missingColumn,
+        missingTable: productsSchemaDiag.missingTable,
+        maybeUndefinedFunction: productsSchemaDiag.maybeUndefinedFunction
+      }
     });
     const fallbackProductsRes = await supabase
       .from('products')
@@ -4510,11 +4556,19 @@ async function fetchAndRenderDashboard() {
   // Keep dashboard query resilient by falling back to empty presence map.
   const safePresenceRows = (() => {
     if (!presenceRes?.error) return presenceRes?.data || [];
+    const presenceDiag = inferSchemaMismatchFromError(presenceRes.error, 'fitting_room_presence');
     console.warn('[dashboard] fitting_room_presence query skipped', {
       code: presenceRes.error.code,
       message: presenceRes.error.message,
       hint: presenceRes.error.hint,
-      details: presenceRes.error.details
+      details: presenceRes.error.details,
+      diag: {
+        likelyPolicyOrFunctionIssue: presenceDiag.isServerErrorLike || (presenceDiag.raw?.code === '42501'),
+        likelySchemaMismatch: presenceDiag.isBadRequestLike,
+        missingColumn: presenceDiag.missingColumn,
+        missingTable: presenceDiag.missingTable,
+        maybeUndefinedFunction: presenceDiag.maybeUndefinedFunction
+      }
     });
     return [];
   })();

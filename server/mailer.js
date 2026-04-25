@@ -18,7 +18,7 @@ function mailerDebugLog(stage, payload = {}) {
   }
 }
 
-export async function sendInviteEmail({ to, fullName, role, actionLink, locale = 'zh-Hant' }) {
+export async function sendInviteEmail({ to, fullName, role, actionLink, locale = 'zh-Hant', traceId = null }) {
   const safeName = String(fullName || '').trim() || String(to || '').trim();
   const accountRole = String(role || '').trim() || 'user';
   const link = String(actionLink || '').trim() || getAppBaseUrl();
@@ -29,6 +29,7 @@ export async function sendInviteEmail({ to, fullName, role, actionLink, locale =
   const hasAppBaseUrl = Boolean(String(process.env.APP_BASE_URL || '').trim());
 
   mailerDebugLog('send.start', {
+    traceId,
     to,
     role: accountRole,
     locale: lang || null,
@@ -72,6 +73,7 @@ export async function sendInviteEmail({ to, fullName, role, actionLink, locale =
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       mailerDebugLog('send.response.error', {
+        traceId,
         to,
         status: response.status,
         error: payload?.message || payload?.error || 'Resend request failed'
@@ -85,6 +87,7 @@ export async function sendInviteEmail({ to, fullName, role, actionLink, locale =
     }
 
     mailerDebugLog('send.response.success', {
+      traceId,
       to,
       status: response.status,
       messageId: payload?.id || null
@@ -98,6 +101,7 @@ export async function sendInviteEmail({ to, fullName, role, actionLink, locale =
     };
   } catch (error) {
     mailerDebugLog('send.fetch_failed', {
+      traceId,
       to,
       errorName: error?.name || null,
       errorMessage: error?.message || null,

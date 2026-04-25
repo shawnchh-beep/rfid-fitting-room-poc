@@ -14,6 +14,10 @@ function debugLog(stage, payload = {}) {
   }
 }
 
+function createTraceId() {
+  return `tr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function getSupabaseTargetSummary() {
   const rawUrl = String(process.env.SUPABASE_URL || '').trim();
   if (!rawUrl) {
@@ -144,22 +148,25 @@ async function insertAuditLog(supabase, payload) {
 }
 
 export default async function handler(req, res) {
-  debugLog('request.received', {
+  const traceId = createTraceId();
+  const log = (stage, payload = {}) => debugLog(stage, { traceId, ...payload });
+
+  log('request.received', {
     method: req.method,
     hasBody: Boolean(req.body)
   });
 
   if (req.method !== 'POST') {
-    debugLog('request.rejected.method_not_allowed', { method: req.method });
+    log('request.rejected.method_not_allowed', { method: req.method });
     return jsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Method Not Allowed');
   }
 
   let supabase;
   try {
     supabase = getSupabaseAdminClient();
-    debugLog('request.supabase_target', getSupabaseTargetSummary());
+    log('request.supabase_target', getSupabaseTargetSummary());
   } catch (error) {
-    debugLog('request.failed.config_error', {
+    log('request.failed.config_error', {
       code: 'CONFIG_ERROR',
       message: error?.message
     });
@@ -169,7 +176,7 @@ export default async function handler(req, res) {
   const body = normalizeBody(req.body);
   const validated = validateBody(body);
   if (!validated.ok) {
-    debugLog('request.failed.validation', {
+    log('request.failed.validation', {
       code: 'VALIDATION_ERROR',
       message: validated.message
     });
@@ -178,7 +185,7 @@ export default async function handler(req, res) {
 
   const payload = validated.value;
   if (!checkRateLimit(req, payload.email)) {
-    debugLog('request.failed.rate_limited', {
+    log('request.failed.rate_limited', {
       code: 'RATE_LIMITED',
       email: payload.email
     });
@@ -199,7 +206,7 @@ export default async function handler(req, res) {
     .maybeSingle();
 
   if (!duplicateRequest.error && duplicateRequest.data?.id) {
-    debugLog('request.failed.duplicate_request', {
+    log('request.failed.duplicate_request', {
       code: 'DUPLICATE_REQUEST',
       requestId: duplicateRequest.data.id,
       status: duplicateRequest.data.request_status,
@@ -213,7 +220,7 @@ export default async function handler(req, res) {
       ? await collectSchemaDiagnostics(supabase)
       : null;
 
-    debugLog('db.warn.duplicate_check_error', {
+    log('db.warn.duplicate_check_error', {
       code: duplicateRequest.error.code,
       message: duplicateRequest.error.message,
       supabaseTarget: getSupabaseTargetSummary(),
@@ -245,7 +252,7 @@ export default async function handler(req, res) {
       && Date.parse(existingProfile.data.trial_expires_at) > Date.now();
     const isRegisteredRole = ['guest', 'user', 'admin'].includes(role);
     if (isTrialStillValid || isRegisteredRole) {
-      debugLog('request.failed.email_registered', {
+      log('request.failed.email_registered', {
         code: 'EMAIL_ALREADY_REGISTERED',
         role,
         status,
@@ -256,7 +263,7 @@ export default async function handler(req, res) {
   }
 
   if (existingProfile.error) {
-    debugLog('db.warn.profile_lookup_error', {
+    log('db.warn.profile_lookup_error', {
       code: existingProfile.error.code,
       message: existingProfile.error.message
     });
@@ -285,7 +292,7 @@ export default async function handler(req, res) {
     .single();
 
   if (createRequest.error || !createRequest.data?.id) {
-    debugLog('request.failed.create_trial_request', {
+    log('request.failed.create_trial_request', {
       code: 'TRIAL_REQUEST_INSERT_FAILED',
       dbCode: createRequest.error?.code,
       dbMessage: createRequest.error?.message,
@@ -300,7 +307,7 @@ export default async function handler(req, res) {
   }
 
   const requestId = createRequest.data.id;
-  debugLog('request.trial_request_created', { requestId, email: payload.email });
+  log('request.trial_request_created', { requestId, email: payload.email });
 
   try {
     await insertAuditLog(supabase, {
@@ -334,7 +341,7 @@ export default async function handler(req, res) {
     });
 
     if (userCreate.error || !userCreate.data?.user?.id) {
-      debugLog('request.failed.create_user', {
+      log('request.failed.create_user', {
         code: 'TRIAL_USER_CREATE_FAILED',
         requestId,
         supabaseCode: userCreate.error?.code,
@@ -357,7 +364,7 @@ export default async function handler(req, res) {
     }
 
     const createdUser = userCreate.data.user;
-    debugLog('request.user_created', { requestId, userId: createdUser.id });
+    log('request.user_created', { requestId, userId: createdUser.id });
 
     await supabase
       .from('trial_requests')
@@ -394,7 +401,7 @@ export default async function handler(req, res) {
 
     const actionLink = linkRes.data?.properties?.action_link || null;
     if (linkRes.error || !actionLink) {
-      debugLog('request.failed.generate_link', {
+      log('request.failed.generate_link', {
         code: 'TRIAL_LINK_GENERATE_FAILED',
         requestId,
         supabaseCode: linkRes.error?.code,
@@ -418,24 +425,44 @@ export default async function handler(req, res) {
       );
     }
 
-    debugLog('request.email_send.start', {
+    const resendEnv = {
+      hasResendApiKey: Boolean(String(process.env.RESEND_API_KEY || '').trim()),
+      hasResendFromEmail: Boolean(String(process.env.RESEND_FROM_EMAIL || '').trim()),
+      resendFromDomain: (String(process.env.RESEND_FROM_EMAIL || '').trim().split('@')[1] || null),
+      appBaseUrlConfigured: Boolean(String(process.env.APP_BASE_URL || '').trim())
+    };
+
+    log('request.email_send.start', {
       requestId,
       email: payload.email,
       locale: payload.locale,
       hasActionLink: Boolean(actionLink),
-      appBaseUrlConfigured: Boolean(String(process.env.APP_BASE_URL || '').trim())
+      ...resendEnv
     });
 
-    const mailRes = await sendInviteEmail({
-      to: payload.email,
-      fullName: payload.full_name,
-      role: 'trial',
-      actionLink,
-      locale: payload.locale
-    });
+    let mailRes;
+    try {
+      mailRes = await sendInviteEmail({
+        to: payload.email,
+        fullName: payload.full_name,
+        role: 'trial',
+        actionLink,
+        locale: payload.locale,
+        traceId
+      });
+    } catch (mailerError) {
+      log('request.failed.send_email_exception', {
+        code: 'TRIAL_EMAIL_SEND_EXCEPTION',
+        requestId,
+        errorName: mailerError?.name || null,
+        errorMessage: mailerError?.message || null,
+        ...resendEnv
+      });
+      throw mailerError;
+    }
 
     if (!mailRes.ok) {
-      debugLog('request.failed.send_email', {
+      log('request.failed.send_email', {
         code: 'TRIAL_EMAIL_SEND_FAILED',
         requestId,
         mailStatus: mailRes.status,
@@ -457,6 +484,12 @@ export default async function handler(req, res) {
         mailRes.error || 'Failed to send invite email'
       );
     }
+
+    log('request.email_send.success', {
+      requestId,
+      mailStatus: mailRes.status,
+      resendMessageId: mailRes.messageId || null
+    });
 
     await supabase
       .from('trial_requests')
@@ -490,7 +523,7 @@ export default async function handler(req, res) {
       message: 'Trial account created. Please check your email to set password.'
     });
   } catch (error) {
-    debugLog('request.failed.unexpected', {
+    log('request.failed.unexpected', {
       code: 'TRIAL_UNEXPECTED_FAILED',
       requestId,
       errorCode: error?.code,

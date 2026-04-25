@@ -3,6 +3,7 @@ import { getSupabaseAdminClient, normalizeBody, toTrialExpiresAtIso } from '../.
 
 const ROLES = new Set(['guest', 'trial', 'user', 'admin']);
 const STATUSES = new Set(['pending_activation', 'active', 'expired', 'disabled']);
+const OPEN_TRIAL_REQUEST_STATUSES = ['pending', 'account_created', 'email_sent', 'email_failed'];
 
 function jsonError(res, status, code, message) {
   return res.status(status).json({ error: { code, message } });
@@ -156,53 +157,126 @@ export async function handleAdminUserPatch(req, res, userId) {
 }
 
 export async function handleAdminUserDelete(req, res, userId) {
-  const auth = await authorizeAdmin(req);
-  if (!auth.ok) {
-    return res.status(auth.status).json(auth.errorBody || { error: { code: 'FORBIDDEN', message: auth.error || 'Forbidden' } });
-  }
-
-  let supabase;
   try {
-    supabase = getSupabaseAdminClient();
-  } catch (error) {
-    return jsonError(res, 500, 'CONFIG_ERROR', error?.message || 'Supabase config error');
-  }
+    console.log('[admin-users-item] delete start', {
+      method: String(req?.method || '').toUpperCase(),
+      url: req?.url || '',
+      userId
+    });
 
-  if (String(auth.user_id || '') === userId) {
-    return jsonError(res, 400, 'SELF_PROTECTION', 'Admin cannot delete self');
-  }
-
-  const profileRes = await loadTargetProfile(supabase, userId);
-  if (profileRes.error || !profileRes.data) {
-    return jsonError(res, 404, 'USER_NOT_FOUND', 'User profile not found');
-  }
-  const profile = profileRes.data;
-
-  const activeAdminCount = await countActiveAdmins(supabase);
-  const isTargetActiveAdmin = String(profile.role) === 'admin' && String(profile.status) === 'active';
-  if (isTargetActiveAdmin && activeAdminCount <= 1) {
-    return jsonError(res, 409, 'LAST_ADMIN_PROTECTED', 'Cannot delete the last active admin');
-  }
-
-  const deleteRes = await supabase.auth.admin.deleteUser(userId);
-  if (deleteRes.error) {
-    return jsonError(res, 500, 'USER_DELETE_FAILED', deleteRes.error.message || 'Failed to delete user');
-  }
-
-  await supabase.from('auth_audit_logs').insert({
-    actor_user_id: auth.user_id,
-    target_user_id: userId,
-    action: 'user_deleted',
-    entity_type: 'user',
-    entity_id: userId,
-    result: 'success',
-    metadata: {
-      role: profile.role,
-      status: profile.status,
-      email: profile.email
+    const auth = await authorizeAdmin(req);
+    if (!auth.ok) {
+      console.warn('[admin-users-item] delete auth failed', {
+        userId,
+        status: auth.status,
+        error: auth.error || null,
+        code: auth?.errorBody?.error?.code || null
+      });
+      return res.status(auth.status).json(auth.errorBody || { error: { code: 'FORBIDDEN', message: auth.error || 'Forbidden' } });
     }
-  });
 
-  return res.status(200).json({ ok: true, deleted: true, user_id: userId });
+    let supabase;
+    try {
+      supabase = getSupabaseAdminClient();
+    } catch (error) {
+      console.error('[admin-users-item] delete supabase config failed', {
+        userId,
+        message: error?.message || String(error)
+      });
+      return jsonError(res, 500, 'CONFIG_ERROR', error?.message || 'Supabase config error');
+    }
+
+    if (String(auth.user_id || '') === userId) {
+      return jsonError(res, 400, 'SELF_PROTECTION', 'Admin cannot delete self');
+    }
+
+    const profileRes = await loadTargetProfile(supabase, userId);
+    if (profileRes.error || !profileRes.data) {
+      console.warn('[admin-users-item] delete target profile not found', {
+        userId,
+        error: profileRes.error?.message || null,
+        code: profileRes.error?.code || null
+      });
+      return jsonError(res, 404, 'USER_NOT_FOUND', 'User profile not found');
+    }
+    const profile = profileRes.data;
+
+    const activeAdminCount = await countActiveAdmins(supabase);
+    const isTargetActiveAdmin = String(profile.role) === 'admin' && String(profile.status) === 'active';
+    if (isTargetActiveAdmin && activeAdminCount <= 1) {
+      return jsonError(res, 409, 'LAST_ADMIN_PROTECTED', 'Cannot delete the last active admin');
+    }
+
+    const deleteRes = await supabase.auth.admin.deleteUser(userId);
+    if (deleteRes.error) {
+      console.error('[admin-users-item] delete auth.admin.deleteUser failed', {
+        userId,
+        code: deleteRes.error.code || null,
+        message: deleteRes.error.message || null,
+        status: deleteRes.error.status || null
+      });
+      return jsonError(res, 500, 'USER_DELETE_FAILED', deleteRes.error.message || 'Failed to delete user');
+    }
+
+    // Keep trial-request lifecycle consistent with account deletion.
+    // If this email has any open request, close it so re-apply won't hit DUPLICATE_REQUEST.
+    const targetEmail = String(profile?.email || '').trim().toLowerCase();
+    if (targetEmail) {
+      const closeTrialRequestsRes = await supabase
+        .from('trial_requests')
+        .update({
+          request_status: 'rejected',
+          error_code: 'ACCOUNT_DELETED',
+          error_message: 'Closed automatically because user account was deleted',
+          updated_at: new Date().toISOString()
+        })
+        .eq('email', targetEmail)
+        .in('request_status', OPEN_TRIAL_REQUEST_STATUSES);
+
+      if (closeTrialRequestsRes.error) {
+        console.warn('[admin-users-item] delete close open trial_requests failed (non-blocking)', {
+          userId,
+          email: targetEmail,
+          code: closeTrialRequestsRes.error.code || null,
+          message: closeTrialRequestsRes.error.message || null
+        });
+      } else {
+        console.log('[admin-users-item] delete close open trial_requests success', {
+          userId,
+          email: targetEmail,
+          statuses: OPEN_TRIAL_REQUEST_STATUSES
+        });
+      }
+    }
+
+    const auditInsert = await supabase.from('auth_audit_logs').insert({
+      actor_user_id: auth.user_id,
+      target_user_id: userId,
+      action: 'user_deleted',
+      entity_type: 'user',
+      entity_id: userId,
+      result: 'success',
+      metadata: {
+        role: profile.role,
+        status: profile.status,
+        email: profile.email
+      }
+    });
+    if (auditInsert.error) {
+      console.warn('[admin-users-item] delete audit log insert failed (non-blocking)', {
+        userId,
+        code: auditInsert.error.code || null,
+        message: auditInsert.error.message || null
+      });
+    }
+
+    return res.status(200).json({ ok: true, deleted: true, user_id: userId });
+  } catch (error) {
+    console.error('[admin-users-item] delete unhandled exception', {
+      userId,
+      message: error?.message || String(error),
+      stack: error?.stack || null
+    });
+    return jsonError(res, 500, 'UNHANDLED_EXCEPTION_DELETE_USER', error?.message || 'Unexpected delete error');
+  }
 }
-
