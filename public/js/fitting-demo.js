@@ -1,226 +1,229 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const ROOM_IDS = [1, 2, 3, 4];
+const ROOM_IDS = [1];
 const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 const LOW_STOCK_THRESHOLD = 3;
-const OVERDUE_MINUTES = 15;
-const EVENT_TYPE_LABELS = {
-  item_entered_fitting_room: 'frd.event.enteredRoom',
-  item_added_to_session: 'frd.event.sessionUpdated',
-  item_left_fitting_room: 'frd.event.leftRoom',
-  item_returned_to_floor: 'frd.event.returnedRack',
-  item_moved_to_checkout: 'frd.event.movedCheckout'
-};
-const LEGACY_EVENT_TYPE_MAP = {
-  item_entered_fitting_room: 'enter_room',
-  item_added_to_session: 'enter_room',
-  item_left_fitting_room: 'exit_room',
-  item_returned_to_floor: 'exit_room',
-  item_moved_to_checkout: 'sale_completed'
-};
-const SALE_TYPE_LABELS = {
-  try_on_purchase: 'frd.sale.tryOnPurchase',
-  direct_purchase: 'frd.sale.directPurchase'
-};
-
-const URL_KEY = 'supabaseUrl';
-const ANON_KEY = 'supabaseAnonKey';
+const LONG_DWELL_SECONDS = 45;
 const SESSION_KEY = 'rfid_poc_login_session_v1';
 const LANG_KEY = 'rfid_poc_lang_v1';
 const DEFAULT_LANG = 'en';
-const DEFAULT_SUPABASE_URL = 'https://trgxtbqjkhydvbfndmhk.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_RjeQR-HU84MRCpByTqZlxg_lwJHStMP';
+const SUPPORTED_LANGS = ['en', 'zh-Hant'];
 const EMBED_FLAG = 'embed';
 
-let currentLang = DEFAULT_LANG;
-
-const SUPPORTED_LANGS = ['en', 'zh-Hant'];
+const EVENT_TYPE_LABELS = {
+  item_entered_fitting_room: 'frd.event.enteredRoom',
+  item_left_fitting_room: 'frd.event.leftRoom',
+  item_returned_to_floor: 'frd.event.returnedRack',
+  item_moved_to_checkout: 'frd.event.movedCheckout',
+  sale_completed: 'frd.event.saleCompleted'
+};
 
 const I18N = {
   en: {
-    'frd.pageTitle': 'RFID Fitting Room PoC - Fitting Room Demo',
+    'frd.pageTitle': 'RFID Fitting Room Demo',
     'frd.header.title': 'Fitting Room Demo',
-    'frd.header.subtitle': 'Select a product, choose a size, and drag it into a fitting room',
+    'frd.header.subtitle': 'Interactive 3-step retail journey powered by RFID.',
     'frd.aria.primaryNav': 'Primary',
     'frd.aria.languageSelect': 'Language',
+    'frd.aria.demoGuide': 'Demo guide',
+    'frd.aria.kpiPanel': 'Live KPI panel',
+    'frd.aria.demoBoard': 'Fitting room demo board',
+    'frd.aria.checkoutPanel': 'Checkout items ready to purchase',
     'frd.nav.home': 'Home',
-    'frd.nav.dashboard': 'Dashboard',
     'frd.nav.fittingDemo': 'Fitting Demo',
-    'frd.nav.product': 'Product',
-    'frd.nav.csvImport': 'CSV Import',
-    'frd.nav.setting': 'Setting',
     'frd.language': 'Language',
-    'frd.top.connected': 'Connected',
     'frd.auth.logout': 'Logout',
-    'frd.openDashboard': 'Open Dashboard',
-    'frd.resetDemo': 'Reset Demo',
-    'frd.seedDemoData': 'Seed Demo Data',
-    'frd.alertsBadge': 'Active Alerts: {count}',
-    'frd.status.mock': 'Mock Mode',
-    'frd.status.db': 'DB Mode',
-    'frd.aria.demoBoard': 'Fitting Room Demo Board',
+    'frd.status.mock': 'Demo Mode',
+    'frd.status.db': 'Live Catalog',
+    'frd.guide.title': 'How this demo works',
+    'frd.guide.step1': 'Step 1: Select product',
+    'frd.guide.step2': 'Step 2: Drag into fitting room',
+    'frd.guide.step3': 'Step 3: Move to checkout or back',
+    'frd.guide.kpiHint': 'KPI updates in real time after each action.',
+    'frd.kpi.title': 'Live KPI Panel',
+    'frd.kpi.tryOns': 'Try-ons',
+    'frd.kpi.sales': 'Sales',
+    'frd.kpi.conversion': 'Conversion rate',
+    'frd.kpi.missedRevenue': 'Missed revenue',
+    'frd.kpi.potentialUplift': 'Potential uplift',
+    'frd.kpi.tryOnsHint': 'Items entering fitting room',
+    'frd.kpi.salesHint': 'Completed purchases',
+    'frd.kpi.conversionHint': 'Sales divided by try-ons',
+    'frd.kpi.missedRevenueHint': 'Returned try-ons that did not convert',
+    'frd.kpi.potentialUpliftHint': 'Recoverable value from fitting-room signals',
     'frd.rack.title': 'Rack',
-    'frd.rack.subtitle': 'Summary list for quick selection',
-    'frd.rooms.title': 'Fitting Rooms',
-    'frd.rooms.subtitle': 'Status-first rooms with compact item cards',
-    'frd.checkout.title': 'Checkout',
-    'frd.checkout.subtitle': 'Recent purchase stream',
-    'frd.aria.checkoutPanel': 'Checkout Drop Zone and Purchased Items',
-    'frd.checkout.dropHint': 'Drop drag token here',
-    'frd.checkout.viewOlder': 'View older',
-    'frd.checkout.collapseOlder': 'Collapse older',
-    'frd.aria.bottomInfoTabs': 'Bottom Information Tabs',
-    'frd.aria.bottomTabs': 'Bottom info tabs',
-    'frd.tabs.recentEvents': 'Recent Events',
-    'frd.tabs.roomSummary': 'Room Summary',
-    'frd.table.time': 'Time',
-    'frd.table.product': 'Product',
-    'frd.table.size': 'Size',
-    'frd.table.room': 'Room',
-    'frd.table.eventType': 'Event Type',
-    'frd.table.status': 'Status',
-    'frd.rack.item': 'Item',
-    'frd.rack.style': 'Style',
+    'frd.rack.subtitle': 'Choose size and send item to fitting room',
     'frd.rack.available': 'Available {count}',
     'frd.rack.lowStock': 'Low stock',
     'frd.rack.size': 'Size',
-    'frd.rack.dragToken': 'Drag Token',
-    'frd.rack.pickSizeHint': 'Pick a size to create drag token',
-    'frd.rack.empty': 'No items available on rack',
-    'frd.variant.size': 'Size {size}',
-    'frd.variant.qty': 'Qty {qty}',
-    'frd.variant.dragHint': '⋮⋮ Drag to room / checkout',
-    'frd.selected.tip': 'Tip: click a Rack item, then choose size directly inside that card.',
-    'frd.selected.label': 'Selected: {name}',
-    'frd.selected.noSize': 'No size selected',
-    'frd.selected.dragFromCard': 'Drag from selected Rack card',
-    'frd.room.title': 'Room {id}',
+    'frd.rack.price': '{price}',
+    'frd.rack.pickSizeHint': 'Select a size to create a draggable demo card.',
+    'frd.rack.dragHint': 'Drag this card into the fitting room',
+    'frd.rack.sendToRoom': 'Try in Fitting Room',
+    'frd.rack.empty': 'No demo products available',
+    'frd.variant.qty': '{qty} left',
+    'frd.rooms.title': 'Fitting Room',
+    'frd.rooms.subtitle': 'Track try-ons, dwell time, and next action',
+    'frd.room.title': 'Fitting Room',
     'frd.room.items': '{count} items',
-    'frd.room.session': 'Session {status}',
     'frd.room.longestDwell': 'Longest dwell {dwell}',
     'frd.room.dwell': 'Dwell {dwell}',
-    'frd.room.overdue': 'Overdue',
     'frd.room.dropHint': 'Drop selected item here',
-    'frd.room.more': '+{count} more',
-    'frd.room.collapse': 'Collapse',
-    'frd.checkout.noPurchases': 'No purchases yet',
-    'frd.events.empty': 'No recent events',
-    'frd.events.completed': 'completed',
-    'frd.roomSummary.room': 'Room',
-    'frd.roomSummary.itemCount': 'Item Count',
-    'frd.roomSummary.session': 'Session',
-    'frd.roomSummary.longestDwell': 'Longest Dwell',
-    'frd.session.idle': 'Idle',
-    'frd.session.alert': 'Alert',
-    'frd.session.active': 'Active',
-    'frd.toast.invalidMove': 'Invalid move',
+    'frd.room.longDwellWarning': 'Long dwell warning',
+    'frd.room.actions.sendCheckout': 'Send to Checkout',
+    'frd.room.actions.returnRack': 'Return to Rack',
+    'frd.checkout.title': 'Checkout',
+    'frd.checkout.subtitle': 'Items ready to purchase',
+    'frd.checkout.dropHint': 'Drop fitting-room items here',
+    'frd.checkout.noPurchases': 'No items ready for checkout',
+    'frd.checkout.total': 'Total {amount}',
+    'frd.checkout.completeSale': 'Complete Sale',
+    'frd.checkout.completed': 'Completed sales: {count}',
+    'frd.advanced.toggle': 'Advanced Mode',
+    'frd.advanced.title': 'Technical Details',
+    'frd.advanced.empty': 'No technical events yet',
+    'frd.advanced.sku': 'SKU',
+    'frd.advanced.epc': 'EPC',
+    'frd.toast.invalidMove': 'Choose a product size first',
     'frd.toast.actionCouldNotComplete': 'Action could not be completed',
-    'frd.toast.itemEntered': 'Item entered fitting room',
-    'frd.toast.itemReturned': 'Item returned to rack',
-    'frd.toast.purchaseCompleted': 'Purchase completed',
-    'frd.toast.directPurchaseCompleted': 'Direct purchase completed',
-    'frd.toast.missingSkuEpc': 'This SKU has no valid EPC. Fill inventory_items.epc_data first.',
-    'frd.toast.missingRoomItemEpc': 'This room item has no valid EPC, cannot sync to DB.',
-    'frd.toast.resetDone': 'Demo reset ({mode} mode)',
-    'frd.toast.seedDone': 'Demo data seeded',
-    'frd.mode.db': 'DB',
-    'frd.mode.mock': 'Mock',
-    'frd.error.noValidEpcPersist': 'Selected inventory has no valid EPC, unable to persist to DB.',
-    'frd.event.enteredRoom': 'Entered Room',
-    'frd.event.sessionUpdated': 'Session Updated',
-    'frd.event.leftRoom': 'Left Room',
-    'frd.event.returnedRack': 'Returned to Rack',
-    'frd.event.movedCheckout': 'Moved to Checkout',
-    'frd.sale.tryOnPurchase': 'Try-On Purchase',
-    'frd.sale.directPurchase': 'Direct Purchase'
+    'frd.toast.itemEntered': 'Try-on recorded',
+    'frd.toast.itemReturned': 'Lost conversion opportunity',
+    'frd.toast.sentCheckout': 'Ready for checkout',
+    'frd.toast.conversionImproved': 'Conversion improved',
+    'frd.event.enteredRoom': 'Entered fitting room',
+    'frd.event.leftRoom': 'Left fitting room',
+    'frd.event.returnedRack': 'Returned to rack',
+    'frd.event.movedCheckout': 'Moved to checkout',
+    'frd.event.saleCompleted': 'Sale completed'
   },
   'zh-Hant': {
-    'frd.pageTitle': 'RFID 試衣間 PoC - 試衣間 Demo',
+    'frd.pageTitle': 'RFID 試衣間 Demo',
     'frd.header.title': '試衣間 Demo',
-    'frd.header.subtitle': '選擇商品與尺寸後，拖曳到試衣間',
+    'frd.header.subtitle': 'RFID 驅動的三步驟零售互動展示。',
     'frd.aria.primaryNav': '主要導覽',
     'frd.aria.languageSelect': '語言',
+    'frd.aria.demoGuide': 'Demo 指引',
+    'frd.aria.kpiPanel': '即時 KPI 面板',
+    'frd.aria.demoBoard': '試衣間 Demo 看板',
+    'frd.aria.checkoutPanel': '待結帳商品',
     'frd.nav.home': '首頁',
-    'frd.nav.dashboard': 'Dashboard',
     'frd.nav.fittingDemo': '試衣間 Demo',
-    'frd.nav.product': '商品',
-    'frd.nav.csvImport': 'CSV 匯入',
-    'frd.nav.setting': '設定',
     'frd.language': '語言',
-    'frd.top.connected': '已連線',
     'frd.auth.logout': '登出',
-    'frd.openDashboard': '開啟 Dashboard',
-    'frd.resetDemo': '重置 Demo',
-    'frd.seedDemoData': '建立 Demo 資料',
-    'frd.alertsBadge': '進行中警示：{count}',
-    'frd.status.mock': '模擬模式',
-    'frd.status.db': '資料庫模式',
+    'frd.status.mock': 'Demo 模式',
+    'frd.status.db': '即時型錄',
+    'frd.guide.title': 'Demo 操作方式',
+    'frd.guide.step1': '步驟 1：選擇商品',
+    'frd.guide.step2': '步驟 2：拖曳到試衣間',
+    'frd.guide.step3': '步驟 3：移至結帳或退回貨架',
+    'frd.guide.kpiHint': '每一次操作都會即時更新 KPI。',
+    'frd.kpi.title': '即時 KPI 面板',
+    'frd.kpi.tryOns': '試穿次數',
+    'frd.kpi.sales': '銷售件數',
+    'frd.kpi.conversion': '轉換率',
+    'frd.kpi.missedRevenue': '流失營收',
+    'frd.kpi.potentialUplift': '潛在成長',
+    'frd.kpi.tryOnsHint': '進入試衣間的商品數',
+    'frd.kpi.salesHint': '已完成購買件數',
+    'frd.kpi.conversionHint': '銷售件數 ÷ 試穿次數',
+    'frd.kpi.missedRevenueHint': '試穿後退回而未轉換的金額',
+    'frd.kpi.potentialUpliftHint': '從試衣間訊號可挽回的價值',
     'frd.rack.title': '貨架',
-    'frd.rooms.title': '試衣間',
-    'frd.checkout.title': '結帳',
-    'frd.tabs.recentEvents': '最近事件',
-    'frd.tabs.roomSummary': '房間摘要',
-    'frd.table.time': '時間',
-    'frd.table.product': '商品',
-    'frd.table.size': '尺寸',
-    'frd.table.room': '房間',
-    'frd.table.eventType': '事件類型',
-    'frd.table.status': '狀態',
-    'frd.rack.item': '貨號',
-    'frd.rack.style': '款號',
+    'frd.rack.subtitle': '選擇尺寸後送入試衣間',
     'frd.rack.available': '可用 {count}',
     'frd.rack.lowStock': '低庫存',
     'frd.rack.size': '尺寸',
-    'frd.rack.dragToken': '拖曳卡片',
-    'frd.rack.pickSizeHint': '請先選擇尺寸',
-    'frd.rack.empty': '貨架目前無商品',
-    'frd.variant.size': '尺寸 {size}',
-    'frd.variant.qty': '庫存 {qty}',
-    'frd.variant.dragHint': '⋮⋮ 拖曳到試衣間 / 結帳',
-    'frd.selected.tip': '提示：先點選貨架商品，再於卡片內選尺寸。',
-    'frd.selected.label': '已選：{name}',
-    'frd.selected.noSize': '尚未選尺寸',
-    'frd.selected.dragFromCard': '從已選卡片拖曳',
-    'frd.room.title': '房間 {id}',
+    'frd.rack.price': '{price}',
+    'frd.rack.pickSizeHint': '選擇尺寸後會產生可拖曳 Demo 卡片。',
+    'frd.rack.dragHint': '將此卡片拖曳到試衣間',
+    'frd.rack.sendToRoom': '送入試衣間',
+    'frd.rack.empty': '目前沒有 Demo 商品',
+    'frd.variant.qty': '剩餘 {qty}',
+    'frd.rooms.title': '試衣間',
+    'frd.rooms.subtitle': '追蹤試穿、停留時間與下一步',
+    'frd.room.title': '試衣間',
     'frd.room.items': '{count} 件',
-    'frd.room.session': 'Session {status}',
     'frd.room.longestDwell': '最長停留 {dwell}',
     'frd.room.dwell': '停留 {dwell}',
-    'frd.room.overdue': '逾時',
-    'frd.room.dropHint': '拖曳商品到這裡',
-    'frd.room.more': '還有 +{count} 件',
-    'frd.room.collapse': '收合',
-    'frd.checkout.noPurchases': '尚無成交紀錄',
-    'frd.events.empty': '尚無最近事件',
-    'frd.events.completed': '完成',
-    'frd.roomSummary.room': '房間',
-    'frd.roomSummary.itemCount': '商品數',
-    'frd.roomSummary.session': 'Session',
-    'frd.roomSummary.longestDwell': '最長停留',
-    'frd.session.idle': '閒置',
-    'frd.session.alert': '警示',
-    'frd.session.active': '進行中',
-    'frd.toast.invalidMove': '無效操作',
+    'frd.room.dropHint': '將已選商品拖曳到這裡',
+    'frd.room.longDwellWarning': '長時間停留警示',
+    'frd.room.actions.sendCheckout': '送至結帳',
+    'frd.room.actions.returnRack': '退回貨架',
+    'frd.checkout.title': '結帳',
+    'frd.checkout.subtitle': '待購買商品',
+    'frd.checkout.dropHint': '將試衣間商品拖曳到此',
+    'frd.checkout.noPurchases': '目前沒有待結帳商品',
+    'frd.checkout.total': '總金額 {amount}',
+    'frd.checkout.completeSale': '完成銷售',
+    'frd.checkout.completed': '已完成銷售：{count}',
+    'frd.advanced.toggle': '進階模式',
+    'frd.advanced.title': '技術明細',
+    'frd.advanced.empty': '尚無技術事件',
+    'frd.advanced.sku': 'SKU',
+    'frd.advanced.epc': 'EPC',
+    'frd.toast.invalidMove': '請先選擇商品尺寸',
     'frd.toast.actionCouldNotComplete': '操作無法完成',
-    'frd.toast.itemEntered': '商品已進入試衣間',
-    'frd.toast.itemReturned': '商品已回到貨架',
-    'frd.toast.purchaseCompleted': '已完成購買',
-    'frd.toast.directPurchaseCompleted': '已完成直接購買',
-    'frd.toast.missingSkuEpc': '此 SKU 缺少有效 EPC，請先補 inventory_items.epc_data。',
-    'frd.toast.missingRoomItemEpc': '此房間商品缺少有效 EPC，無法同步資料庫。',
-    'frd.toast.resetDone': 'Demo 已重置（{mode} 模式）',
-    'frd.toast.seedDone': 'Demo 資料已建立',
-    'frd.mode.db': '資料庫',
-    'frd.mode.mock': '模擬',
-    'frd.error.noValidEpcPersist': '選取的庫存缺少有效 EPC，無法寫入資料庫。',
+    'frd.toast.itemEntered': '已記錄試穿行為',
+    'frd.toast.itemReturned': '流失一次轉換機會',
+    'frd.toast.sentCheckout': '已準備結帳',
+    'frd.toast.conversionImproved': '轉換率提升',
     'frd.event.enteredRoom': '進入試衣間',
-    'frd.event.sessionUpdated': '更新 Session',
     'frd.event.leftRoom': '離開試衣間',
     'frd.event.returnedRack': '回到貨架',
     'frd.event.movedCheckout': '移至結帳',
-    'frd.sale.tryOnPurchase': '試穿後購買',
-    'frd.sale.directPurchase': '直接購買'
+    'frd.event.saleCompleted': '完成銷售'
   }
+};
+
+const MOCK_SKU_ROWS = [
+  { style_no: '4520001', item_no: '82210101', sku_ean13: '1234567000015', product_name: 'Northline Polo Shirt', color: 'Black', size: 'XS', quantity: 4, price_usd: 39 },
+  { style_no: '4520001', item_no: '82210101', sku_ean13: '1234567000022', product_name: 'Northline Polo Shirt', color: 'Black', size: 'S', quantity: 8, price_usd: 39 },
+  { style_no: '4520001', item_no: '82210101', sku_ean13: '1234567000039', product_name: 'Northline Polo Shirt', color: 'Black', size: 'M', quantity: 14, price_usd: 39 },
+  { style_no: '4520001', item_no: '82210101', sku_ean13: '1234567000046', product_name: 'Northline Polo Shirt', color: 'Black', size: 'L', quantity: 12, price_usd: 39 },
+  { style_no: '4520001', item_no: '82210101', sku_ean13: '1234567000053', product_name: 'Northline Polo Shirt', color: 'Black', size: 'XL', quantity: 2, price_usd: 39 },
+  { style_no: '4521001', item_no: '82210201', sku_ean13: '1234567000114', product_name: 'Cityline Oxford Shirt', color: 'White', size: 'S', quantity: 3, price_usd: 49 },
+  { style_no: '4521001', item_no: '82210201', sku_ean13: '1234567000121', product_name: 'Cityline Oxford Shirt', color: 'White', size: 'M', quantity: 6, price_usd: 49 },
+  { style_no: '4521001', item_no: '82210201', sku_ean13: '1234567000138', product_name: 'Cityline Oxford Shirt', color: 'White', size: 'L', quantity: 4, price_usd: 49 },
+  { style_no: '4522001', item_no: '82210301', sku_ean13: '1234567000152', product_name: 'Trailblaze Chino Pants', color: 'Khaki', size: 'S', quantity: 2, price_usd: 59 },
+  { style_no: '4522001', item_no: '82210301', sku_ean13: '1234567000169', product_name: 'Trailblaze Chino Pants', color: 'Khaki', size: 'M', quantity: 4, price_usd: 59 },
+  { style_no: '4522001', item_no: '82210301', sku_ean13: '1234567000176', product_name: 'Trailblaze Chino Pants', color: 'Khaki', size: 'L', quantity: 2, price_usd: 59 },
+  { style_no: '4523001', item_no: '82210401', sku_ean13: '1234567000206', product_name: 'Meridian Denim Jacket', color: 'Indigo', size: 'S', quantity: 3, price_usd: 89 },
+  { style_no: '4523001', item_no: '82210401', sku_ean13: '1234567000213', product_name: 'Meridian Denim Jacket', color: 'Indigo', size: 'M', quantity: 5, price_usd: 89 },
+  { style_no: '4523001', item_no: '82210401', sku_ean13: '1234567000220', product_name: 'Meridian Denim Jacket', color: 'Indigo', size: 'L', quantity: 3, price_usd: 89 }
+];
+
+let currentLang = DEFAULT_LANG;
+
+const state = {
+  rackItems: [],
+  selectedItemKey: null,
+  selectedSkuKey: null,
+  roomAssignments: buildEmptyRooms(),
+  checkoutRecords: [],
+  completedSalesRecords: [],
+  recentEvents: [],
+  draggingContext: null,
+  roomItemSeq: 1,
+  dataSource: 'mock',
+  advancedMode: false,
+  kpi: {
+    tryOns: 0,
+    sales: 0,
+    missedRevenue: 0
+  }
+};
+
+const el = {
+  rackList: document.getElementById('rackList'),
+  roomsGrid: document.getElementById('roomsGrid'),
+  checkoutDropzone: document.getElementById('checkoutDropzone'),
+  checkoutTotalPrice: document.getElementById('checkoutTotalPrice'),
+  checkoutList: document.getElementById('checkoutList'),
+  completeSaleButton: document.getElementById('completeSaleButton'),
+  advancedToggle: document.getElementById('advancedModeToggle'),
+  advancedPanel: document.getElementById('advancedPanel'),
+  advancedEventList: document.getElementById('advancedEventList'),
+  kpiPanelBody: document.getElementById('kpiPanelBody'),
+  status: document.getElementById('fittingDemoStatus'),
+  toastContainer: document.getElementById('fittingDemoToastContainer')
 };
 
 function ft(key, params = {}) {
@@ -240,115 +243,34 @@ function getCurrentLang() {
 function applyFittingDemoI18n() {
   document.querySelectorAll('[data-i18n]').forEach((node) => {
     const key = node.getAttribute('data-i18n');
-    if (!key) return;
-    node.textContent = ft(key);
+    if (key) node.textContent = ft(key);
   });
 
   document.querySelectorAll('[data-i18n-aria-label]').forEach((node) => {
     const key = node.getAttribute('data-i18n-aria-label');
-    if (!key) return;
-    node.setAttribute('aria-label', ft(key));
-  });
-
-  document.querySelectorAll('[data-i18n-title]').forEach((node) => {
-    const key = node.getAttribute('data-i18n-title');
-    if (!key) return;
-    node.setAttribute('title', ft(key));
+    if (key) node.setAttribute('aria-label', ft(key));
   });
 
   document.documentElement.lang = currentLang;
   document.title = ft('frd.pageTitle');
 }
 
-const MOCK_SKU_ROWS = [
-  { style_no: '4520001', item_no: '82210101', sku_ean13: '1234567000015', product_name: 'Northline Polo Shirt', color: 'Black', size: 'XS', quantity: 4, price_usd: 39 },
-  { style_no: '4520001', item_no: '82210101', sku_ean13: '1234567000022', product_name: 'Northline Polo Shirt', color: 'Black', size: 'S', quantity: 8, price_usd: 39 },
-  { style_no: '4520001', item_no: '82210101', sku_ean13: '1234567000039', product_name: 'Northline Polo Shirt', color: 'Black', size: 'M', quantity: 14, price_usd: 39 },
-  { style_no: '4520001', item_no: '82210101', sku_ean13: '1234567000046', product_name: 'Northline Polo Shirt', color: 'Black', size: 'L', quantity: 12, price_usd: 39 },
-  { style_no: '4520001', item_no: '82210101', sku_ean13: '1234567000053', product_name: 'Northline Polo Shirt', color: 'Black', size: 'XL', quantity: 2, price_usd: 39 },
-
-  { style_no: '4520001', item_no: '82210102', sku_ean13: '1234567000060', product_name: 'Northline Polo Shirt', color: 'Navy', size: 'XS', quantity: 0, price_usd: 39 },
-  { style_no: '4520001', item_no: '82210102', sku_ean13: '1234567000077', product_name: 'Northline Polo Shirt', color: 'Navy', size: 'S', quantity: 5, price_usd: 39 },
-  { style_no: '4520001', item_no: '82210102', sku_ean13: '1234567000084', product_name: 'Northline Polo Shirt', color: 'Navy', size: 'M', quantity: 7, price_usd: 39 },
-  { style_no: '4520001', item_no: '82210102', sku_ean13: '1234567000091', product_name: 'Northline Polo Shirt', color: 'Navy', size: 'L', quantity: 2, price_usd: 39 },
-  { style_no: '4520001', item_no: '82210102', sku_ean13: '1234567000107', product_name: 'Northline Polo Shirt', color: 'Navy', size: 'XL', quantity: 1, price_usd: 39 },
-
-  { style_no: '4521001', item_no: '82210201', sku_ean13: '1234567000114', product_name: 'Cityline Oxford Shirt', color: 'White', size: 'S', quantity: 3, price_usd: 49 },
-  { style_no: '4521001', item_no: '82210201', sku_ean13: '1234567000121', product_name: 'Cityline Oxford Shirt', color: 'White', size: 'M', quantity: 6, price_usd: 49 },
-  { style_no: '4521001', item_no: '82210201', sku_ean13: '1234567000138', product_name: 'Cityline Oxford Shirt', color: 'White', size: 'L', quantity: 4, price_usd: 49 },
-  { style_no: '4521001', item_no: '82210201', sku_ean13: '1234567000145', product_name: 'Cityline Oxford Shirt', color: 'White', size: 'XL', quantity: 0, price_usd: 49 },
-
-  { style_no: '4522001', item_no: '82210301', sku_ean13: '1234567000152', product_name: 'Trailblaze Chino Pants', color: 'Khaki', size: 'S', quantity: 2, price_usd: 59 },
-  { style_no: '4522001', item_no: '82210301', sku_ean13: '1234567000169', product_name: 'Trailblaze Chino Pants', color: 'Khaki', size: 'M', quantity: 4, price_usd: 59 },
-  { style_no: '4522001', item_no: '82210301', sku_ean13: '1234567000176', product_name: 'Trailblaze Chino Pants', color: 'Khaki', size: 'L', quantity: 2, price_usd: 59 },
-  { style_no: '4522001', item_no: '82210301', sku_ean13: '1234567000183', product_name: 'Trailblaze Chino Pants', color: 'Khaki', size: 'XL', quantity: 0, price_usd: 59 }
-];
-
-const state = {
-  supabase: null,
-  rackItems: [],
-  selectedItemKey: null,
-  selectedSize: null,
-  selectedSkuKey: null,
-  roomAssignments: buildEmptyRooms(),
-  checkoutRecords: [],
-  recentEvents: [],
-  draggingContext: null,
-  alertsCount: 0,
-  useMockData: true,
-  dataSource: 'mock',
-  roomItemSeq: 1,
-  debugRfidSchemaProbed: false,
-  bottomTab: 'recent-events',
-  checkoutShowAll: false,
-  expandedRoomIds: {}
-};
-
-const el = {
-  rackList: document.getElementById('rackList'),
-  roomsGrid: document.getElementById('roomsGrid'),
-  selectedItemDetailBody: document.getElementById('selectedItemDetailBody'),
-  checkoutDropzone: document.getElementById('checkoutDropzone'),
-  checkoutList: document.getElementById('checkoutList'),
-  checkoutToggle: document.getElementById('checkoutToggleButton'),
-  recentEventsBody: document.getElementById('recentEventsBody'),
-  roomSummaryBody: document.getElementById('roomSummaryBody'),
-  bottomTabButtons: document.querySelectorAll('[data-bottom-tab]'),
-  bottomTabPanels: document.querySelectorAll('[data-bottom-panel]'),
-  alertsBadge: document.getElementById('fittingDemoAlertsBadge'),
-  status: document.getElementById('fittingDemoStatus'),
-  resetButton: document.getElementById('fittingDemoResetButton'),
-  seedButton: document.getElementById('fittingDemoSeedButton'),
-  toastContainer: document.getElementById('fittingDemoToastContainer')
-};
-
-function isEmbedMode() {
-  const params = new URLSearchParams(window.location.search);
-  const raw = String(params.get(EMBED_FLAG) || '').trim().toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'yes';
-}
-
-function applyEmbedMode() {
-  if (!isEmbedMode()) return;
-  document.body.classList.add('is-embedded-fitting-demo');
-  document.querySelectorAll('[data-embed-hide]').forEach((node) => {
-    if (!(node instanceof HTMLElement)) return;
-    node.hidden = true;
-  });
-}
-
 function populateLanguageSelect() {
   const select = document.getElementById('fittingDemoLanguageSelect');
   if (!select) return;
-  const options = [
+  select.innerHTML = [
     { value: 'en', label: '🇺🇸 English' },
     { value: 'zh-Hant', label: '🇹🇼 繁體中文' }
-  ];
-  select.innerHTML = options
-    .map((opt) => `<option value="${opt.value}">${opt.label}</option>`)
-    .join('');
-  const selected = SUPPORTED_LANGS.includes(currentLang) ? currentLang : DEFAULT_LANG;
-  select.value = selected;
+  ].map((opt) => `<option value="${opt.value}">${opt.label}</option>`).join('');
+  select.value = SUPPORTED_LANGS.includes(currentLang) ? currentLang : DEFAULT_LANG;
+}
+
+function applyEmbedMode() {
+  const params = new URLSearchParams(window.location.search);
+  const raw = String(params.get(EMBED_FLAG) || '').trim().toLowerCase();
+  const shouldEmbed = ['1', 'true', 'yes'].includes(raw) || window.self !== window.top;
+  if (!shouldEmbed) return;
+  document.body.classList.add('is-embedded-fitting-demo');
 }
 
 function escapeHtml(value) {
@@ -368,26 +290,8 @@ function imagePathForItem(itemNo) {
   return `/images/products/${encodeURIComponent(String(itemNo || '').trim())}.png`;
 }
 
-function normalizeEventType(eventType) {
-  const raw = String(eventType || '').trim().toLowerCase();
-  if (!raw) return '';
-  if (raw === 'enter_room' || raw === 'enter_fitting_room') return 'item_entered_fitting_room';
-  if (raw === 'exit_room' || raw === 'left_fitting_room') return 'item_left_fitting_room';
-  if (raw === 'return_to_sales_floor') return 'item_returned_to_floor';
-  if (raw === 'sale_completed' || raw === 'direct_sale') return 'item_moved_to_checkout';
-  return raw;
-}
-
 function isValidEpcData(value) {
   return /^[a-fA-F0-9]{24}$/.test(String(value || '').trim());
-}
-
-function getApiAuthHeaders() {
-  const session = getSession();
-  const accessToken = String(session?.accessToken || '').trim();
-  const headers = {};
-  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-  return headers;
 }
 
 function getSession() {
@@ -403,294 +307,25 @@ function getSession() {
   }
 }
 
-function isSchemaCompatError(error) {
-  const code = String(error?.code || '').toUpperCase();
-  const message = String(error?.message || '').toLowerCase();
-  return (
-    code === '42703'
-    || code === 'PGRST204'
-    || message.includes('column')
-    || message.includes('schema cache')
-    || message.includes('could not find')
-  );
-}
-
-function resolveSkuValue(...values) {
-  for (const value of values) {
-    const text = String(value ?? '').trim();
-    if (text) return text;
-  }
-  return '';
-}
-
-function normalizeProductId(value) {
-  const text = String(value ?? '').trim();
-  return text || null;
-}
-
-function parseProductKey(productKey) {
-  const [companyPrefix, itemReference] = String(productKey || '').split('::');
-  return {
-    companyPrefix: String(companyPrefix || '').trim(),
-    itemReference: String(itemReference || '').trim()
-  };
-}
-
-function resolveRoomIdFromEventRow(row) {
-  const metadata = (row?.metadata && typeof row.metadata === 'object') ? row.metadata : {};
-  const metadataRoomId = Number(metadata.room_id || 0);
-  if (Number.isInteger(metadataRoomId) && metadataRoomId >= 1 && metadataRoomId <= 4) return metadataRoomId;
-  return roomIdFromReaderId(row?.reader_id);
-}
-
-function resolveEventProductKey(row) {
-  const metadata = (row?.metadata && typeof row.metadata === 'object') ? row.metadata : {};
-  const productKey = String(metadata.product_key || '').trim();
-  if (productKey) return productKey;
-  const epc = String(row?.epc_data || '').trim();
-  if (isValidEpcData(epc)) return `epc::${epc}`;
-  return '';
-}
-
-async function fetchActiveRoomAssignmentsFromEventsFallback() {
-  const rooms = buildEmptyRooms();
-  if (!state.supabase) return rooms;
-
-  const eventsRes = await state.supabase
-    .from('rfid_events')
-    .select('timestamp,event_type,reader_id,epc_data,metadata')
-    .order('timestamp', { ascending: false })
-    .limit(800);
-
-  if (eventsRes.error) {
-    console.warn('[FRD][fetchActiveRoomAssignmentsFromEventsFallback] rfid_events query failed, fallback to empty rooms', {
-      code: eventsRes.error?.code,
-      message: eventsRes.error?.message,
-      hint: eventsRes.error?.hint,
-      details: eventsRes.error?.details
-    });
-    return rooms;
-  }
-
-  const latestByKey = new Map();
-  (eventsRes.data || []).forEach((row) => {
-    const key = resolveEventProductKey(row);
-    if (!key || latestByKey.has(key)) return;
-    latestByKey.set(key, row);
-  });
-
-  const productByKey = await fetchProductsByProductKeyCompat();
-  let seq = 1;
-  latestByKey.forEach((row, key) => {
-    const normalizedType = normalizeEventType(row?.event_type);
-    if (!['item_entered_fitting_room', 'item_added_to_session'].includes(normalizedType)) return;
-
-    const roomId = resolveRoomIdFromEventRow(row);
-    const room = rooms.find((x) => x.roomId === roomId);
-    if (!room) return;
-
-    const metadata = (row?.metadata && typeof row.metadata === 'object') ? row.metadata : {};
-    const product = key.startsWith('epc::') ? null : productByKey.get(key);
-    const decodedKey = parseProductKey(key);
-    const epc = String(row?.epc_data || '').trim();
-    const sku = resolveSkuValue(
-      metadata.sku_ean13,
-      metadata.sku,
-      product?.sku_ean13,
-      product?.sku,
-      ''
-    );
-
-    room.items.push({
-      room_item_id: `room_item_${seq++}`,
-      item_key: key,
-      item_no: resolveSkuValue(metadata.item_no, product?.item_no, decodedKey.itemReference, key),
-      product_name: resolveSkuValue(metadata.product_name, metadata.name, product?.name_en, product?.name, `Item ${decodedKey.itemReference || key}`),
-      size: resolveSkuValue(metadata.size, product?.size, '-'),
-      sku_ean13: sku,
-      epc_data: isValidEpcData(epc) ? epc : '',
-      enteredAt: String(row?.timestamp || new Date().toISOString())
-    });
-  });
-
-  console.debug('[FRD][fetchActiveRoomAssignmentsFromEventsFallback] hydrated room assignments from events', {
-    eventRows: (eventsRes.data || []).length,
-    uniqueKeys: latestByKey.size,
-    roomItemCount: rooms.reduce((acc, room) => acc + room.items.length, 0),
-    byRoom: rooms.map((room) => ({ roomId: room.roomId, count: room.items.length }))
-  });
-
-  return rooms;
-}
-
-function roomIdFromReaderId(readerId) {
-  const match = String(readerId || '').toUpperCase().match(/FITTING(?:_ROOM)?_ANTENNA_(\d+)/);
-  const id = Number(match?.[1] || 1);
-  if (!Number.isInteger(id) || id < 1 || id > 4) return 1;
-  return id;
-}
-
-async function fetchProductsByProductKeyCompat() {
-  if (!state.supabase) return new Map();
-
-  const selectAttempts = [
-    'id,name,name_en,size,sku,sku_ean13,item_no,epc_company_prefix,item_reference',
-    'id,name,name_en,size,sku,item_no,epc_company_prefix,item_reference',
-    '*'
-  ];
-
-  for (const selectClause of selectAttempts) {
-    const res = await state.supabase
-      .from('products')
-      .select(selectClause)
-      .limit(5000);
-
-    if (res.error) {
-      if (!isSchemaCompatError(res.error)) {
-        console.warn('[FRD][fetchProductsByProductKeyCompat] query failed', {
-          selectClause,
-          code: res.error?.code,
-          message: res.error?.message
-        });
-        return new Map();
-      }
-      continue;
-    }
-
-    const map = new Map();
-    (res.data || []).forEach((row) => {
-      const key = `${String(row?.epc_company_prefix || '').trim()}::${String(row?.item_reference || '').trim()}`;
-      if (key !== '::') {
-        map.set(key, row);
-      }
-    });
-
-    return map;
-  }
-
-  return new Map();
-}
-
-async function fetchActiveRoomAssignmentsFromDb() {
-  const rooms = buildEmptyRooms();
-  if (!state.supabase) return rooms;
-
-  console.debug('[FRD][fetchActiveRoomAssignmentsFromDb] start', {
-    hasSupabase: Boolean(state.supabase),
-    hasSession: Boolean(getSession()?.accessToken)
-  });
-
-  const presenceRes = await state.supabase
-    .from('fitting_room_presence')
-    .select('product_key,entered_at,last_seen_at,last_reader_id')
-    .limit(500);
-
-  if (presenceRes.error) {
-    console.warn('[FRD][fetchActiveRoomAssignmentsFromDb] fitting_room_presence query failed, fallback to empty rooms', {
-      code: presenceRes.error?.code,
-      message: presenceRes.error?.message,
-      hint: presenceRes.error?.hint,
-      details: presenceRes.error?.details
-    });
-    const eventFallbackRooms = await fetchActiveRoomAssignmentsFromEventsFallback();
-    console.debug('[FRD][fetchActiveRoomAssignmentsFromDb] presence failed, event fallback summary', {
-      roomItemCount: eventFallbackRooms.reduce((acc, room) => acc + room.items.length, 0),
-      byRoom: eventFallbackRooms.map((room) => ({ roomId: room.roomId, count: room.items.length }))
-    });
-    return eventFallbackRooms;
-  }
-
-  console.debug('[FRD][fetchActiveRoomAssignmentsFromDb] presence rows fetched', {
-    rows: (presenceRes.data || []).length,
-    sample: (presenceRes.data || []).slice(0, 5).map((row) => ({
-      product_key: String(row?.product_key || ''),
-      last_reader_id: String(row?.last_reader_id || ''),
-      entered_at: String(row?.entered_at || ''),
-      last_seen_at: String(row?.last_seen_at || '')
-    }))
-  });
-
-  const productByKey = await fetchProductsByProductKeyCompat();
-  const inventoryRows = await fetchInventoryCompat();
-  const epcPoolByProductId = new Map();
-  const epcPoolBySku = new Map();
-  (inventoryRows || []).forEach((row) => {
-    if (!isAvailableInventoryStatus(row?.status)) return;
-    const epc = String(row?.epc_data || '').trim();
-    if (!isValidEpcData(epc)) return;
-
-    const productId = normalizeProductId(row?.product_id);
-    if (productId) {
-      if (!epcPoolByProductId.has(productId)) epcPoolByProductId.set(productId, []);
-      epcPoolByProductId.get(productId).push(epc);
-    }
-
-    const sku = resolveSkuValue(row?.sku);
-    if (sku) {
-      if (!epcPoolBySku.has(sku)) epcPoolBySku.set(sku, []);
-      epcPoolBySku.get(sku).push(epc);
-    }
-  });
-
-  let seq = 1;
-  let missingEpcCount = 0;
-  (presenceRes.data || []).forEach((presence) => {
-    const key = String(presence?.product_key || '').trim();
-    if (!key) return;
-    const roomId = roomIdFromReaderId(presence?.last_reader_id);
-    const room = rooms.find((x) => x.roomId === roomId);
-    if (!room) return;
-
-    const product = productByKey.get(key);
-    const decodedKey = parseProductKey(key);
-    const productId = normalizeProductId(product?.id);
-    const sku = resolveSkuValue(product?.sku_ean13, product?.sku, key);
-    const epcFromProductPool = productId ? String((epcPoolByProductId.get(productId) || []).shift() || '').trim() : '';
-    const epcFromSkuPool = String((epcPoolBySku.get(sku) || []).shift() || '').trim();
-    const roomEpc = isValidEpcData(epcFromProductPool)
-      ? epcFromProductPool
-      : (isValidEpcData(epcFromSkuPool) ? epcFromSkuPool : '');
-    if (!roomEpc) missingEpcCount += 1;
-
-    room.items.push({
-      room_item_id: `room_item_${seq++}`,
-      item_key: key,
-      item_no: resolveSkuValue(product?.item_no, decodedKey.itemReference, key),
-      product_name: resolveSkuValue(product?.name_en, product?.name, `Item ${decodedKey.itemReference || key}`),
-      size: resolveSkuValue(product?.size, '-'),
-      sku_ean13: sku,
-      epc_data: roomEpc,
-      enteredAt: String(presence?.entered_at || presence?.last_seen_at || new Date().toISOString())
-    });
-  });
-
-  console.debug('[FRD][fetchActiveRoomAssignmentsFromDb] hydrated room assignments from presence', {
-    presenceRows: (presenceRes.data || []).length,
-    roomItemCount: rooms.reduce((acc, room) => acc + room.items.length, 0),
-    roomItemMissingEpcCount: missingEpcCount,
-    byRoom: rooms.map((room) => ({ roomId: room.roomId, count: room.items.length }))
-  });
-
-  return rooms;
-}
-
-function isAvailableInventoryStatus(status) {
-  const s = String(status || '').trim().toLowerCase();
-  if (!s) return true;
-  if (['sold', 'checkout', 'returned', 'damaged', 'void'].includes(s)) return false;
-  return true;
+function getApiAuthHeaders() {
+  const accessToken = String(getSession()?.accessToken || '').trim();
+  return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 }
 
 function formatPrice(priceUsd) {
   const amount = Number(priceUsd);
-  if (!Number.isFinite(amount)) return '-';
-  return `$${amount.toFixed(2)}`;
+  if (!Number.isFinite(amount)) return '$0.00';
+  return new Intl.NumberFormat(currentLang === 'zh-Hant' ? 'zh-TW' : 'en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 2
+  }).format(amount);
 }
 
 function formatTime(iso) {
   const dt = new Date(iso);
   if (Number.isNaN(dt.getTime())) return '-';
-  return dt.toLocaleTimeString();
+  return dt.toLocaleTimeString(currentLang === 'zh-Hant' ? 'zh-TW' : 'en-US');
 }
 
 function formatDwell(enteredAtIso) {
@@ -702,26 +337,28 @@ function formatDwell(enteredAtIso) {
   return `${mm}:${ss}`;
 }
 
-function getLongestDwell(room) {
-  if (!room?.items?.length) return '-';
-  const oldest = room.items.reduce((candidate, entry) => {
-    if (!candidate) return entry;
-    const ct = new Date(candidate.enteredAt).getTime();
-    const et = new Date(entry.enteredAt).getTime();
-    return et < ct ? entry : candidate;
-  }, null);
-  return oldest ? formatDwell(oldest.enteredAt) : '-';
-}
-
-function getRoomSessionStatus(room) {
-  if (!room?.items?.length) return ft('frd.session.idle');
-  return room.items.some((item) => isOverdue(item.enteredAt)) ? ft('frd.session.alert') : ft('frd.session.active');
-}
-
-function isOverdue(enteredAtIso) {
+function isLongDwell(enteredAtIso) {
   const entered = new Date(enteredAtIso).getTime();
   if (!Number.isFinite(entered)) return false;
-  return Date.now() - entered >= OVERDUE_MINUTES * 60 * 1000;
+  return Date.now() - entered >= LONG_DWELL_SECONDS * 1000;
+}
+
+function getLongestDwell(room) {
+  if (!room?.items?.length) return '00:00';
+  const oldest = room.items.reduce((candidate, item) => {
+    if (!candidate) return item;
+    return new Date(item.enteredAt).getTime() < new Date(candidate.enteredAt).getTime() ? item : candidate;
+  }, null);
+  return oldest ? formatDwell(oldest.enteredAt) : '00:00';
+}
+
+function showToast(message, level = 'ok') {
+  if (!el.toastContainer) return;
+  const node = document.createElement('div');
+  node.className = `toast toast--${level}`;
+  node.textContent = String(message || '');
+  el.toastContainer.appendChild(node);
+  setTimeout(() => node.remove(), 2600);
 }
 
 function sortBySize(a, b) {
@@ -733,35 +370,56 @@ function sortBySize(a, b) {
   return ai - bi;
 }
 
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    const text = String(value ?? '').trim();
+    if (text) return text;
+  }
+  return '';
+}
+
+function generateDemoEpcPool(seed, quantity) {
+  const normalizedSeed = String(seed || '0').replace(/\D/g, '').slice(-10).padStart(10, '0');
+  const count = Math.max(0, Math.min(Number(quantity) || 0, 50));
+  return Array.from({ length: count }, (_, idx) => `300000${normalizedSeed}${String(idx + 1).padStart(8, '0')}`.slice(0, 24));
+}
+
 function buildRackData(rows) {
   const groups = new Map();
   (rows || []).forEach((row) => {
-    const itemNo = String(row?.item_no || '').trim();
-    const color = String(row?.color || '').trim();
-    const key = `${itemNo}::${color}`;
-    if (!itemNo) return;
+    const sku = firstNonEmpty(row?.sku_ean13, row?.sku, row?.skuKey);
+    const itemNo = firstNonEmpty(row?.item_no, row?.itemNo, row?.item_reference, sku);
+    const productName = firstNonEmpty(row?.product_name, row?.name_en, row?.name, `Item ${itemNo}`);
+    const color = firstNonEmpty(row?.color, '-');
+    const size = firstNonEmpty(row?.size, '-');
+    if (!itemNo || !sku) return;
 
+    const key = `${itemNo}::${color}::${productName}`;
     if (!groups.has(key)) {
       groups.set(key, {
         key,
-        style_no: String(row?.style_no || '').trim(),
+        style_no: firstNonEmpty(row?.style_no, row?.styleNo),
         item_no: itemNo,
-        product_name: String(row?.product_name || '').trim() || `Item ${itemNo}`,
+        product_name: productName,
         color,
-        image_url: imagePathForItem(itemNo),
+        image_url: row?.image_url || imagePathForItem(itemNo),
         variants: []
       });
     }
 
-    const group = groups.get(key);
-    group.variants.push({
-      product_id: normalizeProductId(row?.product_id),
-      skuKey: String(row?.sku_ean13 || '').trim(),
-      sku_ean13: String(row?.sku_ean13 || '').trim(),
-      size: String(row?.size || '').trim() || '-',
-      quantity: Math.max(0, Number(row?.quantity) || 0),
-      unit_price: Number(row?.price_usd) || 0,
-      epc_pool: Array.isArray(row?.epc_list) ? [...row.epc_list] : [],
+    const quantity = Math.max(0, Number(row?.quantity ?? row?.qty ?? row?.stock ?? 0) || 0);
+    const epcPool = Array.isArray(row?.epc_list)
+      ? row.epc_list.filter(isValidEpcData)
+      : (Array.isArray(row?.epc_pool) ? row.epc_pool.filter(isValidEpcData) : []);
+
+    groups.get(key).variants.push({
+      product_id: firstNonEmpty(row?.product_id, row?.id),
+      skuKey: sku,
+      sku_ean13: sku,
+      size,
+      quantity,
+      unit_price: Number(row?.price_usd ?? row?.price ?? row?.unit_price ?? 0) || 0,
+      epc_pool: epcPool.length ? [...epcPool] : generateDemoEpcPool(sku, quantity),
       item_key: key
     });
   });
@@ -769,413 +427,107 @@ function buildRackData(rows) {
   return Array.from(groups.values())
     .map((item) => {
       item.variants.sort(sortBySize);
-      item.totalAvailable = item.variants.reduce((sum, v) => sum + (Number(v.quantity) || 0), 0);
+      item.totalAvailable = item.variants.reduce((sum, variant) => sum + (Number(variant.quantity) || 0), 0);
       return item;
     })
-    .sort((a, b) => String(a.item_no).localeCompare(String(b.item_no)));
+    .sort((a, b) => String(a.product_name).localeCompare(String(b.product_name)));
 }
 
-async function fetchProductsCompat() {
-  const selectAttempts = [
-    'id,name,name_en,price,size,color,sku,sku_ean13,style_no,item_no',
-    'id,name,name_en,price,size,color,sku,style_no,item_no,epc_data',
-    'id,name,name_en,price,size,color,sku,style_no,item_no',
-    'id,name,name_en,price,size,color,sku',
-    '*'
-  ];
-
-  let lastError = null;
-  for (const selectClause of selectAttempts) {
-    console.debug('[FRD][fetchProductsCompat] trying select:', selectClause);
-    const res = await state.supabase
-      .from('products')
-      .select(selectClause)
-      .order('id', { ascending: true })
-      .limit(3000);
-
-    if (!res.error) {
-      console.debug('[FRD][fetchProductsCompat] success:', {
-        selectClause,
-        rowCount: (res.data || []).length
-      });
-      return res.data || [];
-    }
-
-    console.warn('[FRD][fetchProductsCompat] failed:', {
-      selectClause,
-      code: res.error?.code,
-      message: res.error?.message,
-      details: res.error?.details,
-      hint: res.error?.hint
-    });
-
-    try {
-      console.debug('[FRD][fetchProductsCompat] failed json:', JSON.stringify({
-        selectClause,
-        error: res.error || null
-      }));
-    } catch {
-      console.debug('[FRD][fetchProductsCompat] failed json: <unserializable>');
-    }
-
-    lastError = res.error;
-    const code = String(res.error?.code || '').toUpperCase();
-    const message = String(res.error?.message || '').toLowerCase();
-    const isLikelyMissingColumn =
-      code === '42703'
-      || code === 'PGRST204'
-      || message.includes('column')
-      || message.includes('could not find')
-      || message.includes('schema cache');
-
-    console.debug('[FRD][fetchProductsCompat] fallback decision diagnostics:', {
-      selectClause,
-      code: res.error?.code,
-      message: res.error?.message,
-      details: res.error?.details,
-      hint: res.error?.hint,
-      isLikelyMissingColumn,
-      nextSelectWillRun: isLikelyMissingColumn
-    });
-
-    console.debug('[FRD][fetchProductsCompat] possible root causes:', [
-      'products schema 欄位與查詢 select 不一致（最可能）',
-      'Supabase PostgREST schema cache 尚未刷新（最可能）',
-      '目前連到錯誤 project/環境，schema 較舊',
-      'RLS/權限導致欄位或資料查詢異常',
-      'table/view 同名但來源不是預期 public.products',
-      '遷移腳本未完整執行，欄位只存在於部分環境'
-    ]);
-
-    if (!isLikelyMissingColumn) break;
-  }
-
-  console.error('[FRD][fetchProductsCompat] all attempts failed:', {
-    code: lastError?.code,
-    message: lastError?.message,
-    details: lastError?.details,
-    hint: lastError?.hint
+function syncRackTotals() {
+  state.rackItems.forEach((item) => {
+    item.totalAvailable = item.variants.reduce((sum, variant) => sum + (Number(variant.quantity) || 0), 0);
   });
-
-  throw lastError || new Error('Failed to fetch products');
 }
 
-async function fetchInventoryCompat() {
-  const selectAttempts = [
-    'product_id,sku,style_no,item_no,status,epc_data',
-    'product_id,sku,status,epc_data',
-    'product_id,sku,style_no,item_no,status'
-  ];
-
-  let lastError = null;
-  for (const selectClause of selectAttempts) {
-    console.debug('[FRD][fetchInventoryCompat] trying select:', selectClause);
-    const res = await state.supabase
-      .from('inventory_items')
-      .select(selectClause)
-      .limit(10000);
-
-    if (!res.error) {
-      console.debug('[FRD][fetchInventoryCompat] success:', {
-        selectClause,
-        rowCount: (res.data || []).length
-      });
-      return res.data || [];
-    }
-
-    console.warn('[FRD][fetchInventoryCompat] failed:', {
-      selectClause,
-      code: res.error?.code,
-      message: res.error?.message,
-      details: res.error?.details,
-      hint: res.error?.hint
-    });
-
-    lastError = res.error;
-    const fallbackAllowed = isSchemaCompatError(res.error);
-    console.debug('[FRD][fetchInventoryCompat] fallback decision diagnostics:', {
-      selectClause,
-      code: res.error?.code,
-      message: res.error?.message,
-      details: res.error?.details,
-      hint: res.error?.hint,
-      fallbackAllowed
-    });
-    if (!fallbackAllowed) break;
-  }
-
-  if (lastError) {
-    console.warn('[FRD][fetchInventoryCompat] fallback to empty rows due to error:', {
-      code: lastError?.code,
-      message: lastError?.message,
-      details: lastError?.details,
-      hint: lastError?.hint
-    });
-  }
-
-  return [];
-}
-
-async function fetchCatalogFromDb() {
-  if (!state.supabase) throw new Error('Supabase not initialized');
-
+async function fetchCatalogRows() {
   try {
     const response = await fetch('/api/fitting-catalog', {
       method: 'GET',
-      headers: {
-        ...getApiAuthHeaders()
-      }
+      headers: { ...getApiAuthHeaders() }
     });
-
-    if (response.ok) {
-      const payload = await response.json();
-      const rows = Array.isArray(payload?.rows) ? payload.rows : [];
-      console.debug('[FRD][fetchCatalogFromDb] using service API /api/fitting-catalog', {
-        rows: rows.length,
-        debug: payload?.debug || null
-      });
-      if (rows.length > 0) {
-        return rows;
-      }
-    } else {
-      let details = `HTTP ${response.status}`;
-      try {
-        const errPayload = await response.json();
-        details = String(errPayload?.error || errPayload?.message || details);
-      } catch {
-        // ignore non-json
-      }
-      console.warn('[FRD][fetchCatalogFromDb] /api/fitting-catalog failed, fallback to direct supabase', {
-        status: response.status,
-        details
-      });
-    }
-  } catch (error) {
-    console.warn('[FRD][fetchCatalogFromDb] /api/fitting-catalog unavailable, fallback to direct supabase', {
-      message: error?.message || String(error)
-    });
+    if (!response.ok) return [];
+    const payload = await response.json();
+    return Array.isArray(payload?.rows) ? payload.rows : [];
+  } catch {
+    return [];
   }
-
-  const [products, inventoryRows] = await Promise.all([
-    fetchProductsCompat(),
-    fetchInventoryCompat()
-  ]);
-
-  if (!products.length) return [];
-
-  const availableInventory = (inventoryRows || []).filter((row) => isAvailableInventoryStatus(row?.status));
-  const qtyBySku = new Map();
-  const epcPoolBySku = new Map();
-  const qtyByProductId = new Map();
-  const epcPoolByProductId = new Map();
-  availableInventory.forEach((row) => {
-    const productId = normalizeProductId(row?.product_id);
-    const sku = resolveSkuValue(row?.sku);
-
-    if (productId) {
-      qtyByProductId.set(productId, (qtyByProductId.get(productId) || 0) + 1);
-    }
-
-    if (sku) {
-      qtyBySku.set(sku, (qtyBySku.get(sku) || 0) + 1);
-    }
-
-    const epc = String(row?.epc_data || '').trim();
-    if (!isValidEpcData(epc)) return;
-    if (sku) {
-      if (!epcPoolBySku.has(sku)) epcPoolBySku.set(sku, []);
-      epcPoolBySku.get(sku).push(epc);
-    }
-
-    if (productId) {
-      if (!epcPoolByProductId.has(productId)) epcPoolByProductId.set(productId, []);
-      epcPoolByProductId.get(productId).push(epc);
-    }
-  });
-
-  const fallbackQtyBySku = new Map();
-  const productEpcPoolBySku = new Map();
-  const productEpcPoolByProductId = new Map();
-  products.forEach((product) => {
-    const pid = normalizeProductId(product?.id);
-    const sku = resolveSkuValue(product?.sku_ean13, product?.sku);
-    if (!sku) return;
-    fallbackQtyBySku.set(sku, (fallbackQtyBySku.get(sku) || 0) + 1);
-
-    const productEpc = String(product?.epc_data || '').trim();
-    if (isValidEpcData(productEpc)) {
-      if (!productEpcPoolBySku.has(sku)) productEpcPoolBySku.set(sku, []);
-      productEpcPoolBySku.get(sku).push(productEpc);
-
-      if (pid) {
-        if (!productEpcPoolByProductId.has(pid)) productEpcPoolByProductId.set(pid, []);
-        productEpcPoolByProductId.get(pid).push(productEpc);
-      }
-    }
-  });
-
-  const variantMap = new Map();
-  products.forEach((product) => {
-    const sku = resolveSkuValue(product?.sku_ean13, product?.sku);
-    const itemNo = resolveSkuValue(product?.item_no, sku);
-    const styleNo = resolveSkuValue(product?.style_no);
-    const color = resolveSkuValue(product?.color, '-');
-    const size = resolveSkuValue(product?.size, '-');
-    if (!sku || !itemNo) return;
-
-    const variantKey = `${itemNo}::${color}::${size}::${sku}`;
-    if (!variantMap.has(variantKey)) {
-      variantMap.set(variantKey, {
-        product_id: normalizeProductId(product?.id),
-        style_no: styleNo,
-        item_no: itemNo,
-        sku_ean13: sku,
-        product_name: resolveSkuValue(product?.name_en, product?.name, `Item ${itemNo}`),
-        color,
-        size,
-        quantity: 0,
-        price_usd: Number(product?.price) || 0,
-        epc_list: []
-      });
-    }
-  });
-
-  const rows = Array.from(variantMap.values()).map((variant) => {
-    const pid = normalizeProductId(variant.product_id);
-    const pidQty = pid ? qtyByProductId.get(pid) : null;
-    const skuQty = qtyBySku.get(variant.sku_ean13);
-    const fallbackQty = fallbackQtyBySku.get(variant.sku_ean13) || 0;
-    const pidEpcPool = pid ? (epcPoolByProductId.get(pid) || []) : [];
-    const skuEpcPool = epcPoolBySku.get(variant.sku_ean13) || [];
-    const productPidEpcPool = pid ? (productEpcPoolByProductId.get(pid) || []) : [];
-    const productSkuEpcPool = productEpcPoolBySku.get(variant.sku_ean13) || [];
-    const finalEpcPool =
-      pidEpcPool.length > 0 ? pidEpcPool
-        : (skuEpcPool.length > 0 ? skuEpcPool
-          : (productPidEpcPool.length > 0 ? productPidEpcPool : productSkuEpcPool));
-
-    return {
-      ...variant,
-      quantity: Number.isFinite(pidQty) ? pidQty : (Number.isFinite(skuQty) ? skuQty : fallbackQty),
-      epc_list: [...finalEpcPool]
-    };
-  });
-
-  const skuMismatchSample = rows
-    .filter((row) => (Number(row.quantity) || 0) > 0 && (!Array.isArray(row.epc_list) || row.epc_list.length === 0))
-    .slice(0, 12)
-    .map((row) => ({
-      product_id: row.product_id,
-      sku: row.sku_ean13,
-      qty: row.quantity,
-      byProductIdPool: normalizeProductId(row.product_id) ? (epcPoolByProductId.get(normalizeProductId(row.product_id)) || []).length : 0,
-      bySkuPool: (epcPoolBySku.get(row.sku_ean13) || []).length
-    }));
-
-  const epcSummary = rows.slice(0, 12).map((row) => ({
-    sku: row.sku_ean13,
-    qty: Number(row.quantity) || 0,
-    epcPool: Array.isArray(row.epc_list) ? row.epc_list.length : 0
-  }));
-  console.debug('[FRD][fetchCatalogFromDb] EPC pool diagnostics:', {
-    rows: rows.length,
-    skuWithEpcPool: rows.filter((r) => Array.isArray(r.epc_list) && r.epc_list.length > 0).length,
-    skuWithoutEpcPool: rows.filter((r) => !Array.isArray(r.epc_list) || r.epc_list.length === 0).length,
-    inventoryEpcSkuCount: epcPoolBySku.size,
-    productEpcSkuCount: productEpcPoolBySku.size,
-    sample: epcSummary,
-    skuMismatchSample
-  });
-
-  return rows;
-}
-
-async function fetchRecentEventsFromDb(limit = 50) {
-  if (!state.supabase) return [];
-  const res = await state.supabase
-    .from('rfid_events')
-    .select('timestamp,event_type,metadata')
-    .order('timestamp', { ascending: false })
-    .limit(limit);
-
-  if (res.error) return [];
-
-  return (res.data || [])
-    .filter((row) => {
-      const type = normalizeEventType(row?.event_type);
-      return [
-        'item_entered_fitting_room',
-        'item_added_to_session',
-        'item_left_fitting_room',
-        'item_returned_to_floor',
-        'item_moved_to_checkout'
-      ].includes(type);
-    })
-    .map((row) => {
-      const metadata = (row?.metadata && typeof row.metadata === 'object') ? row.metadata : {};
-      return {
-        time: row?.timestamp || new Date().toISOString(),
-        product_name: String(metadata.product_name || metadata.item_no || '-'),
-        size: String(metadata.size || '-'),
-        room_id: Number(metadata.room_id || 0) || 0,
-        event_type: normalizeEventType(row?.event_type) || 'item_entered_fitting_room',
-        status: 'completed'
-      };
-    });
-}
-
-function initSupabase() {
-  const url = (localStorage.getItem(URL_KEY) || DEFAULT_SUPABASE_URL).trim();
-  const anon = (localStorage.getItem(ANON_KEY) || DEFAULT_SUPABASE_ANON_KEY).trim();
-  const accessToken = String(getSession()?.accessToken || '').trim();
-  if (!url || !anon) return null;
-  state.supabase = createClient(url, anon, {
-    global: {
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {}
-    }
-  });
-  return state.supabase;
 }
 
 function getSelectedItem() {
-  return state.rackItems.find((x) => x.key === state.selectedItemKey) || null;
+  return state.rackItems.find((item) => item.key === state.selectedItemKey) || null;
 }
 
 function getSelectedSku() {
   const item = getSelectedItem();
   if (!item) return null;
-  return item.variants.find((v) => v.skuKey === state.selectedSkuKey) || null;
+  return item.variants.find((variant) => variant.skuKey === state.selectedSkuKey) || null;
+}
+
+function findVariantBySku(skuKey) {
+  for (const rackItem of state.rackItems) {
+    const variant = rackItem.variants.find((entry) => String(entry.skuKey) === String(skuKey));
+    if (variant) return { rackItem, variant };
+  }
+  return null;
 }
 
 function getRoomById(roomId) {
-  return state.roomAssignments.find((x) => x.roomId === Number(roomId)) || null;
+  return state.roomAssignments.find((room) => room.roomId === Number(roomId)) || null;
 }
 
-function syncAlertsCount() {
-  const overdueCount = state.roomAssignments
-    .flatMap((room) => room.items)
-    .filter((item) => isOverdue(item.enteredAt)).length;
-  state.alertsCount = overdueCount;
+function getRoomEntryById(roomItemId) {
+  for (const room of state.roomAssignments) {
+    const entry = room.items.find((item) => String(item.room_item_id) === String(roomItemId));
+    if (entry) return { room, entry };
+  }
+  return null;
 }
 
-function setStatus(text) {
-  if (!el.status) return;
-  el.status.textContent = String(text || '');
+function takeEpcFromVariant(variant) {
+  if (!variant || !Array.isArray(variant.epc_pool) || !variant.epc_pool.length) return '';
+  const epc = String(variant.epc_pool.shift() || '').trim();
+  return isValidEpcData(epc) ? epc : '';
 }
 
-function showToast(message, level = 'ok') {
-  if (!el.toastContainer) return;
-  const node = document.createElement('div');
-  node.className = `toast toast--${level}`;
-  node.textContent = String(message || '');
-  el.toastContainer.appendChild(node);
-  setTimeout(() => node.remove(), 2400);
+function putEpcBackToVariant(variant, epcData) {
+  if (!variant || !Array.isArray(variant.epc_pool)) return;
+  const epc = String(epcData || '').trim();
+  if (isValidEpcData(epc) && !variant.epc_pool.includes(epc)) variant.epc_pool.unshift(epc);
+}
+
+function pushEvent(eventType, context, roomId = 1) {
+  const event = {
+    time: new Date().toISOString(),
+    event_type: eventType,
+    product_name: context?.product_name || '-',
+    size: context?.size || '-',
+    room_id: Number(roomId) || 1,
+    sku_ean13: context?.sku_ean13 || '',
+    epc_data: context?.epc_data || ''
+  };
+  state.recentEvents.unshift(event);
+}
+
+function getCheckoutTotal() {
+  return state.checkoutRecords.reduce((sum, record) => sum + (Number(record.unit_price) || 0), 0);
+}
+
+function getConversionRate() {
+  const tryOns = Number(state.kpi.tryOns) || 0;
+  if (tryOns <= 0) return 0;
+  return ((Number(state.kpi.sales) || 0) / tryOns) * 100;
+}
+
+function getPotentialUplift() {
+  return (Number(state.kpi.missedRevenue) || 0) * 0.4 + getCheckoutTotal() * 0.2;
 }
 
 function RackItemCard(item) {
   const isSelected = state.selectedItemKey === item.key;
-  const lowStock = item.totalAvailable <= LOW_STOCK_THRESHOLD && item.totalAvailable > 0;
   const selectedSku = isSelected ? getSelectedSku() : null;
+  const lowStock = item.totalAvailable > 0 && item.totalAvailable <= LOW_STOCK_THRESHOLD;
+  const displayPrice = formatPrice(item.variants[0]?.unit_price || 0);
+
   return `
     <article class="frd-rack-card${isSelected ? ' is-selected' : ''}" data-rack-item-key="${escapeHtml(item.key)}">
       <div class="frd-rack-thumb-wrap">
@@ -1184,34 +536,20 @@ function RackItemCard(item) {
       <div class="frd-rack-main">
         <p class="frd-rack-name">${escapeHtml(item.product_name)}</p>
         <p class="frd-rack-meta">${escapeHtml(item.color || '-')}</p>
-        <p class="frd-rack-extra">${escapeHtml(ft('frd.rack.item'))} ${escapeHtml(item.item_no)}${item.style_no ? ` · ${escapeHtml(ft('frd.rack.style'))} ${escapeHtml(item.style_no)}` : ''}</p>
+        <p class="frd-rack-price">${escapeHtml(ft('frd.rack.price', { price: displayPrice }))}</p>
+        ${state.advancedMode ? `<p class="frd-rack-extra">Item ${escapeHtml(item.item_no)}${item.style_no ? ` · Style ${escapeHtml(item.style_no)}` : ''}</p>` : ''}
       </div>
       <div class="frd-rack-badges">
         <span class="frd-pill frd-pill--muted">${escapeHtml(ft('frd.rack.available', { count: item.totalAvailable }))}</span>
         ${lowStock ? `<span class="frd-pill frd-pill--warning">${escapeHtml(ft('frd.rack.lowStock'))}</span>` : ''}
       </div>
-
-      ${isSelected ? `
-        <section class="frd-rack-inline" data-rack-inline="${escapeHtml(item.key)}">
-          <div class="frd-rack-inline-block">
-            <p class="frd-rack-inline-title">${escapeHtml(ft('frd.rack.size'))}</p>
-            ${SizeSelector(item)}
-          </div>
-          <div class="frd-rack-inline-block">
-            <p class="frd-rack-inline-title">${escapeHtml(ft('frd.rack.dragToken'))}</p>
-            ${selectedSku ? SelectedVariantCard(item, selectedSku) : `<p class="hint">${escapeHtml(ft('frd.rack.pickSizeHint'))}</p>`}
-          </div>
-        </section>
-      ` : ''}
+      <section class="frd-rack-inline">
+        <p class="frd-rack-inline-title">${escapeHtml(ft('frd.rack.size'))}</p>
+        ${SizeSelector(item)}
+        ${selectedSku ? SelectedVariantCard(item, selectedSku) : `<p class="hint">${escapeHtml(ft('frd.rack.pickSizeHint'))}</p>`}
+      </section>
     </article>
   `;
-}
-
-function RackPanel() {
-  if (!state.rackItems.length) {
-    return `<p class="hint">${escapeHtml(ft('frd.rack.empty'))}</p>`;
-  }
-  return state.rackItems.map((item) => RackItemCard(item)).join('');
 }
 
 function SizeSelector(item) {
@@ -1219,19 +557,16 @@ function SizeSelector(item) {
     <div class="frd-size-grid">
       ${item.variants.map((variant) => {
         const qty = Number(variant.quantity) || 0;
-        const out = qty <= 0;
-        const low = qty > 0 && qty <= LOW_STOCK_THRESHOLD;
-        const selected = state.selectedSkuKey === variant.skuKey;
+        const selected = state.selectedItemKey === item.key && state.selectedSkuKey === variant.skuKey;
         return `
           <button
             type="button"
-            class="frd-size-chip${selected ? ' is-selected' : ''}${low ? ' is-low' : ''}"
-            data-size="${escapeHtml(variant.size)}"
+            class="frd-size-chip${selected ? ' is-selected' : ''}${qty > 0 && qty <= LOW_STOCK_THRESHOLD ? ' is-low' : ''}"
+            data-size-item-key="${escapeHtml(item.key)}"
             data-sku-key="${escapeHtml(variant.skuKey)}"
-            ${out ? 'disabled' : ''}
-          >
-            ${escapeHtml(variant.size)} (${escapeHtml(qty)})
-          </button>
+            data-size="${escapeHtml(variant.size)}"
+            ${qty <= 0 ? 'disabled' : ''}
+          >${escapeHtml(variant.size)} · ${escapeHtml(ft('frd.variant.qty', { qty }))}</button>
         `;
       }).join('')}
     </div>
@@ -1239,80 +574,63 @@ function SizeSelector(item) {
 }
 
 function SelectedVariantCard(item, sku) {
-  if (!sku) return '';
   return `
-    <article class="frd-variant-card" draggable="${sku.quantity > 0 ? 'true' : 'false'}" data-drag-variant-key="${escapeHtml(sku.skuKey)}">
+    <article class="frd-variant-card" draggable="true" data-drag-variant-key="${escapeHtml(sku.skuKey)}">
       <div class="frd-variant-main">
-        <p class="frd-variant-name">${escapeHtml(item.product_name)}</p>
-        <p class="frd-variant-meta">${escapeHtml(item.color || '-')}</p>
+        <p class="frd-variant-name">${escapeHtml(item.product_name)} · ${escapeHtml(sku.size)}</p>
+        <p class="frd-variant-meta">${escapeHtml(ft('frd.rack.dragHint'))}</p>
+        ${state.advancedMode ? `<p class="frd-variant-meta">SKU ${escapeHtml(sku.sku_ean13)} · EPC ${escapeHtml(sku.epc_pool[0] || '-')}</p>` : ''}
       </div>
-      <div class="frd-variant-badges">
-        <span class="frd-pill frd-pill--primary">${escapeHtml(ft('frd.variant.size', { size: sku.size }))}</span>
-        <span class="frd-pill frd-pill--muted">${escapeHtml(ft('frd.variant.qty', { qty: sku.quantity }))}</span>
-      </div>
-      <span class="frd-drag-hint">${escapeHtml(ft('frd.variant.dragHint'))}</span>
+      <button type="button" class="button-secondary frd-rack-send" data-rack-action="try" data-sku-key="${escapeHtml(sku.skuKey)}">${escapeHtml(ft('frd.rack.sendToRoom'))}</button>
     </article>
   `;
 }
 
-function SelectedItemDetailPanel() {
-  const item = getSelectedItem();
-  if (!item) {
-    return `<p class="hint">${escapeHtml(ft('frd.selected.tip'))}</p>`;
-  }
-
-  const sku = getSelectedSku();
-  return `
-    <section class="frd-detail-section frd-selection-tray frd-selection-tray--hint">
-      <header class="frd-selection-head">
-        <div>
-          <p class="frd-detail-name">${escapeHtml(ft('frd.selected.label', { name: item.product_name }))}</p>
-          <p class="frd-detail-meta">${escapeHtml(item.color || '-')} · ${escapeHtml(sku?.size || ft('frd.selected.noSize'))}</p>
-        </div>
-        <span class="frd-pill frd-pill--muted">${escapeHtml(ft('frd.selected.dragFromCard'))}</span>
-      </header>
-    </section>
-  `;
+function RackPanel() {
+  if (!state.rackItems.length) return `<p class="hint">${escapeHtml(ft('frd.rack.empty'))}</p>`;
+  return state.rackItems.map((item) => RackItemCard(item)).join('');
 }
 
 function RoomCard(room) {
-  const overdue = room.items.some((item) => isOverdue(item.enteredAt));
-  const sessionStatus = getRoomSessionStatus(room);
-  const longestDwell = getLongestDwell(room);
-  const isExpanded = Boolean(state.expandedRoomIds[room.roomId]);
-  const visibleItems = isExpanded ? room.items : room.items.slice(0, 2);
-  const hiddenCount = Math.max(0, room.items.length - visibleItems.length);
+  const hasLongDwell = room.items.some((item) => isLongDwell(item.enteredAt));
   return `
-    <article class="frd-room-card${overdue ? ' is-overdue' : ''}">
+    <article class="frd-room-card${hasLongDwell ? ' is-overdue' : ''}">
       <header class="frd-room-head">
-        <h3>${escapeHtml(ft('frd.room.title', { id: room.roomId }))}</h3>
+        <h3>${escapeHtml(ft('frd.room.title'))}</h3>
         <span class="status-badge">${escapeHtml(ft('frd.room.items', { count: room.items.length }))}</span>
       </header>
       <div class="frd-room-summary-line">
-        <span class="frd-pill frd-pill--muted">${escapeHtml(ft('frd.room.session', { status: sessionStatus }))}</span>
-        <span class="frd-pill ${overdue ? 'frd-pill--danger' : 'frd-pill--muted'}">${escapeHtml(ft('frd.room.longestDwell', { dwell: longestDwell }))}</span>
+        <span class="frd-pill ${hasLongDwell ? 'frd-pill--danger' : 'frd-pill--muted'}">${escapeHtml(ft('frd.room.longestDwell', { dwell: getLongestDwell(room) }))}</span>
+        ${hasLongDwell ? `<span class="frd-pill frd-pill--danger">${escapeHtml(ft('frd.room.longDwellWarning'))}</span>` : ''}
       </div>
       <div class="frd-room-dropzone" data-room-id="${escapeHtml(room.roomId)}" data-drop-zone="room">
-        ${room.items.length
-          ? visibleItems.map((entry) => `
-              <article
-                class="frd-room-item${isOverdue(entry.enteredAt) ? ' is-overdue' : ''}"
-                draggable="true"
-                data-drag-room-item-id="${escapeHtml(entry.room_item_id)}"
-                data-room-id="${escapeHtml(room.roomId)}"
-              >
-                <p class="frd-room-item-name">${escapeHtml(entry.product_name)}</p>
-                <div class="frd-room-item-meta-row">
-                  <span class="frd-pill frd-pill--primary">${escapeHtml(entry.size)}</span>
-                  <span class="frd-room-item-meta">${escapeHtml(ft('frd.room.dwell', { dwell: formatDwell(entry.enteredAt) }))}</span>
-                  ${isOverdue(entry.enteredAt) ? `<span class="frd-pill frd-pill--danger">${escapeHtml(ft('frd.room.overdue'))}</span>` : ''}
-                </div>
-              </article>
-            `).join('')
-          : `<p class="hint">${escapeHtml(ft('frd.room.dropHint'))}</p>`}
-        ${hiddenCount > 0 ? `<button type="button" class="frd-room-more-btn" data-room-toggle="${escapeHtml(room.roomId)}">${escapeHtml(ft('frd.room.more', { count: hiddenCount }))}</button>` : ''}
-        ${room.items.length > 2 && isExpanded ? `<button type="button" class="frd-room-more-btn" data-room-toggle="${escapeHtml(room.roomId)}">${escapeHtml(ft('frd.room.collapse'))}</button>` : ''}
+        ${room.items.length ? room.items.map((entry) => RoomItemCard(entry, room.roomId)).join('') : `<p class="hint">${escapeHtml(ft('frd.room.dropHint'))}</p>`}
       </div>
+    </article>
+  `;
+}
+
+function RoomItemCard(entry, roomId) {
+  const longDwell = isLongDwell(entry.enteredAt);
+  return `
+    <article class="frd-room-item${longDwell ? ' is-overdue' : ''}" draggable="true" data-drag-room-item-id="${escapeHtml(entry.room_item_id)}" data-room-id="${escapeHtml(roomId)}">
+      <div class="frd-room-item-main">
+        <img class="frd-room-item-thumb" src="${escapeHtml(entry.image_url || imagePathForItem(entry.item_no))}" alt="${escapeHtml(entry.product_name)}" loading="lazy" />
+        <div>
+          <p class="frd-room-item-name">${escapeHtml(entry.product_name)}</p>
+          <div class="frd-room-item-meta-row">
+            <span class="frd-pill frd-pill--primary">${escapeHtml(entry.size)}</span>
+            <span class="frd-room-item-meta">${escapeHtml(formatPrice(entry.unit_price || 0))}</span>
+            <span class="frd-room-item-meta">${escapeHtml(ft('frd.room.dwell', { dwell: formatDwell(entry.enteredAt) }))}</span>
+          </div>
+        </div>
+      </div>
+      ${longDwell ? `<p class="frd-long-dwell">${escapeHtml(ft('frd.room.longDwellWarning'))}</p>` : ''}
+      <div class="frd-room-item-actions">
+        <button type="button" class="button-primary frd-room-item-btn" data-room-action="checkout" data-room-item-id="${escapeHtml(entry.room_item_id)}">${escapeHtml(ft('frd.room.actions.sendCheckout'))}</button>
+        <button type="button" class="button-secondary frd-room-item-btn" data-room-action="rack" data-room-item-id="${escapeHtml(entry.room_item_id)}">${escapeHtml(ft('frd.room.actions.returnRack'))}</button>
+      </div>
+      ${state.advancedMode ? `<p class="frd-room-item-tech">${escapeHtml(ft('frd.advanced.sku'))}: ${escapeHtml(entry.sku_ean13 || '-')} · ${escapeHtml(ft('frd.advanced.epc'))}: ${escapeHtml(entry.epc_data || '-')}</p>` : ''}
     </article>
   `;
 }
@@ -1322,371 +640,208 @@ function FittingRoomsGrid() {
 }
 
 function CheckoutListPanel() {
-  if (!state.checkoutRecords.length) {
-    return `<p class="hint">${escapeHtml(ft('frd.checkout.noPurchases'))}</p>`;
-  }
-
-  const records = state.checkoutShowAll ? state.checkoutRecords : state.checkoutRecords.slice(0, 5);
-  return records.map((record) => `
+  if (!state.checkoutRecords.length) return `<p class="hint">${escapeHtml(ft('frd.checkout.noPurchases'))}</p>`;
+  return state.checkoutRecords.map((record) => `
     <article class="frd-checkout-item">
       <div>
         <p class="frd-checkout-item-name">${escapeHtml(record.product_name)} · ${escapeHtml(record.size)}</p>
-        <p class="frd-checkout-item-meta">${escapeHtml(formatTime(record.time))}</p>
+        <p class="frd-checkout-item-meta">${escapeHtml(formatPrice(record.unit_price || 0))}</p>
+        ${state.advancedMode ? `<p class="frd-checkout-item-meta">SKU ${escapeHtml(record.sku_ean13 || '-')} · EPC ${escapeHtml(record.epc_data || '-')}</p>` : ''}
       </div>
-      <span class="frd-pill frd-pill--primary">${escapeHtml(ft(SALE_TYPE_LABELS[record.sale_type] || record.sale_type))}</span>
+      <span class="frd-pill frd-pill--primary">${escapeHtml(formatTime(record.time))}</span>
     </article>
   `).join('');
 }
 
-function RecentEventsTable() {
-  if (!state.recentEvents.length) {
-    return `<tr><td colspan="6" class="hint">${escapeHtml(ft('frd.events.empty'))}</td></tr>`;
-  }
-  return state.recentEvents.slice(0, 30).map((event) => `
-    <tr>
-      <td>${escapeHtml(formatTime(event.time))}</td>
-      <td>${escapeHtml(event.product_name)}</td>
-      <td>${escapeHtml(event.size)}</td>
-      <td>${escapeHtml(event.room_id ? ft('frd.room.title', { id: event.room_id }) : '-')}</td>
-      <td>${escapeHtml(ft(EVENT_TYPE_LABELS[event.event_type] || event.event_type))}</td>
-      <td>${escapeHtml(event.status ? ft('frd.events.completed') : ft('frd.events.completed'))}</td>
-    </tr>
+function KpiPanel() {
+  const cards = [
+    { label: ft('frd.kpi.tryOns'), value: state.kpi.tryOns, hint: ft('frd.kpi.tryOnsHint') },
+    { label: ft('frd.kpi.sales'), value: state.kpi.sales, hint: ft('frd.kpi.salesHint') },
+    { label: ft('frd.kpi.conversion'), value: `${getConversionRate().toFixed(1)}%`, hint: ft('frd.kpi.conversionHint') },
+    { label: ft('frd.kpi.missedRevenue'), value: formatPrice(state.kpi.missedRevenue), hint: ft('frd.kpi.missedRevenueHint') },
+    { label: ft('frd.kpi.potentialUplift'), value: formatPrice(getPotentialUplift()), hint: ft('frd.kpi.potentialUpliftHint') }
+  ];
+
+  return cards.map((card) => `
+    <article class="frd-kpi-card">
+      <p class="frd-kpi-label">${escapeHtml(card.label)}</p>
+      <p class="frd-kpi-value">${escapeHtml(card.value)}</p>
+      <p class="frd-kpi-hint">${escapeHtml(card.hint)}</p>
+    </article>
   `).join('');
 }
 
-function RoomSummaryPanel() {
-  const rows = state.roomAssignments.map((room) => {
-    const itemCount = room.items.length;
-    const sessionStatus = getRoomSessionStatus(room);
-    const dwell = getLongestDwell(room);
-    return `
-      <tr>
-        <td>${escapeHtml(ft('frd.room.title', { id: room.roomId }))}</td>
-        <td>${escapeHtml(itemCount)}</td>
-        <td>${escapeHtml(sessionStatus)}</td>
-        <td>${escapeHtml(dwell)}</td>
-      </tr>
-    `;
-  }).join('');
-
-  return `
-    <table class="frd-events-table">
-      <thead>
-        <tr>
-          <th>${escapeHtml(ft('frd.roomSummary.room'))}</th>
-          <th>${escapeHtml(ft('frd.roomSummary.itemCount'))}</th>
-          <th>${escapeHtml(ft('frd.roomSummary.session'))}</th>
-          <th>${escapeHtml(ft('frd.roomSummary.longestDwell'))}</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-  `;
-}
-
-function renderBottomTabs() {
-  el.bottomTabButtons.forEach((button) => {
-    const tab = String(button.dataset.bottomTab || '');
-    const active = tab === state.bottomTab;
-    button.classList.toggle('is-active', active);
-    button.setAttribute('aria-selected', active ? 'true' : 'false');
-  });
-
-  el.bottomTabPanels.forEach((panel) => {
-    const tab = String(panel.dataset.bottomPanel || '');
-    panel.hidden = tab !== state.bottomTab;
-  });
-}
-
-function renderCheckoutToggle() {
-  if (!el.checkoutToggle) return;
-  const hasMore = state.checkoutRecords.length > 5;
-  el.checkoutToggle.hidden = !hasMore;
-  el.checkoutToggle.textContent = state.checkoutShowAll ? ft('frd.checkout.collapseOlder') : ft('frd.checkout.viewOlder');
-}
-
-function syncRackTotals() {
-  state.rackItems.forEach((item) => {
-    item.totalAvailable = item.variants.reduce((sum, variant) => sum + (Number(variant.quantity) || 0), 0);
-  });
-}
-
-function renderTopState() {
-  syncAlertsCount();
-  if (el.alertsBadge) {
-    el.alertsBadge.textContent = ft('frd.alertsBadge', { count: state.alertsCount });
-    el.alertsBadge.classList.toggle('text-err', state.alertsCount > 0);
-  }
+function AdvancedEventPanel() {
+  if (!state.recentEvents.length) return `<p class="hint">${escapeHtml(ft('frd.advanced.empty'))}</p>`;
+  return state.recentEvents.slice(0, 24).map((event) => `
+    <article class="frd-advanced-event">
+      <p><strong>${escapeHtml(formatTime(event.time))}</strong> · ${escapeHtml(ft(EVENT_TYPE_LABELS[event.event_type] || event.event_type))}</p>
+      <p class="hint">${escapeHtml(event.product_name)} · ${escapeHtml(event.size)} · SKU ${escapeHtml(event.sku_ean13 || '-')} · EPC ${escapeHtml(event.epc_data || '-')}</p>
+    </article>
+  `).join('');
 }
 
 function renderAll() {
   if (el.rackList) el.rackList.innerHTML = RackPanel();
-  if (el.selectedItemDetailBody) el.selectedItemDetailBody.innerHTML = SelectedItemDetailPanel();
   if (el.roomsGrid) el.roomsGrid.innerHTML = FittingRoomsGrid();
   if (el.checkoutList) el.checkoutList.innerHTML = CheckoutListPanel();
-  renderCheckoutToggle();
-  if (el.recentEventsBody) el.recentEventsBody.innerHTML = RecentEventsTable();
-  if (el.roomSummaryBody) el.roomSummaryBody.innerHTML = RoomSummaryPanel();
-  renderBottomTabs();
-  renderTopState();
+  if (el.checkoutTotalPrice) el.checkoutTotalPrice.textContent = ft('frd.checkout.total', { amount: formatPrice(getCheckoutTotal()) });
+  if (el.completeSaleButton) el.completeSaleButton.disabled = state.checkoutRecords.length === 0;
+  if (el.kpiPanelBody) el.kpiPanelBody.innerHTML = KpiPanel();
+  if (el.advancedPanel) el.advancedPanel.hidden = !state.advancedMode;
+  if (el.advancedEventList) el.advancedEventList.innerHTML = AdvancedEventPanel();
+  if (el.status) el.status.textContent = state.dataSource === 'db' ? ft('frd.status.db') : ft('frd.status.mock');
 }
 
-function selectRackItem(itemKey) {
+function selectSize(itemKey, skuKey) {
   state.selectedItemKey = itemKey;
-  state.selectedSize = null;
-  state.selectedSkuKey = null;
-  renderAll();
-}
-
-function selectSize(skuKey, size) {
   state.selectedSkuKey = skuKey;
-  state.selectedSize = size;
   renderAll();
 }
 
-function ensureValidSelectedSku() {
-  const sku = getSelectedSku();
-  if (sku && sku.quantity > 0) return;
-  state.selectedSkuKey = null;
-  state.selectedSize = null;
-}
-
-function isValidMove(fromZone, toZone) {
-  const key = `${fromZone}->${toZone}`;
-  return ['rack->room', 'room->rack', 'room->checkout', 'rack->checkout'].includes(key);
-}
-
-function resolveEventPlan(fromZone, toZone) {
-  const key = `${fromZone}->${toZone}`;
-  if (key === 'rack->room') {
-    return {
-      events: ['item_entered_fitting_room', 'item_added_to_session'],
-      successToast: ft('frd.toast.itemEntered')
-    };
-  }
-  if (key === 'room->rack') {
-    return {
-      events: ['item_left_fitting_room', 'item_returned_to_floor'],
-      successToast: ft('frd.toast.itemReturned')
-    };
-  }
-  if (key === 'room->checkout') {
-    return {
-      events: ['item_left_fitting_room', 'item_moved_to_checkout'],
-      successToast: ft('frd.toast.purchaseCompleted'),
-      saleType: 'try_on_purchase'
-    };
-  }
-  if (key === 'rack->checkout') {
-    return {
-      events: ['item_moved_to_checkout'],
-      successToast: ft('frd.toast.directPurchaseCompleted'),
-      saleType: 'direct_purchase'
-    };
-  }
-  return null;
-}
-
-function pushRecentEvents(events, context, roomId) {
-  const nowIso = new Date().toISOString();
-  events.slice().reverse().forEach((eventType) => {
-    state.recentEvents.unshift({
-      time: nowIso,
-      product_name: context.product_name,
-      size: context.size,
-      room_id: Number(roomId) || 0,
-      event_type: eventType,
-      status: ft('frd.events.completed')
-    });
-  });
-}
-
-async function postRfidEvents(events, context, roomId) {
-  if (!events.length) return;
-  const epcData = String(context?.epc_data || '').trim();
-  if (!isValidEpcData(epcData)) {
-    throw new Error(ft('frd.error.noValidEpcPersist'));
-  }
-
-  const roomNum = Number(roomId || context?.fromRoomId || 1) || 1;
-  const fittingReader = `FITTING_ROOM_ANTENNA_${Math.min(4, Math.max(1, roomNum))}`;
-
-  for (const eventType of events) {
-    let payload = null;
-    if (eventType === 'item_entered_fitting_room' || eventType === 'item_added_to_session') {
-      payload = {
-        epc_data: epcData,
-        reader_id: fittingReader,
-        event_type: 'enter_fitting_room',
-        event_source: 'demo_drag',
-        from_zone: 'sales_floor',
-        to_zone: 'fitting_room'
-      };
-    } else if (eventType === 'item_left_fitting_room' || eventType === 'item_returned_to_floor') {
-      payload = {
-        epc_data: epcData,
-        reader_id: 'RACK_ANTENNA_1',
-        event_type: 'left_fitting_room',
-        event_source: 'demo_drag',
-        from_zone: 'fitting_room',
-        to_zone: 'sales_floor'
-      };
-    } else if (eventType === 'item_moved_to_checkout') {
-      payload = {
-        epc_data: epcData,
-        reader_id: 'SOLD_ANTENNA_1',
-        event_type: 'sale_completed',
-        event_source: 'demo_drag',
-        from_zone: 'checkout',
-        to_zone: 'sold'
-      };
-    }
-
-    if (!payload) continue;
-
-    const response = await fetch('/api/rfid-webhook', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getApiAuthHeaders()
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      let details = `HTTP ${response.status}`;
-      try {
-        const data = await response.json();
-        details = String(data?.error || data?.message || details);
-      } catch {
-        // ignore non-json response
-      }
-      throw new Error(details);
-    }
+function ensureValidSelection() {
+  const selected = getSelectedSku();
+  if (!selected || Number(selected.quantity) <= 0) {
+    state.selectedSkuKey = null;
   }
 }
 
-function snapshotMoveState() {
-  return {
-    rackItems: JSON.parse(JSON.stringify(state.rackItems)),
-    roomAssignments: JSON.parse(JSON.stringify(state.roomAssignments)),
-    checkoutRecords: JSON.parse(JSON.stringify(state.checkoutRecords)),
-    recentEvents: JSON.parse(JSON.stringify(state.recentEvents)),
-    selectedItemKey: state.selectedItemKey,
-    selectedSize: state.selectedSize,
-    selectedSkuKey: state.selectedSkuKey,
-    roomItemSeq: state.roomItemSeq
-  };
-}
-
-function restoreMoveState(snapshot) {
-  state.rackItems = snapshot.rackItems;
-  state.roomAssignments = snapshot.roomAssignments;
-  state.checkoutRecords = snapshot.checkoutRecords;
-  state.recentEvents = snapshot.recentEvents;
-  state.selectedItemKey = snapshot.selectedItemKey;
-  state.selectedSize = snapshot.selectedSize;
-  state.selectedSkuKey = snapshot.selectedSkuKey;
-  state.roomItemSeq = snapshot.roomItemSeq;
-}
-
-function findVariantBySku(skuKey) {
-  for (const rackItem of state.rackItems) {
-    const variant = rackItem.variants.find((v) => v.skuKey === skuKey);
-    if (variant) return { rackItem, variant };
-  }
-  return null;
-}
-
-function getRoomEntryById(roomItemId) {
-  for (const room of state.roomAssignments) {
-    const entry = room.items.find((x) => String(x.room_item_id) === String(roomItemId));
-    if (entry) return { room, entry };
-  }
-  return null;
-}
-
-function consumeRackVariant(variant) {
-  variant.quantity = Math.max(0, Number(variant.quantity) - 1);
-  syncRackTotals();
-}
-
-function restoreRackVariant(variant) {
-  variant.quantity = Math.max(0, Number(variant.quantity) + 1);
-  syncRackTotals();
-}
-
-function takeEpcFromVariant(variant) {
-  if (!variant || !Array.isArray(variant.epc_pool) || variant.epc_pool.length === 0) return null;
-  const epc = String(variant.epc_pool.shift() || '').trim();
-  return isValidEpcData(epc) ? epc : null;
-}
-
-function putEpcBackToVariant(variant, epcData) {
-  if (!variant || !Array.isArray(variant.epc_pool)) return;
-  const epc = String(epcData || '').trim();
-  if (!isValidEpcData(epc)) return;
-  if (!variant.epc_pool.includes(epc)) {
-    variant.epc_pool.unshift(epc);
-  }
-}
-
-function buildSelectedRackDragContext() {
-  const item = getSelectedItem();
-  const sku = getSelectedSku();
-  if (!item || !sku || sku.quantity <= 0) return null;
-  const epcData = Array.isArray(sku.epc_pool) ? String(sku.epc_pool[0] || '').trim() : '';
-  if (!isValidEpcData(epcData)) {
-    showToast(ft('frd.toast.missingSkuEpc'), 'err');
-    return null;
-  }
+function buildRackDragContext(skuKey = state.selectedSkuKey) {
+  const hit = findVariantBySku(skuKey);
+  if (!hit || Number(hit.variant.quantity) <= 0) return null;
   return {
     source: 'rack',
-    item_key: item.key,
-    item_no: item.item_no,
-    product_name: item.product_name,
-    size: sku.size,
-    sku_ean13: sku.sku_ean13,
-    epc_data: epcData,
-    skuKey: sku.skuKey
+    item_key: hit.rackItem.key,
+    item_no: hit.rackItem.item_no,
+    product_name: hit.rackItem.product_name,
+    color: hit.rackItem.color,
+    image_url: hit.rackItem.image_url,
+    size: hit.variant.size,
+    sku_ean13: hit.variant.sku_ean13,
+    skuKey: hit.variant.skuKey,
+    unit_price: Number(hit.variant.unit_price) || 0,
+    epc_data: Array.isArray(hit.variant.epc_pool) ? String(hit.variant.epc_pool[0] || '') : ''
   };
 }
 
 function buildRoomDragContext(roomItemId) {
-  const roomHit = getRoomEntryById(roomItemId);
-  if (!roomHit) return null;
-  const epcData = String(roomHit.entry.epc_data || '').trim();
-  if (!isValidEpcData(epcData)) {
-    showToast(ft('frd.toast.missingRoomItemEpc'), 'err');
-    return null;
-  }
+  const hit = getRoomEntryById(roomItemId);
+  if (!hit) return null;
   return {
     source: 'room',
-    fromRoomId: roomHit.room.roomId,
-    room_item_id: roomHit.entry.room_item_id,
-    item_key: roomHit.entry.item_key,
-    item_no: roomHit.entry.item_no,
-    product_name: roomHit.entry.product_name,
-    size: roomHit.entry.size,
-    sku_ean13: roomHit.entry.sku_ean13,
-    epc_data: epcData,
-    skuKey: roomHit.entry.sku_ean13
+    fromRoomId: hit.room.roomId,
+    room_item_id: hit.entry.room_item_id,
+    item_key: hit.entry.item_key,
+    item_no: hit.entry.item_no,
+    product_name: hit.entry.product_name,
+    color: hit.entry.color,
+    image_url: hit.entry.image_url,
+    size: hit.entry.size,
+    sku_ean13: hit.entry.sku_ean13,
+    skuKey: hit.entry.sku_ean13,
+    unit_price: Number(hit.entry.unit_price) || 0,
+    epc_data: hit.entry.epc_data || ''
   };
 }
 
-function highlightValidDropZones(source) {
-  const roomZones = document.querySelectorAll('.frd-room-dropzone');
-  const rackZone = document.querySelector('.frd-rack-dropzone');
-  const checkoutZone = document.getElementById('checkoutDropzone');
+function moveRackItemToRoom(context, roomId = 1) {
+  const hit = findVariantBySku(context?.skuKey);
+  const room = getRoomById(roomId);
+  if (!hit || !room || Number(hit.variant.quantity) <= 0) return false;
 
-  if (source === 'rack') {
-    roomZones.forEach((zone) => zone.classList.add('is-valid-drop'));
-    if (checkoutZone) checkoutZone.classList.add('is-valid-drop');
+  const epcData = takeEpcFromVariant(hit.variant) || context.epc_data || '';
+  hit.variant.quantity = Math.max(0, Number(hit.variant.quantity) - 1);
+  syncRackTotals();
+
+  const roomEntry = {
+    room_item_id: `room_item_${state.roomItemSeq++}`,
+    item_key: context.item_key,
+    item_no: context.item_no,
+    product_name: context.product_name,
+    color: context.color,
+    image_url: context.image_url,
+    size: context.size,
+    sku_ean13: context.sku_ean13,
+    unit_price: Number(context.unit_price) || 0,
+    epc_data: epcData,
+    enteredAt: new Date().toISOString()
+  };
+
+  room.items.unshift(roomEntry);
+  state.kpi.tryOns += 1;
+  pushEvent('item_entered_fitting_room', roomEntry, roomId);
+  ensureValidSelection();
+  renderAll();
+  showToast(ft('frd.toast.itemEntered'), 'ok');
+  return true;
+}
+
+function returnRoomItemToRack(roomItemId) {
+  const hit = getRoomEntryById(roomItemId);
+  if (!hit) return false;
+  const entry = hit.entry;
+  hit.room.items = hit.room.items.filter((item) => String(item.room_item_id) !== String(roomItemId));
+
+  const variantHit = findVariantBySku(entry.sku_ean13);
+  if (variantHit) {
+    variantHit.variant.quantity = Math.max(0, Number(variantHit.variant.quantity) + 1);
+    putEpcBackToVariant(variantHit.variant, entry.epc_data);
+    syncRackTotals();
   }
 
+  state.kpi.missedRevenue += Math.max(0, Number(entry.unit_price) || 0);
+  pushEvent('item_left_fitting_room', entry, hit.room.roomId);
+  pushEvent('item_returned_to_floor', entry, hit.room.roomId);
+  renderAll();
+  showToast(ft('frd.toast.itemReturned'), 'warn');
+  return true;
+}
+
+function sendRoomItemToCheckout(roomItemId) {
+  const hit = getRoomEntryById(roomItemId);
+  if (!hit) return false;
+  const entry = hit.entry;
+  hit.room.items = hit.room.items.filter((item) => String(item.room_item_id) !== String(roomItemId));
+  const checkoutRecord = {
+    ...entry,
+    time: new Date().toISOString()
+  };
+  state.checkoutRecords.unshift(checkoutRecord);
+  pushEvent('item_left_fitting_room', entry, hit.room.roomId);
+  pushEvent('item_moved_to_checkout', entry, hit.room.roomId);
+  renderAll();
+  showToast(ft('frd.toast.sentCheckout'), 'ok');
+  return true;
+}
+
+function completeSale() {
+  if (!state.checkoutRecords.length) {
+    showToast(ft('frd.toast.actionCouldNotComplete'), 'warn');
+    return;
+  }
+
+  const completedAt = new Date().toISOString();
+  state.checkoutRecords.forEach((record) => {
+    pushEvent('sale_completed', record, 1);
+    state.completedSalesRecords.unshift({ ...record, completedAt });
+  });
+  state.kpi.sales += state.checkoutRecords.length;
+  state.checkoutRecords = [];
+  renderAll();
+  showToast(ft('frd.toast.conversionImproved'), 'ok');
+}
+
+function isValidMove(source, targetZone) {
+  return ['rack->room', 'room->rack', 'room->checkout'].includes(`${source}->${targetZone}`);
+}
+
+function highlightValidDropZones(source) {
+  clearDropZoneHighlights();
+  if (source === 'rack') {
+    document.querySelectorAll('.frd-room-dropzone').forEach((zone) => zone.classList.add('is-valid-drop'));
+  }
   if (source === 'room') {
-    if (rackZone) rackZone.classList.add('is-valid-drop');
-    if (checkoutZone) checkoutZone.classList.add('is-valid-drop');
+    document.querySelectorAll('.frd-rack-dropzone, .frd-checkout-dropzone').forEach((zone) => zone.classList.add('is-valid-drop'));
   }
 }
 
@@ -1695,132 +850,30 @@ function clearDropZoneHighlights() {
     .forEach((zone) => zone.classList.remove('is-valid-drop', 'is-drop-hover'));
 }
 
-function getDropTargetFromNode(node) {
+function getDropTarget(node) {
   const roomZone = node.closest('.frd-room-dropzone');
-  if (roomZone) {
-    const roomId = Number(roomZone.dataset.roomId || 0);
-    if (!ROOM_IDS.includes(roomId)) return null;
-    return { zone: 'room', roomId, node: roomZone };
-  }
-
+  if (roomZone) return { zone: 'room', roomId: Number(roomZone.dataset.roomId || 1), node: roomZone };
   const rackZone = node.closest('.frd-rack-dropzone');
   if (rackZone) return { zone: 'rack', roomId: 0, node: rackZone };
-
   const checkoutZone = node.closest('.frd-checkout-dropzone');
   if (checkoutZone) return { zone: 'checkout', roomId: 0, node: checkoutZone };
-
   return null;
 }
 
-function commitMove(context, target, plan) {
-  const nowIso = new Date().toISOString();
-  if (context.source === 'rack' && target.zone === 'room') {
-    const hit = findVariantBySku(context.skuKey);
-    if (!hit || hit.variant.quantity <= 0) return false;
-    const consumedEpc = takeEpcFromVariant(hit.variant);
-    consumeRackVariant(hit.variant);
-    const room = getRoomById(target.roomId);
-    if (!room) return false;
-    context.epc_data = consumedEpc || context.epc_data || '';
-    room.items.push({
-      room_item_id: `room_item_${state.roomItemSeq++}`,
-      item_key: context.item_key,
-      item_no: context.item_no,
-      product_name: context.product_name,
-      size: context.size,
-      sku_ean13: context.sku_ean13,
-      epc_data: context.epc_data || '',
-      enteredAt: nowIso
-    });
-    return true;
-  }
-
-  if (context.source === 'room' && target.zone === 'rack') {
-    const roomHit = getRoomEntryById(context.room_item_id);
-    if (!roomHit) return false;
-    roomHit.room.items = roomHit.room.items.filter((x) => x.room_item_id !== context.room_item_id);
-    const hit = findVariantBySku(context.skuKey);
-    if (hit) {
-      restoreRackVariant(hit.variant);
-      putEpcBackToVariant(hit.variant, context.epc_data || roomHit.entry?.epc_data || '');
-    }
-    return true;
-  }
-
-  if (context.source === 'room' && target.zone === 'checkout') {
-    const roomHit = getRoomEntryById(context.room_item_id);
-    if (!roomHit) return false;
-    context.epc_data = context.epc_data || roomHit.entry?.epc_data || '';
-    roomHit.room.items = roomHit.room.items.filter((x) => x.room_item_id !== context.room_item_id);
-    state.checkoutRecords.unshift({
-      product_name: context.product_name,
-      size: context.size,
-      sku_ean13: context.sku_ean13,
-      epc_data: context.epc_data || '-',
-      sale_type: plan.saleType,
-      time: nowIso
-    });
-    return true;
-  }
-
-  if (context.source === 'rack' && target.zone === 'checkout') {
-    const hit = findVariantBySku(context.skuKey);
-    if (!hit || hit.variant.quantity <= 0) return false;
-    const consumedEpc = takeEpcFromVariant(hit.variant);
-    consumeRackVariant(hit.variant);
-    context.epc_data = consumedEpc || context.epc_data || '';
-    state.checkoutRecords.unshift({
-      product_name: context.product_name,
-      size: context.size,
-      sku_ean13: context.sku_ean13,
-      epc_data: context.epc_data || '-',
-      sale_type: plan.saleType,
-      time: nowIso
-    });
-    return true;
-  }
-
-  return false;
-}
-
-async function handleDropOnTarget(target) {
+function handleDropOnTarget(target) {
   const context = state.draggingContext;
-  if (!context) {
+  if (!context || !target || !isValidMove(context.source, target.zone)) {
     showToast(ft('frd.toast.invalidMove'), 'err');
     return;
   }
 
-  if (!isValidMove(context.source, target.zone)) {
-    showToast(ft('frd.toast.invalidMove'), 'err');
-    return;
+  if (context.source === 'rack' && target.zone === 'room') {
+    moveRackItemToRoom(context, target.roomId || 1);
+  } else if (context.source === 'room' && target.zone === 'rack') {
+    returnRoomItemToRack(context.room_item_id);
+  } else if (context.source === 'room' && target.zone === 'checkout') {
+    sendRoomItemToCheckout(context.room_item_id);
   }
-
-  const plan = resolveEventPlan(context.source, target.zone);
-  if (!plan) {
-    showToast(ft('frd.toast.actionCouldNotComplete'), 'err');
-    return;
-  }
-
-  const snapshot = snapshotMoveState();
-  const ok = commitMove(context, target, plan);
-  if (!ok) {
-    showToast(ft('frd.toast.actionCouldNotComplete'), 'err');
-    return;
-  }
-
-  try {
-    await postRfidEvents(plan.events, context, target.roomId || context.fromRoomId || 0);
-  } catch (error) {
-    restoreMoveState(snapshot);
-    renderAll();
-    showToast(ft('frd.toast.actionCouldNotComplete'), 'err');
-    return;
-  }
-
-  pushRecentEvents(plan.events, context, target.roomId || context.fromRoomId || 0);
-  ensureValidSelectedSku();
-  renderAll();
-  showToast(plan.successToast, 'ok');
 }
 
 function bindEvents() {
@@ -1836,75 +889,84 @@ function bindEvents() {
     });
   }
 
-  document.addEventListener('click', (event) => {
-    const sizeChip = event.target.closest('[data-sku-key]');
-    if (sizeChip && !sizeChip.hasAttribute('disabled')) {
-      selectSize(String(sizeChip.dataset.skuKey || ''), String(sizeChip.dataset.size || ''));
-      return;
-    }
-
-    const roomToggle = event.target.closest('[data-room-toggle]');
-    if (roomToggle) {
-      const roomId = Number(roomToggle.dataset.roomToggle || 0);
-      if (ROOM_IDS.includes(roomId)) {
-        state.expandedRoomIds[roomId] = !state.expandedRoomIds[roomId];
-        renderAll();
-      }
-      return;
-    }
-
-    const bottomTabButton = event.target.closest('[data-bottom-tab]');
-    if (bottomTabButton) {
-      state.bottomTab = String(bottomTabButton.dataset.bottomTab || 'recent-events');
-      renderBottomTabs();
-      return;
-    }
-
-    const checkoutToggle = event.target.closest('#checkoutToggleButton');
-    if (checkoutToggle) {
-      state.checkoutShowAll = !state.checkoutShowAll;
+  if (el.advancedToggle) {
+    el.advancedToggle.addEventListener('change', (event) => {
+      state.advancedMode = Boolean(event.target?.checked);
       renderAll();
+    });
+  }
+
+  document.addEventListener('click', (event) => {
+    const sizeChip = event.target.closest('[data-size-item-key][data-sku-key]');
+    if (sizeChip && !sizeChip.hasAttribute('disabled')) {
+      selectSize(String(sizeChip.dataset.sizeItemKey || ''), String(sizeChip.dataset.skuKey || ''));
+      return;
+    }
+
+    const rackAction = event.target.closest('[data-rack-action="try"]');
+    if (rackAction) {
+      const context = buildRackDragContext(String(rackAction.dataset.skuKey || ''));
+      if (!context) {
+        showToast(ft('frd.toast.invalidMove'), 'err');
+        return;
+      }
+      moveRackItemToRoom(context, 1);
+      return;
+    }
+
+    const roomAction = event.target.closest('[data-room-action][data-room-item-id]');
+    if (roomAction) {
+      const roomItemId = String(roomAction.dataset.roomItemId || '');
+      const action = String(roomAction.dataset.roomAction || '');
+      if (action === 'checkout') sendRoomItemToCheckout(roomItemId);
+      if (action === 'rack') returnRoomItemToRack(roomItemId);
+      return;
+    }
+
+    if (event.target.closest('#completeSaleButton')) {
+      completeSale();
       return;
     }
 
     const rackCard = event.target.closest('[data-rack-item-key]');
     if (rackCard) {
-      selectRackItem(String(rackCard.dataset.rackItemKey || ''));
-      return;
+      state.selectedItemKey = String(rackCard.dataset.rackItemKey || '');
+      state.selectedSkuKey = getSelectedItem()?.variants?.find((variant) => Number(variant.quantity) > 0)?.skuKey || null;
+      renderAll();
     }
   });
 
   document.addEventListener('dragstart', (event) => {
-    const selectedCard = event.target.closest('[data-drag-variant-key]');
-    if (selectedCard) {
-      const context = buildSelectedRackDragContext();
+    const variantCard = event.target.closest('[data-drag-variant-key]');
+    if (variantCard) {
+      const context = buildRackDragContext(String(variantCard.dataset.dragVariantKey || ''));
       if (!context) {
         event.preventDefault();
         showToast(ft('frd.toast.invalidMove'), 'err');
         return;
       }
       state.draggingContext = context;
-      selectedCard.classList.add('is-dragging');
       event.dataTransfer?.setData('text/plain', context.skuKey);
       event.dataTransfer.effectAllowed = 'move';
+      variantCard.classList.add('is-dragging');
       highlightValidDropZones('rack');
       return;
     }
 
     const roomItem = event.target.closest('[data-drag-room-item-id]');
-    if (!roomItem) return;
-    const context = buildRoomDragContext(String(roomItem.dataset.dragRoomItemId || ''));
-    if (!context) {
-      event.preventDefault();
-      showToast(ft('frd.toast.invalidMove'), 'err');
-      return;
+    if (roomItem) {
+      const context = buildRoomDragContext(String(roomItem.dataset.dragRoomItemId || ''));
+      if (!context) {
+        event.preventDefault();
+        showToast(ft('frd.toast.actionCouldNotComplete'), 'err');
+        return;
+      }
+      state.draggingContext = context;
+      event.dataTransfer?.setData('text/plain', context.room_item_id);
+      event.dataTransfer.effectAllowed = 'move';
+      roomItem.classList.add('is-dragging');
+      highlightValidDropZones('room');
     }
-
-    state.draggingContext = context;
-    roomItem.classList.add('is-dragging');
-    event.dataTransfer?.setData('text/plain', context.room_item_id);
-    event.dataTransfer.effectAllowed = 'move';
-    highlightValidDropZones('room');
   });
 
   document.addEventListener('dragend', (event) => {
@@ -1915,130 +977,51 @@ function bindEvents() {
   });
 
   document.addEventListener('dragover', (event) => {
-    const target = getDropTargetFromNode(event.target);
-    if (!target || !state.draggingContext) return;
-    if (!isValidMove(state.draggingContext.source, target.zone)) return;
+    const target = getDropTarget(event.target);
+    if (!target || !state.draggingContext || !isValidMove(state.draggingContext.source, target.zone)) return;
     event.preventDefault();
     target.node.classList.add('is-drop-hover');
     if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
   });
 
   document.addEventListener('dragleave', (event) => {
-    const target = getDropTargetFromNode(event.target);
+    const target = getDropTarget(event.target);
     if (!target) return;
-    if (!target.node.contains(event.relatedTarget)) {
-      target.node.classList.remove('is-drop-hover');
-    }
+    if (!target.node.contains(event.relatedTarget)) target.node.classList.remove('is-drop-hover');
   });
 
-  document.addEventListener('drop', async (event) => {
-    const target = getDropTargetFromNode(event.target);
-    if (!target) {
-      if (state.draggingContext) showToast(ft('frd.toast.invalidMove'), 'err');
-      return;
-    }
-
+  document.addEventListener('drop', (event) => {
+    const target = getDropTarget(event.target);
+    if (!target) return;
     event.preventDefault();
-    await handleDropOnTarget(target);
+    handleDropOnTarget(target);
   });
-
-  if (el.resetButton) {
-    el.resetButton.addEventListener('click', async () => {
-      await bootstrapFromDb();
-      const mode = state.dataSource === 'db' ? ft('frd.mode.db') : ft('frd.mode.mock');
-      showToast(ft('frd.toast.resetDone', { mode }), state.dataSource === 'db' ? 'ok' : 'warn');
-    });
-  }
-
-  if (el.seedButton) {
-    el.seedButton.addEventListener('click', () => {
-      bootstrapMockData();
-      showToast(ft('frd.toast.seedDone'), 'ok');
-    });
-  }
 }
 
-function bootstrapMockData() {
-  state.rackItems = buildRackData(MOCK_SKU_ROWS);
+function resetDemoState() {
   state.selectedItemKey = null;
-  state.selectedSize = null;
   state.selectedSkuKey = null;
   state.roomAssignments = buildEmptyRooms();
   state.checkoutRecords = [];
+  state.completedSalesRecords = [];
   state.recentEvents = [];
   state.draggingContext = null;
   state.roomItemSeq = 1;
-  state.bottomTab = 'recent-events';
-  state.checkoutShowAll = false;
-  state.expandedRoomIds = {};
-  state.dataSource = 'mock';
-  setStatus(ft('frd.status.mock'));
-  renderAll();
+  state.kpi = { tryOns: 0, sales: 0, missedRevenue: 0 };
 }
 
-async function bootstrapFromDb() {
-  if (!initSupabase()) {
-    console.warn('[FRD][bootstrapFromDb] supabase init failed, fallback to mock mode');
-    bootstrapMockData();
-    return;
-  }
-
-  console.debug('[FRD][bootstrapFromDb] init complete', {
-    hasSession: Boolean(getSession()?.accessToken),
-    hasSupabase: Boolean(state.supabase)
-  });
-
-  try {
-    const rows = await fetchCatalogFromDb();
-    console.debug('[FRD][bootstrapFromDb] catalog fetched', {
-      catalogRows: rows.length,
-      sample: rows.slice(0, 5).map((row) => ({
-        product_key: String(row?.product_key || ''),
-        sku_ean13: String(row?.sku_ean13 || ''),
-        quantity: Number(row?.quantity) || 0,
-        epc_list_count: Array.isArray(row?.epc_list) ? row.epc_list.length : 0
-      }))
-    });
-    if (!rows.length) {
-      console.warn('[FRD][bootstrapFromDb] catalog rows empty, fallback to mock mode');
-      bootstrapMockData();
-      return;
-    }
-
-    state.rackItems = buildRackData(rows);
-    state.selectedItemKey = null;
-    state.selectedSize = null;
-    state.selectedSkuKey = null;
-    state.roomAssignments = await fetchActiveRoomAssignmentsFromDb();
-    console.debug('[FRD][bootstrapFromDb] room assignments fetched', {
-      roomCount: state.roomAssignments.length,
-      roomItemCount: state.roomAssignments.reduce((acc, room) => acc + room.items.length, 0),
-      byRoom: state.roomAssignments.map((room) => ({ roomId: room.roomId, count: room.items.length }))
-    });
-    state.checkoutRecords = [];
-    state.recentEvents = await fetchRecentEventsFromDb(50);
-    state.draggingContext = null;
-    state.roomItemSeq = state.roomAssignments.reduce((acc, room) => acc + room.items.length, 0) + 1;
-    state.bottomTab = 'recent-events';
-    state.checkoutShowAll = false;
-    state.expandedRoomIds = {};
+async function bootstrapData() {
+  const rows = await fetchCatalogRows();
+  const rackItems = buildRackData(rows);
+  if (rackItems.length) {
+    state.rackItems = rackItems;
     state.dataSource = 'db';
-    setStatus(ft('frd.status.db'));
-    console.debug('[FRD][bootstrapFromDb] using DB mode:', {
-      rackItems: state.rackItems.length,
-      recentEvents: state.recentEvents.length
-    });
-    renderAll();
-  } catch (error) {
-    console.error('[FRD][bootstrapFromDb] error, fallback to mock mode:', {
-      message: error?.message,
-      code: error?.code,
-      details: error?.details,
-      hint: error?.hint,
-      raw: error
-    });
-    bootstrapMockData();
+  } else {
+    state.rackItems = buildRackData(MOCK_SKU_ROWS);
+    state.dataSource = 'mock';
   }
+  resetDemoState();
+  renderAll();
 }
 
 async function bootstrap() {
@@ -2047,11 +1030,9 @@ async function bootstrap() {
   populateLanguageSelect();
   applyFittingDemoI18n();
   bindEvents();
-  await bootstrapFromDb();
+  await bootstrapData();
   setInterval(() => {
-    if (state.roomAssignments.some((room) => room.items.length > 0)) {
-      renderAll();
-    }
+    if (state.roomAssignments.some((room) => room.items.length > 0)) renderAll();
   }, 1000);
 }
 

@@ -66,7 +66,7 @@
       <header class="page-header">
         <div class="page-header-main">
           <h1 data-i18n="app.title">RFID Retail Conversion Dashboard</h1>
-          <p class="hint">Monitor conversion, opportunities, and operational alerts in real time.</p>
+          <p id="heroNarrative" class="hint" data-i18n="dashboard31.hero.subtitle">Turn fitting room activity into revenue growth.</p>
         </div>
         <div class="page-header-actions">
           <span id="heroLiveStatus" class="status-badge" data-i18n="dashboard31.status.liveStore">Live store: Active</span>
@@ -76,13 +76,6 @@
       </header>
 
       <main class="layout layout--dashboard31 page-content">
-        <section class="panel manager-hero" aria-labelledby="managerHeroTitle">
-          <div>
-            <h2 id="managerHeroTitle" data-i18n="dashboard31.hero.title">RFID Retail Conversion Dashboard</h2>
-            <p id="heroNarrative" class="hint" data-i18n="dashboard31.hero.subtitle">Turn fitting room activity into revenue growth.</p>
-          </div>
-        </section>
-
         <section class="dashboard31-revenue-grid" aria-label="Revenue Impact Cards" id="revenueImpactBody">
           <article class="kpi-card kpi-card--hero dashboard31-revenue-card">
             <p class="kpi-label" data-i18n="dashboard31.revenue.missed">Missed Revenue Today</p>
@@ -131,6 +124,9 @@
             <div id="topOpportunitiesBody" class="dashboard-analytics-card-body">
               <p class="hint" data-i18n="dashboard.empty">No data</p>
             </div>
+            <div class="dashboard-card-footer">
+              <a id="viewAllOpportunitiesLink" href="/product.html" data-route-link class="button-secondary" data-i18n="dashboard31.opportunities.viewAll">View all opportunities</a>
+            </div>
           </article>
           <article class="dashboard-analytics-card" aria-labelledby="recommendedActionsTitle">
             <header class="dashboard-analytics-card-header">
@@ -142,10 +138,10 @@
           </article>
         </section>
 
-        <section class="panel dashboard31-two-column" aria-label="Operations and Replenishment">
+        <section class="panel dashboard31-two-column" aria-label="Alerts and Risks">
           <article class="dashboard-analytics-card" aria-labelledby="operationsAlertsTitle">
             <header class="dashboard-analytics-card-header">
-              <h3 id="operationsAlertsTitle" data-i18n="dashboard31.alerts.title">Operations Alerts</h3>
+              <h3 id="operationsAlertsTitle" data-i18n="dashboard31.alertsRisks.title">Alerts / Risks</h3>
             </header>
             <div id="operationsAlertsBody" class="dashboard-analytics-card-body">
               <p class="hint" data-i18n="dashboard.empty">No data</p>
@@ -165,96 +161,84 @@
           <div class="panel-title-row">
             <h2 id="dashboardTitle" data-i18n="dashboard31.technical.title">Technical Live Board</h2>
             <div class="panel-actions">
+              <a href="/product.html" data-route-link class="button-secondary" data-i18n="dashboard31.technical.openFull">Open Full Technical View</a>
               <button id="technicalBoardToggle" type="button" class="button-secondary" data-i18n="dashboard31.technical.show">Show Technical Details</button>
-              <button id="refreshButton" type="button" data-i18n="dashboard.refresh">Refresh</button>
             </div>
           </div>
+          <div class="dashboard31-technical-summary" aria-label="Technical Summary">
+            <article class="kpi-card">
+              <p class="kpi-label" data-i18n="kpi.total">Total Items</p>
+              <p id="kpiTotal" class="kpi-value">0</p>
+            </article>
+            <article class="kpi-card">
+              <p class="kpi-label" data-i18n="kpi.fitting">In Fitting</p>
+              <p id="kpiFitting" class="kpi-value">0</p>
+            </article>
+            <article class="kpi-card">
+              <p class="kpi-label" data-i18n="kpi.checkout">At Checkout</p>
+              <p id="kpiCheckout" class="kpi-value">0</p>
+            </article>
+            <article class="kpi-card">
+              <p class="kpi-label" data-i18n="kpi.sold">Sold</p>
+              <p id="kpiSold" class="kpi-value text-ok">0</p>
+            </article>
+          </div>
           <div id="technicalBoardBody" class="dashboard31-technical-body" hidden>
-            <div class="kpi-grid kpi-grid--compact" aria-label="Secondary KPI">
+            <div class="kpi-grid kpi-grid--compact" aria-label="Technical board state counts">
               <article class="kpi-card">
-                <p class="kpi-label" data-i18n="kpi.total">Total Items</p>
-                <p id="kpiTotal" class="kpi-value">0</p>
+                <p class="kpi-label" data-i18n="analytics.snapshot.rack">Rack</p>
+                <p id="techCountRack" class="kpi-value">0</p>
               </article>
               <article class="kpi-card">
-                <p class="kpi-label" data-i18n="kpi.fitting">In Fitting</p>
-                <p id="kpiFitting" class="kpi-value">0</p>
+                <p class="kpi-label" data-i18n="analytics.snapshot.fittingRoom">Fitting</p>
+                <p id="techCountFitting" class="kpi-value">0</p>
               </article>
               <article class="kpi-card">
-                <p class="kpi-label" data-i18n="kpi.checkout">At Checkout</p>
-                <p id="kpiCheckout" class="kpi-value">0</p>
+                <p class="kpi-label" data-i18n="analytics.snapshot.checkout">Checkout</p>
+                <p id="techCountCheckout" class="kpi-value">0</p>
               </article>
               <article class="kpi-card">
                 <p class="kpi-label" data-i18n="kpi.sold">Sold</p>
-                <p id="kpiSold" class="kpi-value text-ok">0</p>
-              </article>
-              <article class="kpi-card">
-                <p class="kpi-label" data-i18n="kpi.todayFitting">Today Fitting Sessions</p>
-                <p id="kpiTodayFitting" class="kpi-value">0</p>
-              </article>
-              <article class="kpi-card">
-                <p class="kpi-label" data-i18n="kpi.todaySales">Today Sales</p>
-                <p id="kpiTodaySales" class="kpi-value">0</p>
-              </article>
-              <article class="kpi-card">
-                <p class="kpi-label" data-i18n="kpi.conversionRate">Today Conversion Rate</p>
-                <p id="kpiConversionRate" class="kpi-value">0%</p>
-              </article>
-              <article class="kpi-card">
-                <p class="kpi-label" data-i18n="kpi.abnormal">Customer Experience Risk</p>
-                <p id="kpiAbnormal" class="kpi-value text-err">0</p>
+                <p id="techCountSold" class="kpi-value text-ok">0</p>
               </article>
             </div>
-            <section id="dashboard" class="dashboard-board" style="margin-top: 16px;"></section>
+            <button id="refreshButton" type="button" data-i18n="dashboard.refresh">Refresh</button>
+            <section class="panel dashboard-technical-log-panel" aria-labelledby="timelineTitle">
+              <h3 id="timelineTitle" data-i18n="timeline.title">Recent Actions</h3>
+              <ul id="activityTimeline" class="event-log"></ul>
+            </section>
+            <section class="panel dashboard-technical-log-panel" aria-labelledby="eventLogTitle">
+              <h3 id="eventLogTitle" data-i18n="events.title">Latest Event Logs</h3>
+              <ul id="eventLog" class="event-log"></ul>
+            </section>
           </div>
-        </section>
-
-        <section class="panel" aria-labelledby="timelineTitle">
-          <h2 id="timelineTitle" data-i18n="timeline.title">Recent Actions</h2>
-          <ul id="activityTimeline" class="event-log"></ul>
-        </section>
-
-        <section class="panel" aria-labelledby="eventLogTitle">
-          <h2 id="eventLogTitle" data-i18n="events.title">Latest Event Logs</h2>
-          <ul id="eventLog" class="event-log"></ul>
         </section>
       </main>
     </section>
 
-    <section id="fittingDemoView" hidden>
-      <header class="page-header">
-        <div class="page-header-main">
-          <h1 data-i18n="home.cards.fittingDemo.title">Fitting Room Demo</h1>
-          <p class="hint">Embedded in app shell. Standalone fallback remains available.</p>
-        </div>
-        <div class="page-header-actions">
-          <a href="/fitting-demo.html" class="button-secondary">Open Standalone</a>
-        </div>
-      </header>
-      <main class="layout page-content">
-        <section class="panel fitting-shell-panel" aria-label="Fitting Demo Embedded View">
-          <iframe
-            id="fittingDemoFrame"
-            class="fitting-shell-frame"
-            src="/fitting-demo.html?embed=1"
-            title="Fitting Room Demo"
-            loading="lazy"
-            referrerpolicy="same-origin"
-          ></iframe>
-        </section>
-      </main>
+    <section id="fittingDemoView" class="fitting-demo-shell-view" hidden>
+      <iframe
+        id="fittingDemoFrame"
+        class="fitting-shell-frame fitting-shell-frame--flush"
+        src="/fitting-demo.html?embed=1"
+        title="Fitting Room Demo"
+        loading="lazy"
+        referrerpolicy="same-origin"
+      ></iframe>
     </section>
 
     <section id="productView" hidden>
       <header class="page-header">
         <div class="page-header-main">
           <h1 data-i18n="home.cards.product.title">Product</h1>
-          <p class="hint">Browse style-level and SKU-level inventory with fast filters.</p>
+          <p class="hint" data-i18n="product.summary.story">Explore products from style signals to SKU actions with focused retail insights.</p>
         </div>
         <div class="page-header-actions">
           <div class="product-summary-view-toggle" role="group" aria-label="Product Summary View Mode">
             <span class="product-summary-view-toggle__label" data-i18n="product.summary.view.label">View</span>
-            <button id="productSummaryViewSku" type="button" class="button-secondary" data-summary-view="sku" data-i18n="product.summary.view.sku">SKU View</button>
-            <button id="productSummaryViewNested" type="button" class="button-secondary is-active" data-summary-view="nested" data-i18n="product.summary.view.nested">Nested View</button>
+            <button id="productSummaryViewInventory" type="button" class="button-secondary is-active" data-summary-view="inventory" data-i18n="product.summary.view.inventory">Inventory View</button>
+            <button id="productSummaryViewPerformance" type="button" class="button-secondary" data-summary-view="performance" data-i18n="product.summary.view.performance">Performance View</button>
+            <button id="productSummaryViewConversion" type="button" class="button-secondary" data-summary-view="conversion" data-i18n="product.summary.view.conversion">Conversion View</button>
           </div>
         </div>
       </header>
@@ -262,15 +246,16 @@
       <main class="layout page-content">
         <section class="panel" aria-labelledby="productSummaryTitle">
           <h2 id="productSummaryTitle" data-i18n="product.summary.title">Product Inventory</h2>
-          <p class="hint" data-i18n="product.summary.desc">Review style summaries first, then drill down to color groups, SKU rows, and EPC details.</p>
+          <p class="hint" data-i18n="product.summary.desc">Start at style cards, then drill into color groups and SKU rows. EPC details stay hidden until requested.</p>
           <div class="product-summary-toolbar product-summary-toolbar--row">
             <label>
-              <span data-i18n="product.summary.filter.styleNo">Style No</span>
-              <input id="productStyleNoFilter" type="text" placeholder="e.g. 4520001" data-i18n-placeholder="placeholder.productStyleNo" />
-            </label>
-            <label>
-              <span data-i18n="product.summary.filter.itemNo">Item No</span>
-              <input id="productItemNoFilter" type="text" placeholder="e.g. 82210101" data-i18n-placeholder="placeholder.productItemNo" />
+              <span data-i18n="product.summary.filter.issue">Find Issues</span>
+              <select id="productIssueFilter">
+                <option value="all" data-i18n="product.summary.filter.issue.all">All Products</option>
+                <option value="high-try-on-no-sale" data-i18n="product.summary.filter.issue.highTryNoSale">High try-on no sale</option>
+                <option value="low-stock" data-i18n="product.summary.filter.issue.lowStock">Low stock</option>
+                <option value="low-conversion" data-i18n="product.summary.filter.issue.lowConversion">Low conversion</option>
+              </select>
             </label>
             <button id="productFilterReset" type="button" data-i18n="product.summary.filter.reset">Clear Filters</button>
           </div>

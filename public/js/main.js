@@ -17,8 +17,8 @@ const DEFAULT_SUPABASE_URL = 'https://trgxtbqjkhydvbfndmhk.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_RjeQR-HU84MRCpByTqZlxg_lwJHStMP';
 const DEFAULT_LANG = 'en';
 const DEFAULT_MODE = 'demo';
-const DEFAULT_PRODUCT_SUMMARY_VIEW = 'nested';
-const PRODUCT_SUMMARY_VIEWS = ['sku', 'nested'];
+const DEFAULT_PRODUCT_SUMMARY_VIEW = 'inventory';
+const PRODUCT_SUMMARY_VIEWS = ['inventory', 'performance', 'conversion'];
 const MODE_DEFAULT_THRESHOLDS = {
   demo: 15,
   operational: 10
@@ -28,6 +28,7 @@ const SUPPORTED_MODES = ['demo', 'operational'];
 // Keep in sync with server-side timeout in api/rfid-webhook.js
 const FITTING_EXIT_TIMEOUT_MS = 30_000;
 const MAX_ACTIVITY_ITEMS = 20;
+const DASHBOARD_TECHNICAL_LOG_ITEMS = 5;
 const STATES = ['RACK', 'FITTING_ROOM', 'CHECKOUT', 'SOLD'];
 const BOARD_STATES = ['RACK', 'FITTING_ROOM', 'CHECKOUT'];
 const SETTING_TABS = ['general', 'accounts', 'trials'];
@@ -54,6 +55,7 @@ let currentLang = DEFAULT_LANG;
 let currentMode = DEFAULT_MODE;
 let dragProductKey = null;
 const localLaneOverrides = new Map();
+const productEpcDetailCache = new Map();
 let lastRenderContext = null;
 let lastSkuSummary = { rows: [], conflicts: [] };
 let currentProductSummaryView = DEFAULT_PRODUCT_SUMMARY_VIEW;
@@ -137,6 +139,10 @@ const el = {
   kpiAbnormal: document.getElementById('kpiAbnormal'),
   kpiCheckout: document.getElementById('kpiCheckout'),
   kpiSold: document.getElementById('kpiSold'),
+  techCountRack: document.getElementById('techCountRack'),
+  techCountFitting: document.getElementById('techCountFitting'),
+  techCountCheckout: document.getElementById('techCountCheckout'),
+  techCountSold: document.getElementById('techCountSold'),
   kpiTodayFitting: document.getElementById('kpiTodayFitting'),
   kpiTodaySales: document.getElementById('kpiTodaySales'),
   kpiConversionRate: document.getElementById('kpiConversionRate'),
@@ -163,10 +169,10 @@ const el = {
   overviewOpportunityBody: document.getElementById('overviewOpportunityBody'),
   overviewAlertBody: document.getElementById('overviewAlertBody'),
   productSkuSummary: document.getElementById('productSkuSummary'),
-  productSummaryViewSku: document.getElementById('productSummaryViewSku'),
-  productSummaryViewNested: document.getElementById('productSummaryViewNested'),
-  productStyleNoFilter: document.getElementById('productStyleNoFilter'),
-  productItemNoFilter: document.getElementById('productItemNoFilter'),
+  productSummaryViewInventory: document.getElementById('productSummaryViewInventory'),
+  productSummaryViewPerformance: document.getElementById('productSummaryViewPerformance'),
+  productSummaryViewConversion: document.getElementById('productSummaryViewConversion'),
+  productIssueFilter: document.getElementById('productIssueFilter'),
   productFilterReset: document.getElementById('productFilterReset'),
   restockList: document.getElementById('restockList'),
   storyFunnelBody: document.getElementById('storyFunnelBody'),
@@ -260,7 +266,8 @@ const I18N = {
     'dashboard.empty': 'No data',
     'dashboard.unnamedProduct': 'Unnamed Product',
     'product.summary.title': 'Product Inventory',
-    'product.summary.desc': 'Review style summaries first, then drill down to color groups, SKU rows, and EPC details.',
+    'product.summary.desc': 'Start at style cards, then drill into color groups and SKU rows. EPC details stay hidden until requested.',
+    'product.summary.story': 'Explore products from style signals to SKU actions with focused retail insights.',
     'product.summary.empty': 'No product items found',
     'product.summary.sku': 'SKU',
     'product.summary.styleNo': 'Style No',
@@ -283,10 +290,16 @@ const I18N = {
     'product.summary.errorValue': 'ERROR',
     'product.summary.filter.styleNo': 'Style No',
     'product.summary.filter.itemNo': 'Item No',
+    'product.summary.filter.issue': 'Find Issues',
+    'product.summary.filter.issue.all': 'All Products',
+    'product.summary.filter.issue.highTryNoSale': 'High try-on no sale',
+    'product.summary.filter.issue.lowStock': 'Low stock',
+    'product.summary.filter.issue.lowConversion': 'Low conversion',
     'product.summary.filter.reset': 'Clear Filters',
     'product.summary.view.label': 'View',
-    'product.summary.view.sku': 'SKU View',
-    'product.summary.view.nested': 'Nested View',
+    'product.summary.view.inventory': 'Inventory View',
+    'product.summary.view.performance': 'Performance View',
+    'product.summary.view.conversion': 'Conversion View',
     'product.summary.nested.items': 'SKU Rows',
     'product.summary.colorCount': 'Color Count',
     'product.summary.skuCount': 'SKU Count',
@@ -295,6 +308,15 @@ const I18N = {
     'product.summary.epcCount': 'EPC Count',
     'product.summary.viewEpcs': 'View EPCs',
     'product.summary.lowStock': 'Low Stock',
+    'product.summary.tryOns': 'Try-ons',
+    'product.summary.conversion': 'Conversion',
+    'product.summary.epcDetailHint': 'EPC details hidden by default',
+    'product.summary.viewEpcDetails': 'View EPC Details',
+    'product.summary.hideEpcDetails': 'Hide EPC Details',
+    'product.summary.insight.highInterestLowConversion': 'High interest, low conversion',
+    'product.summary.insight.sizeImbalance': 'Size imbalance',
+    'product.summary.insight.lowStockRisk': 'Low stock risk',
+    'product.summary.insight.highPerformer': 'High performer',
     'product.summary.status': 'Status',
     'product.summary.lastSeen': 'Last Seen',
     'product.summary.styleCardFallback': 'Style Summary',
@@ -541,6 +563,7 @@ const I18N = {
     'dashboard31.actions.expectedImpact': 'Expected impact',
     'dashboard31.actions.relatedSkus': 'Related SKUs',
     'dashboard31.opportunities.title': 'Top Revenue Opportunities',
+    'dashboard31.opportunities.viewAll': 'View all opportunities',
     'dashboard31.opportunities.empty': 'No revenue opportunities yet',
     'dashboard31.opportunities.tryOn': 'Try-ons',
     'dashboard31.opportunities.sales': 'Sales',
@@ -548,6 +571,7 @@ const I18N = {
     'dashboard31.opportunities.missedRevenue': 'Estimated missed revenue',
     'dashboard31.opportunities.recommendedAction': 'Recommended action',
     'dashboard31.alerts.title': 'Operations Alerts',
+    'dashboard31.alertsRisks.title': 'Alerts / Risks',
     'dashboard31.alerts.empty': 'No active operational risk',
     'dashboard31.replenishment.title': 'Replenishment Risk',
     'dashboard31.replenishment.empty': 'No replenishment risk detected',
@@ -559,6 +583,7 @@ const I18N = {
     'dashboard31.risk.warning': 'Warning',
     'dashboard31.risk.healthy': 'Healthy',
     'dashboard31.technical.title': 'Technical Live Board',
+    'dashboard31.technical.openFull': 'Open Full Technical View',
     'dashboard31.technical.show': 'Show Technical Details',
     'dashboard31.technical.hide': 'Hide Technical Details',
     'analytics.overview.tryOnUnit': 'try-on',
@@ -629,7 +654,8 @@ const I18N = {
     'dashboard.empty': '無資料',
     'dashboard.unnamedProduct': '未命名商品',
     'product.summary.title': '商品庫存總覽',
-    'product.summary.desc': '先查看款式摘要，再往下檢視顏色群組、SKU 列與 EPC 明細。',
+    'product.summary.desc': '先看款式卡，再下鑽顏色群組與 SKU 列；EPC 明細僅在點擊後顯示。',
+    'product.summary.story': '從款式訊號到 SKU 行動，聚焦商品管理與零售洞察。',
     'product.summary.empty': '目前無商品資料',
     'product.summary.sku': 'SKU',
     'product.summary.styleNo': '款號',
@@ -652,10 +678,16 @@ const I18N = {
     'product.summary.errorValue': 'ERROR',
     'product.summary.filter.styleNo': '款號',
     'product.summary.filter.itemNo': '貨號',
+    'product.summary.filter.issue': '找問題',
+    'product.summary.filter.issue.all': '全部商品',
+    'product.summary.filter.issue.highTryNoSale': '高試穿未成交',
+    'product.summary.filter.issue.lowStock': '低庫存',
+    'product.summary.filter.issue.lowConversion': '低轉化',
     'product.summary.filter.reset': '清除篩選',
     'product.summary.view.label': '顯示模式',
-    'product.summary.view.sku': 'SKU 檢視',
-    'product.summary.view.nested': '巢狀檢視',
+    'product.summary.view.inventory': '庫存視圖',
+    'product.summary.view.performance': '績效視圖',
+    'product.summary.view.conversion': '轉化視圖',
     'product.summary.nested.items': 'SKU 筆數',
     'product.summary.colorCount': '顏色數',
     'product.summary.skuCount': 'SKU 數',
@@ -664,6 +696,15 @@ const I18N = {
     'product.summary.epcCount': 'EPC 數',
     'product.summary.viewEpcs': '查看 EPC',
     'product.summary.lowStock': '低庫存',
+    'product.summary.tryOns': '試穿',
+    'product.summary.conversion': '轉化率',
+    'product.summary.epcDetailHint': 'EPC 明細預設隱藏',
+    'product.summary.viewEpcDetails': '查看 EPC 明細',
+    'product.summary.hideEpcDetails': '隱藏 EPC 明細',
+    'product.summary.insight.highInterestLowConversion': '高興趣低轉化',
+    'product.summary.insight.sizeImbalance': '尺寸不平衡',
+    'product.summary.insight.lowStockRisk': '低庫存風險',
+    'product.summary.insight.highPerformer': '高表現款',
     'product.summary.status': '狀態',
     'product.summary.lastSeen': '最後偵測',
     'product.summary.styleCardFallback': '款式摘要',
@@ -847,14 +888,17 @@ const I18N = {
     'dashboard31.journey.dropOff.noActivity': '目前無活動',
     'dashboard31.ai.title': 'AI 商業洞察',
     'dashboard31.actions.title': '建議行動',
+    'dashboard31.opportunities.viewAll': '查看全部機會',
     'dashboard31.actions.empty': '目前無立即處理事項',
     'dashboard31.opportunities.title': '營收機會清單',
     'dashboard31.opportunities.empty': '目前無可排序機會',
     'dashboard31.alerts.title': '營運警示',
+    'dashboard31.alertsRisks.title': '警示 / 風險',
     'dashboard31.alerts.empty': '目前無營運風險',
     'dashboard31.replenishment.title': '補貨風險',
     'dashboard31.replenishment.empty': '目前無補貨風險',
     'dashboard31.technical.title': '技術即時看板',
+    'dashboard31.technical.openFull': '開啟完整技術視圖',
     'dashboard31.technical.show': '顯示技術細節',
     'dashboard31.technical.hide': '隱藏技術細節',
     'analytics.overview.tryOnUnit': '試穿',
@@ -928,11 +972,26 @@ const I18N = {
     'product.summary.errorValue': 'ERROR',
     'product.summary.filter.styleNo': '款号',
     'product.summary.filter.itemNo': '货号',
+    'product.summary.filter.issue': '找问题',
+    'product.summary.filter.issue.all': '全部商品',
+    'product.summary.filter.issue.highTryNoSale': '高试穿未成交',
+    'product.summary.filter.issue.lowStock': '低库存',
+    'product.summary.filter.issue.lowConversion': '低转化',
     'product.summary.filter.reset': '清除筛选',
     'product.summary.view.label': '显示模式',
-    'product.summary.view.sku': 'SKU 视图',
-    'product.summary.view.nested': '嵌套视图',
+    'product.summary.view.inventory': '库存视图',
+    'product.summary.view.performance': '绩效视图',
+    'product.summary.view.conversion': '转化视图',
     'product.summary.nested.items': 'SKU 行数',
+    'product.summary.tryOns': '试穿',
+    'product.summary.conversion': '转化率',
+    'product.summary.epcDetailHint': 'EPC 明细默认隐藏',
+    'product.summary.viewEpcDetails': '查看 EPC 明细',
+    'product.summary.hideEpcDetails': '隐藏 EPC 明细',
+    'product.summary.insight.highInterestLowConversion': '高兴趣低转化',
+    'product.summary.insight.sizeImbalance': '尺码不平衡',
+    'product.summary.insight.lowStockRisk': '低库存风险',
+    'product.summary.insight.highPerformer': '高表现款',
     'dashboard.abnormalStay': '异常停留',
     'import.title': 'CSV 批量导入商品',
     'import.fieldsHint': '字段：',
@@ -994,10 +1053,13 @@ const I18N = {
     'dashboard31.journey.purchaseIntent': '购买意图',
     'dashboard31.ai.title': 'AI 商业洞察',
     'dashboard31.actions.title': '建议动作',
+    'dashboard31.opportunities.viewAll': '查看全部机会',
     'dashboard31.opportunities.title': '营收机会清单',
     'dashboard31.alerts.title': '运营预警',
+    'dashboard31.alertsRisks.title': '预警 / 风险',
     'dashboard31.replenishment.title': '补货风险',
     'dashboard31.technical.title': '技术实时看板',
+    'dashboard31.technical.openFull': '打开完整技术视图',
     'dashboard31.technical.show': '显示技术细节',
     'dashboard31.technical.hide': '隐藏技术细节',
     'kpi.checkout': '结账柜台',
@@ -1065,11 +1127,26 @@ const I18N = {
     'product.summary.errorValue': 'ERROR',
     'product.summary.filter.styleNo': 'Style No',
     'product.summary.filter.itemNo': 'Item No',
+    'product.summary.filter.issue': '課題を探す',
+    'product.summary.filter.issue.all': 'すべての商品',
+    'product.summary.filter.issue.highTryNoSale': '試着多・販売なし',
+    'product.summary.filter.issue.lowStock': '低在庫',
+    'product.summary.filter.issue.lowConversion': '低転換',
     'product.summary.filter.reset': 'フィルター解除',
     'product.summary.view.label': '表示モード',
-    'product.summary.view.sku': 'SKU ビュー',
-    'product.summary.view.nested': 'ネストビュー',
+    'product.summary.view.inventory': '在庫ビュー',
+    'product.summary.view.performance': '実績ビュー',
+    'product.summary.view.conversion': '転換ビュー',
     'product.summary.nested.items': 'SKU 行数',
+    'product.summary.tryOns': '試着',
+    'product.summary.conversion': '転換率',
+    'product.summary.epcDetailHint': 'EPC 詳細は初期表示では非表示',
+    'product.summary.viewEpcDetails': 'EPC 詳細を見る',
+    'product.summary.hideEpcDetails': 'EPC 詳細を隠す',
+    'product.summary.insight.highInterestLowConversion': '高関心・低転換',
+    'product.summary.insight.sizeImbalance': 'サイズ偏り',
+    'product.summary.insight.lowStockRisk': '低在庫リスク',
+    'product.summary.insight.highPerformer': '高実績商品',
     'dashboard.abnormalStay': '異常滞在',
     'import.title': 'CSV 商品一括インポート',
     'import.fieldsHint': '項目:',
@@ -1131,10 +1208,13 @@ const I18N = {
     'dashboard31.journey.purchaseIntent': '購入意向',
     'dashboard31.ai.title': 'AI ビジネスインサイト',
     'dashboard31.actions.title': '推奨アクション',
+    'dashboard31.opportunities.viewAll': 'すべての機会を見る',
     'dashboard31.opportunities.title': '売上機会トップ',
     'dashboard31.alerts.title': '運用アラート',
+    'dashboard31.alertsRisks.title': 'アラート / リスク',
     'dashboard31.replenishment.title': '補充リスク',
     'dashboard31.technical.title': '技術ライブボード',
+    'dashboard31.technical.openFull': 'フル技術ビューを開く',
     'dashboard31.technical.show': '技術詳細を表示',
     'dashboard31.technical.hide': '技術詳細を非表示',
     'kpi.checkout': 'レジ',
@@ -1302,14 +1382,20 @@ function applyModeUiFromState() {
 }
 
 function applyProductSummaryViewUi() {
-  const isSku = currentProductSummaryView === 'sku';
-  if (el.productSummaryViewSku) {
-    el.productSummaryViewSku.classList.toggle('is-active', isSku);
-    el.productSummaryViewSku.setAttribute('aria-pressed', isSku ? 'true' : 'false');
+  const isInventory = currentProductSummaryView === 'inventory';
+  const isPerformance = currentProductSummaryView === 'performance';
+  const isConversion = currentProductSummaryView === 'conversion';
+  if (el.productSummaryViewInventory) {
+    el.productSummaryViewInventory.classList.toggle('is-active', isInventory);
+    el.productSummaryViewInventory.setAttribute('aria-pressed', isInventory ? 'true' : 'false');
   }
-  if (el.productSummaryViewNested) {
-    el.productSummaryViewNested.classList.toggle('is-active', !isSku);
-    el.productSummaryViewNested.setAttribute('aria-pressed', isSku ? 'false' : 'true');
+  if (el.productSummaryViewPerformance) {
+    el.productSummaryViewPerformance.classList.toggle('is-active', isPerformance);
+    el.productSummaryViewPerformance.setAttribute('aria-pressed', isPerformance ? 'true' : 'false');
+  }
+  if (el.productSummaryViewConversion) {
+    el.productSummaryViewConversion.classList.toggle('is-active', isConversion);
+    el.productSummaryViewConversion.setAttribute('aria-pressed', isConversion ? 'true' : 'false');
   }
 }
 
@@ -1963,7 +2049,7 @@ function resolveEventProductName(event = {}, productsByKey = new Map()) {
     || t('dashboard.unnamedProduct');
 }
 
-function renderActivityTimelineFromEvents(recentEvents = [], products = []) {
+function renderActivityTimelineFromEvents(recentEvents = [], products = [], maxItems = MAX_ACTIVITY_ITEMS) {
   if (!el.activityTimeline) return;
   const productsByKey = new Map();
   (Array.isArray(products) ? products : []).forEach((product) => {
@@ -1985,15 +2071,15 @@ function renderActivityTimelineFromEvents(recentEvents = [], products = []) {
       };
     })
     .filter(Boolean)
-    .slice(0, MAX_ACTIVITY_ITEMS)
+    .slice(0, Math.max(1, Number(maxItems) || MAX_ACTIVITY_ITEMS))
     .forEach((entry) => appendActivityLog(entry));
 }
 
-function renderEventLogList(recentEvents = []) {
+function renderEventLogList(recentEvents = [], maxItems = MAX_ACTIVITY_ITEMS) {
   if (!el.eventLog) return;
   el.eventLog.innerHTML = '';
   (Array.isArray(recentEvents) ? recentEvents : [])
-    .slice(0, MAX_ACTIVITY_ITEMS)
+    .slice(0, Math.max(1, Number(maxItems) || MAX_ACTIVITY_ITEMS))
     .forEach((event) => appendEventLog(event));
 }
 
@@ -3127,6 +3213,14 @@ function getProductKeyFromInventoryItem(row = {}, productById = new Map()) {
 function buildSkuSummaryRows(products = [], events = [], presenceRows = [], inventoryRows = []) {
   const productById = new Map((products || []).map((p) => [p.id, p]));
   const latestEventByEpc = buildLatestEventByEpc(events || []);
+  const tryOnByEpc = new Map();
+  (events || []).forEach((row) => {
+    const epc = String(row?.epc_data || '').trim();
+    if (!epc) return;
+    if (String(row?.event_type || '').trim().toLowerCase() === 'enter_fitting_room') {
+      tryOnByEpc.set(epc, (tryOnByEpc.get(epc) || 0) + 1);
+    }
+  });
   const presenceMap = buildPresenceMap(presenceRows || []);
   const nowMs = Date.now();
   const overstayMs = getCurrentOverstayThresholdMs();
@@ -3218,6 +3312,7 @@ function buildSkuSummaryRows(products = [], events = [], presenceRows = [], inve
         priceCandidates: new Set(),
         inventoryCount: 0,
         soldCount: 0,
+        tryOnCount: 0,
         totalCount: 0,
         items: []
       });
@@ -3237,6 +3332,7 @@ function buildSkuSummaryRows(products = [], events = [], presenceRows = [], inve
     if (price) bucket.priceCandidates.add(price);
 
     bucket.totalCount += 1;
+    bucket.tryOnCount += tryOnByEpc.get(epc) || 0;
     if (location === 'SOLD') {
       bucket.soldCount += 1;
     } else {
@@ -3298,6 +3394,7 @@ function buildSkuSummaryRows(products = [], events = [], presenceRows = [], inve
       size: resolveDisplayValue(row.sizeCandidates, row.sku, 'product.summary.size'),
       color: resolveDisplayValue(row.colorCandidates, row.sku, 'product.summary.color'),
       price: resolveDisplayValue(row.priceCandidates, row.sku, 'product.summary.price'),
+      tryOnCount: row.tryOnCount,
       inventoryCount: row.inventoryCount,
       soldCount: row.soldCount,
       totalCount: row.totalCount,
@@ -3339,16 +3436,7 @@ function getFilteredSummaryRows(summarySummary = { rows: [], conflicts: [] }) {
   const summaryRowsRaw = Array.isArray(summarySummary)
     ? summarySummary
     : (Array.isArray(summarySummary?.rows) ? summarySummary.rows : []);
-  const styleFilter = String(el.productStyleNoFilter?.value || '').trim().toLowerCase();
-  const itemFilter = String(el.productItemNoFilter?.value || '').trim().toLowerCase();
-  return summaryRowsRaw.filter((row) => {
-    const styleNo = String(row?.styleNo || '').toLowerCase();
-    const itemNo = String(row?.itemNo || '').toLowerCase();
-    const sku = String(row?.sku || '').toLowerCase();
-    const passStyle = !styleFilter || styleNo.includes(styleFilter);
-    const passItem = !itemFilter || itemNo.includes(itemFilter) || sku.includes(itemFilter);
-    return passStyle && passItem;
-  });
+  return summaryRowsRaw;
 }
 
 function renderProductSummaryConflicts(conflicts = []) {
@@ -3485,6 +3573,7 @@ function buildStyleHierarchyFromSummaryRows(summaryRows = []) {
     const groupKey = `${itemNo}::${color}`;
     const inventoryCount = Number(row?.inventoryCount || 0);
     const soldCount = Number(row?.soldCount || 0);
+    const tryOnCount = Number(row?.tryOnCount || 0);
     const totalCount = Number(row?.totalCount || 0);
     const parsedPrice = parseSummaryPrice(row?.price);
 
@@ -3494,11 +3583,13 @@ function buildStyleHierarchyFromSummaryRows(summaryRows = []) {
         productName: String(row?.productName || '').trim() || t('product.summary.styleCardFallback'),
         inventoryCount: 0,
         soldCount: 0,
+        tryOnCount: 0,
         totalCount: 0,
         colorsSet: new Set(),
         skuCount: 0,
         minPrice: Number.POSITIVE_INFINITY,
         maxPrice: Number.NEGATIVE_INFINITY,
+        sizeInventoryMap: new Map(),
         groups: new Map()
       });
     }
@@ -3509,6 +3600,7 @@ function buildStyleHierarchyFromSummaryRows(summaryRows = []) {
     }
     styleNode.inventoryCount += inventoryCount;
     styleNode.soldCount += soldCount;
+    styleNode.tryOnCount += tryOnCount;
     styleNode.totalCount += totalCount;
     styleNode.skuCount += 1;
     if (color && color !== '-') styleNode.colorsSet.add(color);
@@ -3533,6 +3625,9 @@ function buildStyleHierarchyFromSummaryRows(summaryRows = []) {
     groupNode.soldCount += soldCount;
     groupNode.totalCount += totalCount;
     if (size && size !== '-') groupNode.sizes.add(size);
+    if (size && size !== '-') {
+      styleNode.sizeInventoryMap.set(size, (styleNode.sizeInventoryMap.get(size) || 0) + inventoryCount);
+    }
     groupNode.skuRows.push({
       ...row,
       size,
@@ -3545,6 +3640,7 @@ function buildStyleHierarchyFromSummaryRows(summaryRows = []) {
     .map((styleNode) => ({
       ...styleNode,
       colorCount: styleNode.colorsSet.size,
+      conversionRate: styleNode.tryOnCount > 0 ? (styleNode.soldCount / styleNode.tryOnCount) : 0,
       priceRange: buildPriceRangeDisplay(styleNode.minPrice, styleNode.maxPrice),
       groups: [...styleNode.groups.values()]
         .sort((a, b) => {
@@ -3580,45 +3676,94 @@ function renderEpcDetailRows(items = []) {
   }).join('');
 }
 
+function formatSummaryPercent(value = 0) {
+  return `${(Number(value || 0) * 100).toFixed(1)}%`;
+}
+
+function getStyleInsightTags(styleNode = {}) {
+  const tags = [];
+  const tryOn = Number(styleNode.tryOnCount || 0);
+  const sold = Number(styleNode.soldCount || 0);
+  const conversion = tryOn > 0 ? (sold / tryOn) : 0;
+  const inventory = Number(styleNode.inventoryCount || 0);
+
+  if (tryOn >= 5 && conversion < 0.18) tags.push('highInterestLowConversion');
+  if (inventory > 0 && inventory <= 5) tags.push('lowStockRisk');
+  if (conversion >= 0.35 && sold >= 3) tags.push('highPerformer');
+
+  const sizeQuantities = [...(styleNode.sizeInventoryMap || new Map()).entries()]
+    .filter(([size]) => size && size !== '-')
+    .map(([, qty]) => Number(qty || 0));
+  if (sizeQuantities.length >= 3) {
+    const max = Math.max(...sizeQuantities);
+    const min = Math.max(1, Math.min(...sizeQuantities));
+    if (max / min >= 2.5) tags.push('sizeImbalance');
+  }
+
+  return tags;
+}
+
+function styleMatchesIssue(styleNode = {}, issue = 'all') {
+  if (!issue || issue === 'all') return true;
+  const tryOn = Number(styleNode.tryOnCount || 0);
+  const sold = Number(styleNode.soldCount || 0);
+  const conversion = tryOn > 0 ? (sold / tryOn) : 0;
+  const inventory = Number(styleNode.inventoryCount || 0);
+
+  if (issue === 'high-try-on-no-sale') return tryOn >= 5 && sold === 0;
+  if (issue === 'low-stock') return inventory <= 5;
+  if (issue === 'low-conversion') return tryOn >= 3 && conversion < 0.18;
+  return true;
+}
+
+function renderInsightTag(tagKey) {
+  return `<span class="product-insight-tag product-insight-tag--${escapeHtml(tagKey)}">${escapeHtml(t(`product.summary.insight.${tagKey}`))}</span>`;
+}
+
 function renderNestedSkuSummary(summaryRows = [], conflictHtml = '') {
+  productEpcDetailCache.clear();
+  let epcDetailSeq = 1;
   const LOW_STOCK_THRESHOLD = 3;
-  const styleNodes = buildStyleHierarchyFromSummaryRows(summaryRows);
+  const issueFilter = String(el.productIssueFilter?.value || 'all').trim();
+  const styleNodes = buildStyleHierarchyFromSummaryRows(summaryRows).filter((styleNode) => styleMatchesIssue(styleNode, issueFilter));
   const styleHtml = styleNodes
     .map((styleNode) => {
       const styleLabel = String(styleNode.productName || '').trim() || t('product.summary.styleCardFallback');
+      const styleTags = getStyleInsightTags(styleNode);
+      const styleConversion = Number(styleNode.conversionRate || 0);
       const colorHtml = styleNode.groups
         .map((groupNode) => {
           const skuRowsHtml = groupNode.skuRows
             .map((skuRow) => {
               const inventory = Number(skuRow.inventoryCount || 0);
               const isLowStock = inventory > 0 && inventory <= LOW_STOCK_THRESHOLD;
-              const epcRows = renderEpcDetailRows(skuRow.items || []);
+              const tryOn = Number(skuRow.tryOnCount || 0);
+              const conversion = tryOn > 0 ? (Number(skuRow.soldCount || 0) / tryOn) : 0;
+              const epcKey = `epc-${epcDetailSeq++}`;
+              productEpcDetailCache.set(epcKey, skuRow.items || []);
               return `
                 <details class="product-enterprise-sku-row">
                   <summary class="product-enterprise-sku-summary">
                     <span class="product-enterprise-sku-cell product-enterprise-sku-cell--sku"><code>${escapeHtml(skuRow.sku)}</code></span>
                     <span class="product-enterprise-sku-cell"><span class="product-size-badge">${escapeHtml(skuRow.size || '-')}</span></span>
-                    <span class="product-enterprise-sku-cell">${escapeHtml(formatSummaryPriceDisplay(skuRow.price))}</span>
                     <span class="product-enterprise-sku-cell product-enterprise-sku-cell--inventory ${isLowStock ? 'is-low-stock' : ''}">${escapeHtml(String(inventory))}</span>
                     <span class="product-enterprise-sku-cell product-enterprise-sku-cell--sold">${escapeHtml(String(skuRow.soldCount || 0))}</span>
-                    <span class="product-enterprise-sku-cell">${escapeHtml(String(skuRow.epcCount || 0))}</span>
-                    <span class="product-enterprise-sku-cell product-enterprise-sku-cell--action">${escapeHtml(t('product.summary.viewEpcs'))}${isLowStock ? ` · <span class="product-stock-badge">${escapeHtml(t('product.summary.lowStock'))}</span>` : ''}</span>
+                    <span class="product-enterprise-sku-cell">${escapeHtml(String(tryOn))}</span>
+                    <span class="product-enterprise-sku-cell">${escapeHtml(formatSummaryPercent(conversion))}</span>
+                    <span class="product-enterprise-sku-cell product-enterprise-sku-cell--action">
+                      ${escapeHtml(t('product.summary.epcDetailHint'))}
+                      ${isLowStock ? `<span class="product-stock-badge">${escapeHtml(t('product.summary.lowStock'))}</span>` : ''}
+                    </span>
                   </summary>
-                  <div class="product-enterprise-epc-detail">
-                    <table class="preview-table product-enterprise-epc-table">
-                      <thead>
-                        <tr>
-                          <th>${escapeHtml(t('product.summary.itemNo'))}</th>
-                          <th>${escapeHtml(t('product.summary.epc'))}</th>
-                          <th>${escapeHtml(t('product.summary.location'))}</th>
-                          <th>${escapeHtml(t('product.summary.status'))}</th>
-                          <th>${escapeHtml(t('product.summary.lastSeen'))}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${epcRows}
-                      </tbody>
-                    </table>
+                  <div class="product-enterprise-sku-detail">
+                    <div class="product-enterprise-sku-detail-actions">
+                      <span>${escapeHtml(t('product.summary.price'))}: <strong>${escapeHtml(formatSummaryPriceDisplay(skuRow.price))}</strong></span>
+                      <span>${escapeHtml(t('product.summary.epcCount'))}: <strong>${escapeHtml(String(skuRow.epcCount || 0))}</strong></span>
+                      <button type="button" class="button-secondary product-epc-toggle" data-epc-key="${escapeHtml(epcKey)}" data-target-id="${escapeHtml(`${epcKey}-target`)}" aria-expanded="false">${escapeHtml(t('product.summary.viewEpcDetails'))}</button>
+                    </div>
+                    <div id="${escapeHtml(`${epcKey}-target`)}" class="product-enterprise-epc-detail" hidden>
+                      <p class="hint">${escapeHtml(t('product.summary.epcDetailHint'))}</p>
+                    </div>
                   </div>
                 </details>
               `;
@@ -3626,7 +3771,7 @@ function renderNestedSkuSummary(summaryRows = [], conflictHtml = '') {
             .join('');
 
           return `
-            <details class="product-enterprise-color-group" open>
+            <details class="product-enterprise-color-group">
               <summary class="product-enterprise-color-summary">
                 <div class="product-enterprise-color-main">
                   <span class="product-color-swatch" style="--swatch:${escapeHtml(inferColorSwatchHex(groupNode.color))}"></span>
@@ -3643,11 +3788,11 @@ function renderNestedSkuSummary(summaryRows = [], conflictHtml = '') {
                 <div class="product-enterprise-sku-head">
                   <span>${escapeHtml(t('product.summary.sku'))}</span>
                   <span>${escapeHtml(t('product.summary.size'))}</span>
-                  <span>${escapeHtml(t('product.summary.price'))}</span>
                   <span>${escapeHtml(t('product.summary.inventoryCount'))}</span>
                   <span>${escapeHtml(t('product.summary.soldCount'))}</span>
-                  <span>${escapeHtml(t('product.summary.epcCount'))}</span>
-                  <span>${escapeHtml(t('product.summary.viewEpcs'))}</span>
+                  <span>${escapeHtml(t('product.summary.tryOns'))}</span>
+                  <span>${escapeHtml(t('product.summary.conversion'))}</span>
+                  <span>${escapeHtml(t('product.summary.viewEpcDetails'))}</span>
                 </div>
                 ${skuRowsHtml}
               </div>
@@ -3656,13 +3801,14 @@ function renderNestedSkuSummary(summaryRows = [], conflictHtml = '') {
         }).join('');
 
       return `
-        <details class="product-enterprise-style-card" open>
+        <details class="product-enterprise-style-card">
           <summary class="product-enterprise-style-summary">
             <div class="product-enterprise-style-left">
               <div class="product-enterprise-thumb" aria-hidden="true">${escapeHtml(String(styleLabel).slice(0, 1).toUpperCase())}</div>
               <div>
                 <p class="product-enterprise-style-no">${escapeHtml(t('product.summary.styleNo'))}: ${escapeHtml(styleNode.styleNo)}</p>
                 <h3 class="product-enterprise-style-name">${escapeHtml(styleLabel)}</h3>
+                <div class="product-insight-tags">${styleTags.map(renderInsightTag).join('')}</div>
               </div>
             </div>
             <div class="product-enterprise-style-kpi">
@@ -3670,7 +3816,15 @@ function renderNestedSkuSummary(summaryRows = [], conflictHtml = '') {
               <span>${escapeHtml(t('product.summary.skuCount'))}: <strong>${escapeHtml(String(styleNode.skuCount || 0))}</strong></span>
               <span>${escapeHtml(t('product.summary.inventoryCount'))}: <strong>${escapeHtml(String(styleNode.inventoryCount || 0))}</strong></span>
               <span>${escapeHtml(t('product.summary.soldCount'))}: <strong>${escapeHtml(String(styleNode.soldCount || 0))}</strong></span>
-              <span>${escapeHtml(t('product.summary.priceRange'))}: <strong>${escapeHtml(styleNode.priceRange || '-')}</strong></span>
+              ${currentProductSummaryView === 'inventory'
+                ? `<span>${escapeHtml(t('product.summary.priceRange'))}: <strong>${escapeHtml(styleNode.priceRange || '-')}</strong></span>`
+                : ''}
+              ${currentProductSummaryView === 'performance'
+                ? `<span>${escapeHtml(t('product.summary.tryOns'))}: <strong>${escapeHtml(String(styleNode.tryOnCount || 0))}</strong></span>`
+                : ''}
+              ${currentProductSummaryView === 'conversion'
+                ? `<span>${escapeHtml(t('product.summary.conversion'))}: <strong>${escapeHtml(formatSummaryPercent(styleConversion))}</strong></span>`
+                : ''}
             </div>
           </summary>
           <div class="product-enterprise-style-body">
@@ -3695,13 +3849,43 @@ function renderProductSkuSummary(summarySummary = { rows: [], conflicts: [] }) {
 
   const conflicts = Array.isArray(summarySummary?.conflicts) ? summarySummary.conflicts : [];
   const conflictHtml = renderProductSummaryConflicts(conflicts);
+  el.productSkuSummary.innerHTML = renderNestedSkuSummary(summaryRows, conflictHtml);
+}
 
-  if (currentProductSummaryView === 'nested') {
-    el.productSkuSummary.innerHTML = renderNestedSkuSummary(summaryRows, conflictHtml);
-    return;
+function toggleEpcDetail(button) {
+  if (!button) return;
+  const targetId = String(button.getAttribute('data-target-id') || '').trim();
+  const epcKey = String(button.getAttribute('data-epc-key') || '').trim();
+  if (!targetId || !epcKey) return;
+
+  const target = document.getElementById(targetId);
+  if (!target) return;
+  const expanded = button.getAttribute('aria-expanded') === 'true';
+  const nextExpanded = !expanded;
+  button.setAttribute('aria-expanded', nextExpanded ? 'true' : 'false');
+  button.textContent = nextExpanded ? t('product.summary.hideEpcDetails') : t('product.summary.viewEpcDetails');
+  target.hidden = !nextExpanded;
+
+  if (nextExpanded && !target.dataset.rendered) {
+    const items = productEpcDetailCache.get(epcKey) || [];
+    target.innerHTML = `
+      <table class="preview-table product-enterprise-epc-table">
+        <thead>
+          <tr>
+            <th>${escapeHtml(t('product.summary.itemNo'))}</th>
+            <th>${escapeHtml(t('product.summary.epc'))}</th>
+            <th>${escapeHtml(t('product.summary.location'))}</th>
+            <th>${escapeHtml(t('product.summary.status'))}</th>
+            <th>${escapeHtml(t('product.summary.lastSeen'))}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${renderEpcDetailRows(items)}
+        </tbody>
+      </table>
+    `;
+    target.dataset.rendered = '1';
   }
-
-  el.productSkuSummary.innerHTML = renderLegacySkuSummary(summaryRows, conflictHtml);
 }
 
 function computeKpiMetrics({ grouped, sessions, saleEvents }) {
@@ -4031,16 +4215,29 @@ function computeRecommendedActions({ grouped = {}, opportunities = [], journey, 
 }
 
 function computeTopRevenueOpportunities(opportunities = []) {
-  return (Array.isArray(opportunities) ? opportunities : []).slice(0, 8).map((row) => ({
-    name: row.name,
-    sku: row.sku,
-    tryOn: row.tryOn,
-    sales: row.sales,
-    conversionRate: row.conversionRate,
-    opportunityScore: row.opportunityScore,
-    estimatedMissedRevenue: row.estimatedMissedRevenue,
-    recommendedAction: row.sales === 0 ? 'product_review' : 'monitor'
-  }));
+  const deduped = new Map();
+  (Array.isArray(opportunities) ? opportunities : []).forEach((row) => {
+    const key = String(row?.sku || '').trim().toUpperCase() || String(row?.name || '').trim().toLowerCase();
+    if (!key) return;
+    const existing = deduped.get(key);
+    if (!existing || toSafeNumber(row?.opportunityScore, 0) > toSafeNumber(existing?.opportunityScore, 0)) {
+      deduped.set(key, row);
+    }
+  });
+
+  return Array.from(deduped.values())
+    .sort((a, b) => (toSafeNumber(b?.opportunityScore, 0) - toSafeNumber(a?.opportunityScore, 0)) || (toSafeNumber(b?.tryOn, 0) - toSafeNumber(a?.tryOn, 0)))
+    .slice(0, 3)
+    .map((row) => ({
+      name: row.name,
+      sku: row.sku,
+      tryOn: row.tryOn,
+      sales: row.sales,
+      conversionRate: row.conversionRate,
+      opportunityScore: row.opportunityScore,
+      estimatedMissedRevenue: row.estimatedMissedRevenue,
+      recommendedAction: row.sales === 0 ? 'product_review' : 'monitor'
+    }));
 }
 
 function computeOperationAlerts({ grouped = {}, journey }) {
@@ -4689,6 +4886,11 @@ function renderDashboard(products, latestEventMap, presenceMap, todaySessions = 
 
   renderAnalyticsModules({ products, grouped, todaySessions, todaySaleEvents, recentEvents, sales7d, inventoryRows });
 
+  if (el.techCountRack) el.techCountRack.textContent = String(grouped?.RACK?.length || 0);
+  if (el.techCountFitting) el.techCountFitting.textContent = String(grouped?.FITTING_ROOM?.length || 0);
+  if (el.techCountCheckout) el.techCountCheckout.textContent = String(grouped?.CHECKOUT?.length || 0);
+  if (el.techCountSold) el.techCountSold.textContent = String(soldItems || 0);
+
   if (!el.dashboard) return;
 
   el.dashboard.innerHTML = BOARD_STATES.map((state) => {
@@ -5245,8 +5447,8 @@ async function fetchAndRenderDashboard() {
   const safeInventoryRows = inventoryRes?.error ? [] : (inventoryRes?.data || []);
   const safeRecentEvents = eventsRes?.data || [];
 
-  renderActivityTimelineFromEvents(safeRecentEvents, localizedProducts);
-  renderEventLogList(safeRecentEvents);
+  renderActivityTimelineFromEvents(safeRecentEvents, localizedProducts, DASHBOARD_TECHNICAL_LOG_ITEMS);
+  renderEventLogList(safeRecentEvents, DASHBOARD_TECHNICAL_LOG_ITEMS);
 
   if (!inventoryRes?.error && safeInventoryRows.length === 0 && (productsRes.data || []).length > 0) {
     console.warn('[dashboard] inventory_items returned 0 rows while products exist; possible RLS/no-select-policy or wrong project data source', {
@@ -5750,31 +5952,37 @@ function boot() {
   if (el.groupedFilter) {
     el.groupedFilter.addEventListener('change', previewGroupedCsvFile);
   }
-  if (el.productStyleNoFilter) {
-    el.productStyleNoFilter.addEventListener('input', () => {
-      renderProductSkuSummary(lastSkuSummary);
-    });
-  }
-  if (el.productItemNoFilter) {
-    el.productItemNoFilter.addEventListener('input', () => {
+  if (el.productIssueFilter) {
+    el.productIssueFilter.addEventListener('change', () => {
       renderProductSkuSummary(lastSkuSummary);
     });
   }
   if (el.productFilterReset) {
     el.productFilterReset.addEventListener('click', () => {
-      if (el.productStyleNoFilter) el.productStyleNoFilter.value = '';
-      if (el.productItemNoFilter) el.productItemNoFilter.value = '';
+      if (el.productIssueFilter) el.productIssueFilter.value = 'all';
       renderProductSkuSummary(lastSkuSummary);
     });
   }
-  if (el.productSummaryViewSku) {
-    el.productSummaryViewSku.addEventListener('click', () => {
-      setProductSummaryView('sku');
+  if (el.productSummaryViewInventory) {
+    el.productSummaryViewInventory.addEventListener('click', () => {
+      setProductSummaryView('inventory');
     });
   }
-  if (el.productSummaryViewNested) {
-    el.productSummaryViewNested.addEventListener('click', () => {
-      setProductSummaryView('nested');
+  if (el.productSummaryViewPerformance) {
+    el.productSummaryViewPerformance.addEventListener('click', () => {
+      setProductSummaryView('performance');
+    });
+  }
+  if (el.productSummaryViewConversion) {
+    el.productSummaryViewConversion.addEventListener('click', () => {
+      setProductSummaryView('conversion');
+    });
+  }
+  if (el.productSkuSummary) {
+    el.productSkuSummary.addEventListener('click', (event) => {
+      const button = event.target.closest('.product-epc-toggle');
+      if (!button) return;
+      toggleEpcDetail(button);
     });
   }
   if (el.simulateForm) {

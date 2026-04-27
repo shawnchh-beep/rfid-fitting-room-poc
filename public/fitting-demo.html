@@ -12,16 +12,15 @@
       <div class="app-topbar__brand">RFID Retail Demo</div>
       <nav class="top-nav app-topbar__nav" aria-label="Primary" data-i18n-aria-label="frd.aria.primaryNav">
         <a href="/" class="top-nav-link" data-i18n="frd.nav.home">Home</a>
-        <a href="/dashboard" class="top-nav-link" data-i18n="frd.nav.dashboard">Dashboard</a>
         <a href="/fitting-demo" class="top-nav-link is-active" aria-current="page" data-i18n="frd.nav.fittingDemo">Fitting Demo</a>
-        <a href="/product.html" class="top-nav-link" data-i18n="frd.nav.product">Product</a>
-        <a href="/csv-import.html" class="top-nav-link" data-i18n="frd.nav.csvImport">CSV Import</a>
-        <a href="/setting" class="top-nav-link" data-i18n="frd.nav.setting">Setting</a>
       </nav>
       <div class="app-topbar__actions">
         <label for="fittingDemoLanguageSelect" class="language-label" data-i18n="frd.language">Language</label>
         <select id="fittingDemoLanguageSelect" class="language-select" aria-label="Language" data-i18n-aria-label="frd.aria.languageSelect"></select>
-        <span class="status-badge" data-i18n="frd.top.connected">Connected</span>
+        <label class="frd-advanced-toggle">
+          <input id="advancedModeToggle" type="checkbox" />
+          <span data-i18n="frd.advanced.toggle">Advanced Mode</span>
+        </label>
         <button type="button" class="button-secondary" data-i18n="frd.auth.logout" onclick="window.location.href='/login.html'">Logout</button>
       </div>
     </header>
@@ -29,29 +28,42 @@
     <header class="page-header frd-header" data-embed-hide>
       <div class="page-header-main">
         <h1 data-i18n="frd.header.title">Fitting Room Demo</h1>
-        <p class="hint frd-subtitle" data-i18n="frd.header.subtitle">Simulate item movement from rack to fitting room and checkout.</p>
+        <p class="hint frd-subtitle" data-i18n="frd.header.subtitle">Interactive 3-step retail journey powered by RFID.</p>
       </div>
       <div class="page-header-actions frd-header-actions">
-        <p id="fittingDemoAlertsBadge" class="status-badge" data-i18n="frd.alertsBadge">Active Alerts: 0</p>
         <p id="fittingDemoStatus" class="status-badge" data-i18n="frd.status.db">DB Mode</p>
       </div>
     </header>
 
   <main class="layout frd-layout page-content">
+    <section class="panel frd-guide" aria-label="Demo Guide" data-i18n-aria-label="frd.aria.demoGuide">
+      <h2 data-i18n="frd.guide.title">How this demo works</h2>
+      <ol class="frd-guide-steps">
+        <li data-i18n="frd.guide.step1">Step 1: Select product</li>
+        <li data-i18n="frd.guide.step2">Step 2: Drag into fitting room</li>
+        <li data-i18n="frd.guide.step3">Step 3: Move to checkout or back</li>
+      </ol>
+      <p class="hint" data-i18n="frd.guide.kpiHint">KPI updates in real time after each action.</p>
+    </section>
+
+    <section class="panel frd-kpi" aria-label="Live KPI Panel" data-i18n-aria-label="frd.aria.kpiPanel">
+      <h2 data-i18n="frd.kpi.title">Live KPI Panel</h2>
+      <div id="kpiPanelBody" class="frd-kpi-grid"></div>
+    </section>
+
     <section class="panel frd-main" aria-label="Fitting Room Demo Board" data-i18n-aria-label="frd.aria.demoBoard">
       <section class="frd-col" aria-labelledby="rackPanelTitle">
         <div class="frd-col-header">
           <h2 id="rackPanelTitle" data-i18n="frd.rack.title">Rack</h2>
-          <p class="hint" data-i18n="frd.rack.subtitle">Summary list for quick selection</p>
+          <p class="hint" data-i18n="frd.rack.subtitle">Choose size and send item to fitting room</p>
         </div>
         <div id="rackList" class="frd-rack-list frd-rack-dropzone" data-drop-zone="rack"></div>
-        <div id="selectedItemDetailBody" class="frd-selected-detail"></div>
       </section>
 
       <section class="frd-col frd-col--center" aria-labelledby="roomsPanelTitle">
         <div class="frd-col-header">
-          <h2 id="roomsPanelTitle" data-i18n="frd.rooms.title">Fitting Rooms</h2>
-          <p class="hint" data-i18n="frd.rooms.subtitle">Status-first rooms with compact item cards</p>
+          <h2 id="roomsPanelTitle" data-i18n="frd.rooms.title">Fitting Room</h2>
+          <p class="hint" data-i18n="frd.rooms.subtitle">Track try-ons, dwell time, and next action</p>
         </div>
         <div id="roomsGrid" class="frd-rooms-grid"></div>
       </section>
@@ -59,47 +71,22 @@
       <section class="frd-col frd-col--checkout" aria-labelledby="checkoutPanelTitle">
         <div class="frd-col-header">
           <h2 id="checkoutPanelTitle" data-i18n="frd.checkout.title">Checkout</h2>
-          <p class="hint" data-i18n="frd.checkout.subtitle">Recent purchase stream</p>
+          <p class="hint" data-i18n="frd.checkout.subtitle">Items ready to purchase</p>
         </div>
         <article class="frd-checkout-panel" aria-label="Checkout Drop Zone and Purchased Items" data-i18n-aria-label="frd.aria.checkoutPanel">
           <div id="checkoutDropzone" class="frd-checkout-dropzone" data-drop-zone="checkout">
-            <p class="hint" data-i18n="frd.checkout.dropHint">Drop drag token here</p>
+            <p class="hint" data-i18n="frd.checkout.dropHint">Drop fitting-room items here</p>
           </div>
+          <p id="checkoutTotalPrice" class="frd-checkout-total">$0.00</p>
           <div id="checkoutList" class="frd-checkout-list"></div>
-          <button id="checkoutToggleButton" type="button" class="button-secondary frd-checkout-toggle" hidden data-i18n="frd.checkout.viewOlder">View older</button>
+          <button id="completeSaleButton" type="button" class="button-primary frd-checkout-toggle" data-i18n="frd.checkout.completeSale">Complete Sale</button>
         </article>
       </section>
     </section>
 
-    <section class="frd-bottom">
-      <article class="panel frd-bottom-tabs" aria-label="Bottom Information Tabs" data-i18n-aria-label="frd.aria.bottomInfoTabs">
-        <div class="frd-tabs" role="tablist" aria-label="Bottom info tabs" data-i18n-aria-label="frd.aria.bottomTabs">
-          <button type="button" class="frd-tab-btn is-active" role="tab" aria-selected="true" data-bottom-tab="recent-events" data-i18n="frd.tabs.recentEvents">Recent Events</button>
-          <button type="button" class="frd-tab-btn" role="tab" aria-selected="false" data-bottom-tab="room-summary" data-i18n="frd.tabs.roomSummary">Room Summary</button>
-        </div>
-
-        <section class="frd-tab-panel" data-bottom-panel="recent-events">
-          <div class="frd-events-table-wrap">
-            <table class="frd-events-table">
-              <thead>
-                <tr>
-                  <th data-i18n="frd.table.time">Time</th>
-                  <th data-i18n="frd.table.product">Product</th>
-                  <th data-i18n="frd.table.size">Size</th>
-                  <th data-i18n="frd.table.room">Room</th>
-                  <th data-i18n="frd.table.eventType">Event Type</th>
-                  <th data-i18n="frd.table.status">Status</th>
-                </tr>
-              </thead>
-              <tbody id="recentEventsBody"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="frd-tab-panel" data-bottom-panel="room-summary" hidden>
-          <div id="roomSummaryBody" class="frd-room-summary"></div>
-        </section>
-      </article>
+    <section id="advancedPanel" class="panel frd-bottom" hidden>
+      <h3 data-i18n="frd.advanced.title">Technical Details</h3>
+      <div id="advancedEventList" class="frd-advanced-events"></div>
     </section>
   </main>
 
