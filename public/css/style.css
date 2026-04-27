@@ -48,6 +48,11 @@ body {
   color: var(--text);
 }
 
+body.is-embedded-fitting-demo {
+  padding: 0;
+  background: transparent;
+}
+
 .login-screen {
   min-height: calc(100vh - 40px);
   display: grid;
@@ -370,6 +375,48 @@ a.home-card:visited {
   border-color: var(--border);
 }
 
+.app-shell {
+  width: min(1360px, 100%);
+  margin: 0 auto;
+}
+
+.app-topbar {
+  position: sticky;
+  top: 10px;
+  z-index: 30;
+  margin-bottom: 18px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(6px);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.app-topbar__brand {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e3a8a;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.app-topbar__nav {
+  justify-content: center;
+}
+
+.app-topbar__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .page-header {
   display: flex;
   flex-wrap: wrap;
@@ -377,6 +424,56 @@ a.home-card:visited {
   justify-content: space-between;
   gap: 14px;
   margin-bottom: 20px;
+}
+
+.page-header-main {
+  display: grid;
+  gap: 6px;
+}
+
+.page-header-main .hint {
+  margin: 0;
+}
+
+.page-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.page-content {
+  margin-top: 6px;
+}
+
+.fitting-shell-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.fitting-shell-frame {
+  width: 100%;
+  min-height: 78vh;
+  border: 0;
+  display: block;
+  background: #fff;
+}
+
+body.is-embedded-fitting-demo .app-shell {
+  width: 100%;
+}
+
+body.is-embedded-fitting-demo .page-content {
+  margin-top: 0;
+}
+
+body.is-embedded-fitting-demo .frd-layout {
+  gap: 12px;
+}
+
+body.is-embedded-fitting-demo .frd-main {
+  border-radius: 0;
 }
 
 .header-actions {
@@ -414,8 +511,8 @@ a.top-nav-link:hover {
 
 a.top-nav-link.is-active,
 a.top-nav-link[aria-current="page"] {
-  color: var(--color-primary);
-  background: var(--color-primary-soft);
+  color: #ffffff;
+  background: var(--color-primary);
   font-weight: 600;
 }
 
@@ -453,10 +550,10 @@ h2 {
 
 .status-badge {
   margin: 0;
-  padding: 8px 12px;
+  padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: var(--panel);
+  background: #f8fbff;
   color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 500;
@@ -484,6 +581,74 @@ h2 {
   display: grid;
   gap: 20px;
   grid-template-columns: 1fr;
+}
+
+.product-summary-toolbar--row {
+  margin: 0.75rem 0 1rem;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.csv-import-tabs {
+  display: inline-flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.csv-import-tabs .button-secondary.is-active {
+  border-color: var(--color-primary);
+  color: #ffffff;
+  background: var(--color-primary);
+}
+
+.csv-import-panel + .csv-import-panel {
+  margin-top: 8px;
+}
+
+.layout--dashboard31 {
+  gap: 16px;
+}
+
+.dashboard31-revenue-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dashboard31-revenue-card {
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #dbe3f0;
+}
+
+.dashboard31-two-column {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.dashboard31-insight-headline {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.dashboard31-technical {
+  border-color: #dbe3f0;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f8fc 100%);
+}
+
+.dashboard31-technical-body {
+  margin-top: 10px;
+  border-top: 1px dashed #cfd8e3;
+  padding-top: 12px;
+}
+
+.dashboard31-technical-body[hidden] {
+  display: none !important;
 }
 
 .dashboard-analytics-section {
@@ -596,7 +761,7 @@ h2 {
 }
 
 .analytics-opportunity-row {
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) repeat(4, auto);
   font-size: 12px;
   border-bottom: 1px dashed var(--border);
   padding-bottom: 6px;
@@ -641,7 +806,7 @@ h2 {
 .analytics-alert-item--info { border-left-color: var(--brand); }
 
 .analytics-safety-row {
-  grid-template-columns: minmax(120px, 1fr) minmax(0, 1.4fr) auto;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   font-size: 12px;
 }
 
@@ -783,6 +948,36 @@ h2 {
   display: grid;
   gap: 12px;
   grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
+}
+
+@media (max-width: 1180px) {
+  .dashboard31-revenue-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard31-two-column {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard31-revenue-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-opportunity-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .analytics-safety-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .dashboard-board {
+    overflow-x: auto;
+  }
 }
 
 .manager-core-grid--actions {
@@ -1287,9 +1482,9 @@ button:hover {
 }
 
 .product-summary-view-toggle .button-secondary.is-active {
-  background: #e2e8f0;
-  border-color: #94a3b8;
-  color: #0f172a;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #ffffff;
 }
 
 .product-summary-toolbar {
@@ -1771,13 +1966,27 @@ button:hover {
 .button-secondary {
   background: #ffffff;
   border-color: var(--color-input-border);
-  color: var(--color-text-secondary);
+  color: #334155;
+  min-height: 42px;
+  border-radius: 12px;
 }
 
 .button-secondary:hover {
   background: #f8fafc;
   border-color: #94a3b8;
   color: var(--color-text-primary);
+}
+
+.button-secondary.is-active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #ffffff;
+}
+
+.button-secondary.is-active:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  color: #ffffff;
 }
 
 .button-danger {
@@ -1939,7 +2148,7 @@ button:hover {
 
 .frd-main {
   display: grid;
-  grid-template-columns: 24% 52% 24%;
+  grid-template-columns: 25% 50% 25%;
   gap: 14px;
 }
 

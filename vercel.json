@@ -31,7 +31,7 @@
     },
     {
       "source": "/fitting-demo",
-      "destination": "/public/fitting-demo.html"
+      "destination": "/public/index.html"
     },
     {
       "source": "/",

@@ -7,25 +7,33 @@
   <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
-  <div id="appShell" hidden>
-    <nav class="top-nav" aria-label="Primary" data-i18n-aria-label="aria.primaryNav" style="margin: 12px 20px 0;">
-      <a href="/" data-route-link class="top-nav-link" data-i18n="nav.home">Home</a>
-      <a href="/dashboard" data-route-link class="top-nav-link" data-i18n="home.cards.dashboard.title">Dashboard</a>
-      <a href="/product.html" data-route-link class="top-nav-link" data-i18n="nav.product">Product</a>
-      <a href="/csv-import.html" data-route-link class="top-nav-link" data-i18n="nav.csvImport">CSV Import</a>
-      <a href="/setting" data-route-link class="top-nav-link" data-i18n="nav.setting">Setting</a>
-      <a href="/fitting-demo.html" class="top-nav-link" data-i18n="nav.fittingDemo">Fitting Demo</a>
-    </nav>
+  <div id="appShell" class="app-shell" hidden>
+    <header class="app-topbar">
+      <div class="app-topbar__brand">RFID Retail Demo</div>
+      <nav class="top-nav app-topbar__nav" aria-label="Primary" data-i18n-aria-label="aria.primaryNav">
+        <a href="/" data-route-link class="top-nav-link" data-i18n="nav.home">Home</a>
+        <a href="/dashboard" data-route-link class="top-nav-link" data-i18n="home.cards.dashboard.title">Dashboard</a>
+        <a href="/fitting-demo" data-route-link class="top-nav-link" data-i18n="nav.fittingDemo">Fitting Demo</a>
+        <a href="/product.html" data-route-link class="top-nav-link" data-i18n="nav.product">Product</a>
+        <a href="/csv-import.html" data-route-link class="top-nav-link" data-i18n="nav.csvImport">CSV Import</a>
+        <a href="/setting" data-route-link class="top-nav-link" data-i18n="nav.setting">Setting</a>
+      </nav>
+      <div class="app-topbar__actions">
+        <label for="languageSelect" class="language-label" data-i18n="language.label">Language</label>
+        <select id="languageSelect" class="language-select" aria-label="Language" data-i18n-aria-label="aria.languageSelect"></select>
+        <p id="connectionStatus" class="status-badge text-warn">Initializing…</p>
+        <button id="logoutButton" type="button" class="button-secondary" data-i18n="auth.logout">Logout</button>
+      </div>
+    </header>
 
     <section id="homeView" class="home-view" hidden>
       <header class="page-header">
-        <h1 data-i18n="home.title">Main Menu</h1>
-        <div class="header-actions">
-          <button id="homeToDashboardTop" type="button" data-i18n="home.actions.openDashboard">Open Dashboard</button>
-          <button id="logoutButtonHome" type="button" data-i18n="auth.logout">Logout</button>
+        <div class="page-header-main">
+          <h1 data-i18n="home.title">Main Menu</h1>
+          <p class="hint">Unified launcher for all modules.</p>
         </div>
       </header>
-      <main class="home-layout">
+      <main class="layout page-content home-layout">
         <section class="panel" aria-labelledby="homeCardsTitle">
           <h2 id="homeCardsTitle" data-i18n="home.cards.title">Select a module</h2>
           <div class="home-card-grid">
@@ -56,197 +64,148 @@
 
     <section id="dashboardView" hidden>
       <header class="page-header">
-        <h1 data-i18n="app.title">RFID Fitting Room PoC Dashboard</h1>
-        <div class="header-actions">
-          <label for="languageSelect" class="language-label" data-i18n="language.label">Language</label>
-          <select id="languageSelect" class="language-select" aria-label="Language" data-i18n-aria-label="aria.languageSelect"></select>
-          <button id="backToHome" type="button" class="button-secondary" data-i18n="home.actions.backHome">Back to Home</button>
-          <button id="logoutButton" type="button" data-i18n="auth.logout">Logout</button>
-          <p id="connectionStatus" class="status-badge">Initializing…</p>
+        <div class="page-header-main">
+          <h1 data-i18n="app.title">RFID Retail Conversion Dashboard</h1>
+          <p class="hint">Monitor conversion, opportunities, and operational alerts in real time.</p>
+        </div>
+        <div class="page-header-actions">
+          <span id="heroLiveStatus" class="status-badge" data-i18n="dashboard31.status.liveStore">Live store: Active</span>
+          <span id="heroTrackingStatus" class="status-badge" data-i18n="dashboard31.status.tracking">RFID tracking: Normal</span>
+          <span id="heroAiStatus" class="status-badge" data-i18n="dashboard31.status.ai">AI assistant: Ready</span>
         </div>
       </header>
 
-      <main class="layout">
+      <main class="layout layout--dashboard31 page-content">
         <section class="panel manager-hero" aria-labelledby="managerHeroTitle">
           <div>
-            <h2 id="managerHeroTitle">Smart Fitting Room Overview</h2>
-            <p id="heroNarrative" class="hint">Today store performance summary is loading.</p>
-          </div>
-          <div class="manager-status-pills">
-            <span id="heroLiveStatus" class="status-badge">Live store: Active</span>
-            <span id="heroTrackingStatus" class="status-badge">RFID tracking: Normal</span>
-            <span id="heroAiStatus" class="status-badge">AI assistant: Ready</span>
+            <h2 id="managerHeroTitle" data-i18n="dashboard31.hero.title">RFID Retail Conversion Dashboard</h2>
+            <p id="heroNarrative" class="hint" data-i18n="dashboard31.hero.subtitle">Turn fitting room activity into revenue growth.</p>
           </div>
         </section>
 
-        <section class="manager-kpi-grid" aria-label="Primary KPI">
-          <article class="kpi-card kpi-card--hero">
-            <p class="kpi-label" data-i18n="kpi.todayFitting">Today Fitting Sessions</p>
-            <p id="kpiTodayFitting" class="kpi-value">0</p>
+        <section class="dashboard31-revenue-grid" aria-label="Revenue Impact Cards" id="revenueImpactBody">
+          <article class="kpi-card kpi-card--hero dashboard31-revenue-card">
+            <p class="kpi-label" data-i18n="dashboard31.revenue.missed">Missed Revenue Today</p>
+            <p class="kpi-value" id="kpiMissedRevenue">$0</p>
           </article>
-          <article class="kpi-card kpi-card--hero">
-            <p class="kpi-label" data-i18n="kpi.conversionRate">Today Conversion Rate</p>
-            <p id="kpiConversionRate" class="kpi-value">0%</p>
+          <article class="kpi-card kpi-card--hero dashboard31-revenue-card">
+            <p class="kpi-label" data-i18n="dashboard31.revenue.uplift">Potential Sales Uplift</p>
+            <p class="kpi-value" id="kpiPotentialUplift">$0 - $0</p>
           </article>
-          <article class="kpi-card kpi-card--hero">
-            <p class="kpi-label" data-i18n="kpi.abnormal">Abnormal Stay</p>
-            <p id="kpiAbnormal" class="kpi-value text-err">0</p>
+          <article class="kpi-card kpi-card--hero dashboard31-revenue-card">
+            <p class="kpi-label" data-i18n="dashboard31.revenue.rate">Try-On to Sale Rate</p>
+            <p class="kpi-value" id="kpiTryOnToSaleRate">0%</p>
           </article>
-          <article class="kpi-card kpi-card--hero">
-            <p class="kpi-label">Opportunity Items</p>
-            <p id="kpiOpportunityItems" class="kpi-value">0</p>
-          </article>
-        </section>
-
-        <section class="panel manager-core-grid" aria-label="Overview Snapshot and AI Summary">
-          <article class="manager-core-card" aria-labelledby="overviewSnapshotTitle">
-            <header class="panel-title-row">
-              <h2 id="overviewSnapshotTitle">Live Store Snapshot</h2>
-            </header>
-            <div id="overviewSnapshotBody" class="dashboard-analytics-card-body">
-              <p class="hint" data-i18n="dashboard.empty">No data</p>
-            </div>
-          </article>
-          <article class="manager-core-card" aria-labelledby="overviewAiSummaryTitle">
-            <header class="panel-title-row">
-              <h2 id="overviewAiSummaryTitle">AI Summary Today</h2>
-            </header>
-            <div id="overviewAiSummaryBody" class="dashboard-analytics-card-body">
-              <p class="hint" data-i18n="dashboard.empty">No data</p>
-            </div>
+          <article class="kpi-card kpi-card--hero dashboard31-revenue-card">
+            <p class="kpi-label" data-i18n="dashboard31.revenue.lossDriver">Top Loss Driver</p>
+            <p class="kpi-value" id="kpiTopLossDriver">-</p>
           </article>
         </section>
 
-        <section class="panel manager-core-grid manager-core-grid--actions" aria-label="Top Opportunities and Active Alerts">
-          <article class="manager-core-card" aria-labelledby="overviewOpportunityTitle">
-            <header class="panel-title-row">
-              <h2 id="overviewOpportunityTitle">Top Opportunities</h2>
+        <section class="panel dashboard31-two-column" aria-label="Journey and AI Insight">
+          <article class="dashboard-analytics-card" aria-labelledby="journeyFunnelTitle">
+            <header class="dashboard-analytics-card-header">
+              <h3 id="journeyFunnelTitle" data-i18n="dashboard31.journey.title">Customer Journey Funnel</h3>
+              <span class="hint" data-i18n="analytics.range.today">Today</span>
             </header>
-            <div id="overviewOpportunityBody" class="dashboard-analytics-card-body">
+            <div id="journeyFunnelBody" class="dashboard-analytics-card-body">
               <p class="hint" data-i18n="dashboard.empty">No data</p>
             </div>
           </article>
-          <article class="manager-core-card" aria-labelledby="overviewAlertTitle">
-            <header class="panel-title-row">
-              <h2 id="overviewAlertTitle">Active Alerts</h2>
+          <article class="dashboard-analytics-card" aria-labelledby="aiBusinessInsightTitle">
+            <header class="dashboard-analytics-card-header">
+              <h3 id="aiBusinessInsightTitle" data-i18n="dashboard31.ai.title">AI Business Insight</h3>
+              <span class="hint" data-i18n="analytics.range.today">Today</span>
             </header>
-            <div id="overviewAlertBody" class="dashboard-analytics-card-body">
+            <div id="aiBusinessInsightBody" class="dashboard-analytics-card-body">
               <p class="hint" data-i18n="dashboard.empty">No data</p>
             </div>
           </article>
         </section>
 
-        <section id="dashboardStorySection" class="panel dashboard-analytics-section" aria-labelledby="dashboardStoryTitle">
-          <header class="dashboard-analytics-section-header">
-            <h2 id="dashboardStoryTitle" data-i18n="analytics.story.title">Story Layer</h2>
-            <span class="status-badge" data-i18n="analytics.range.today">Today</span>
-          </header>
-          <div class="dashboard-analytics-row dashboard-analytics-row--story">
-            <article id="storyFunnelCard" class="dashboard-analytics-card" aria-labelledby="storyFunnelTitle">
-              <header class="dashboard-analytics-card-header">
-                <h3 id="storyFunnelTitle" data-i18n="analytics.a1.title">Try-On to Sale Funnel</h3>
-                <span class="hint" data-i18n="analytics.range.sessionBasis">Session basis</span>
-              </header>
-              <div id="storyFunnelBody" class="dashboard-analytics-card-body">
-                <p class="hint" data-i18n="dashboard.empty">No data</p>
-              </div>
-            </article>
-            <article id="storyHourlyCard" class="dashboard-analytics-card" aria-labelledby="storyHourlyTitle">
-              <header class="dashboard-analytics-card-header">
-                <h3 id="storyHourlyTitle" data-i18n="analytics.a2.title">Hourly Activity Heat</h3>
-                <span class="hint" data-i18n="analytics.range.today">Today</span>
-              </header>
-              <div id="storyHourlyBody" class="dashboard-analytics-card-body">
-                <p class="hint" data-i18n="dashboard.empty">No data</p>
-              </div>
-            </article>
-          </div>
+        <section class="panel dashboard31-two-column" aria-label="Opportunities and Actions">
+          <article class="dashboard-analytics-card" aria-labelledby="topOpportunitiesTitle">
+            <header class="dashboard-analytics-card-header">
+              <h3 id="topOpportunitiesTitle" data-i18n="dashboard31.opportunities.title">Top Revenue Opportunities</h3>
+            </header>
+            <div id="topOpportunitiesBody" class="dashboard-analytics-card-body">
+              <p class="hint" data-i18n="dashboard.empty">No data</p>
+            </div>
+          </article>
+          <article class="dashboard-analytics-card" aria-labelledby="recommendedActionsTitle">
+            <header class="dashboard-analytics-card-header">
+              <h3 id="recommendedActionsTitle" data-i18n="dashboard31.actions.title">Recommended Actions</h3>
+            </header>
+            <div id="recommendedActionsBody" class="dashboard-analytics-card-body">
+              <p class="hint" data-i18n="dashboard.empty">No data</p>
+            </div>
+          </article>
         </section>
 
-        <section id="dashboardOpsSection" class="panel dashboard-analytics-section" aria-labelledby="dashboardOpsTitle">
-          <header class="dashboard-analytics-section-header">
-            <h2 id="dashboardOpsTitle" data-i18n="analytics.ops.title">Operations Layer</h2>
-            <span class="status-badge" data-i18n="analytics.range.last7Days">Last 7 days</span>
-          </header>
-          <div class="dashboard-analytics-row dashboard-analytics-row--ops">
-            <article id="opsOpportunityCard" class="dashboard-analytics-card" aria-labelledby="opsOpportunityTitle">
-              <header class="dashboard-analytics-card-header">
-                <h3 id="opsOpportunityTitle" data-i18n="analytics.b1.title">Opportunity Matrix</h3>
-                <span class="hint" data-i18n="analytics.b1.subtitle">Top opportunities</span>
-              </header>
-              <div id="opsOpportunityBody" class="dashboard-analytics-card-body">
-                <p class="hint" data-i18n="dashboard.empty">No data</p>
-              </div>
-            </article>
-            <article id="opsAlertCard" class="dashboard-analytics-card" aria-labelledby="opsAlertTitle">
-              <header class="dashboard-analytics-card-header">
-                <h3 id="opsAlertTitle" data-i18n="analytics.b2.title">Operations Alerts</h3>
-                <span class="hint" data-i18n="analytics.b2.subtitle">Action-required alerts</span>
-              </header>
-              <div id="opsAlertBody" class="dashboard-analytics-card-body">
-                <p class="hint" data-i18n="dashboard.empty">No data</p>
-              </div>
-            </article>
-          </div>
+        <section class="panel dashboard31-two-column" aria-label="Operations and Replenishment">
+          <article class="dashboard-analytics-card" aria-labelledby="operationsAlertsTitle">
+            <header class="dashboard-analytics-card-header">
+              <h3 id="operationsAlertsTitle" data-i18n="dashboard31.alerts.title">Operations Alerts</h3>
+            </header>
+            <div id="operationsAlertsBody" class="dashboard-analytics-card-body">
+              <p class="hint" data-i18n="dashboard.empty">No data</p>
+            </div>
+          </article>
+          <article class="dashboard-analytics-card" aria-labelledby="replenishmentRiskTitle">
+            <header class="dashboard-analytics-card-header">
+              <h3 id="replenishmentRiskTitle" data-i18n="dashboard31.replenishment.title">Replenishment Risk</h3>
+            </header>
+            <div id="replenishmentRiskBody" class="dashboard-analytics-card-body">
+              <p class="hint" data-i18n="dashboard.empty">No data</p>
+            </div>
+          </article>
         </section>
 
-        <section id="dashboardReplenishmentSection" class="panel dashboard-analytics-section" aria-labelledby="dashboardReplenishmentTitle">
-          <header class="dashboard-analytics-section-header">
-            <h2 id="dashboardReplenishmentTitle" data-i18n="analytics.replenishment.title">Replenishment Layer</h2>
-            <span class="status-badge" data-i18n="analytics.range.last7Days">Last 7 days</span>
-          </header>
-          <div class="dashboard-analytics-row dashboard-analytics-row--replenishment">
-            <article id="replenishmentSafetyCard" class="dashboard-analytics-card" aria-labelledby="replenishmentSafetyTitle">
-              <header class="dashboard-analytics-card-header">
-                <h3 id="replenishmentSafetyTitle" data-i18n="analytics.c1.title">Safety Stock Risk</h3>
-                <span class="hint" data-i18n="analytics.c1.subtitle">SKU risk against safety line</span>
-              </header>
-              <div id="replenishmentSafetyBody" class="dashboard-analytics-card-body">
-                <p class="hint" data-i18n="dashboard.empty">No data</p>
-              </div>
-            </article>
-            <article id="replenishmentPriorityCard" class="dashboard-analytics-card" aria-labelledby="replenishmentPriorityTitle">
-              <header class="dashboard-analytics-card-header">
-                <h3 id="replenishmentPriorityTitle" data-i18n="analytics.c3.title">Restock Priority List</h3>
-                <span class="hint" data-i18n="analytics.c3.subtitle">Action list</span>
-              </header>
-              <div id="replenishmentPriorityBody" class="dashboard-analytics-card-body">
-                <p class="hint" data-i18n="dashboard.empty">No data</p>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section class="panel panel--storefront" aria-labelledby="dashboardTitle">
+        <section class="panel panel--storefront dashboard31-technical" aria-labelledby="dashboardTitle">
           <div class="panel-title-row">
-            <h2 id="dashboardTitle">Detailed Live Board</h2>
+            <h2 id="dashboardTitle" data-i18n="dashboard31.technical.title">Technical Live Board</h2>
             <div class="panel-actions">
+              <button id="technicalBoardToggle" type="button" class="button-secondary" data-i18n="dashboard31.technical.show">Show Technical Details</button>
               <button id="refreshButton" type="button" data-i18n="dashboard.refresh">Refresh</button>
             </div>
           </div>
-          <div class="kpi-grid kpi-grid--compact" aria-label="Secondary KPI">
-            <article class="kpi-card">
-              <p class="kpi-label" data-i18n="kpi.total">Total Items</p>
-              <p id="kpiTotal" class="kpi-value">0</p>
-            </article>
-            <article class="kpi-card">
-              <p class="kpi-label" data-i18n="kpi.fitting">In Fitting</p>
-              <p id="kpiFitting" class="kpi-value">0</p>
-            </article>
-            <article class="kpi-card">
-              <p class="kpi-label" data-i18n="kpi.checkout">At Checkout</p>
-              <p id="kpiCheckout" class="kpi-value">0</p>
-            </article>
-            <article class="kpi-card">
-              <p class="kpi-label" data-i18n="kpi.sold">Sold</p>
-              <p id="kpiSold" class="kpi-value text-ok">0</p>
-            </article>
-            <article class="kpi-card">
-              <p class="kpi-label" data-i18n="kpi.todaySales">Today Sales</p>
-              <p id="kpiTodaySales" class="kpi-value">0</p>
-            </article>
+          <div id="technicalBoardBody" class="dashboard31-technical-body" hidden>
+            <div class="kpi-grid kpi-grid--compact" aria-label="Secondary KPI">
+              <article class="kpi-card">
+                <p class="kpi-label" data-i18n="kpi.total">Total Items</p>
+                <p id="kpiTotal" class="kpi-value">0</p>
+              </article>
+              <article class="kpi-card">
+                <p class="kpi-label" data-i18n="kpi.fitting">In Fitting</p>
+                <p id="kpiFitting" class="kpi-value">0</p>
+              </article>
+              <article class="kpi-card">
+                <p class="kpi-label" data-i18n="kpi.checkout">At Checkout</p>
+                <p id="kpiCheckout" class="kpi-value">0</p>
+              </article>
+              <article class="kpi-card">
+                <p class="kpi-label" data-i18n="kpi.sold">Sold</p>
+                <p id="kpiSold" class="kpi-value text-ok">0</p>
+              </article>
+              <article class="kpi-card">
+                <p class="kpi-label" data-i18n="kpi.todayFitting">Today Fitting Sessions</p>
+                <p id="kpiTodayFitting" class="kpi-value">0</p>
+              </article>
+              <article class="kpi-card">
+                <p class="kpi-label" data-i18n="kpi.todaySales">Today Sales</p>
+                <p id="kpiTodaySales" class="kpi-value">0</p>
+              </article>
+              <article class="kpi-card">
+                <p class="kpi-label" data-i18n="kpi.conversionRate">Today Conversion Rate</p>
+                <p id="kpiConversionRate" class="kpi-value">0%</p>
+              </article>
+              <article class="kpi-card">
+                <p class="kpi-label" data-i18n="kpi.abnormal">Customer Experience Risk</p>
+                <p id="kpiAbnormal" class="kpi-value text-err">0</p>
+              </article>
+            </div>
+            <section id="dashboard" class="dashboard-board" style="margin-top: 16px;"></section>
           </div>
-          <section id="dashboard" class="dashboard-board" style="margin-top: 16px;"></section>
         </section>
 
         <section class="panel" aria-labelledby="timelineTitle">
@@ -261,21 +220,50 @@
       </main>
     </section>
 
+    <section id="fittingDemoView" hidden>
+      <header class="page-header">
+        <div class="page-header-main">
+          <h1 data-i18n="home.cards.fittingDemo.title">Fitting Room Demo</h1>
+          <p class="hint">Embedded in app shell. Standalone fallback remains available.</p>
+        </div>
+        <div class="page-header-actions">
+          <a href="/fitting-demo.html" class="button-secondary">Open Standalone</a>
+        </div>
+      </header>
+      <main class="layout page-content">
+        <section class="panel fitting-shell-panel" aria-label="Fitting Demo Embedded View">
+          <iframe
+            id="fittingDemoFrame"
+            class="fitting-shell-frame"
+            src="/fitting-demo.html?embed=1"
+            title="Fitting Room Demo"
+            loading="lazy"
+            referrerpolicy="same-origin"
+          ></iframe>
+        </section>
+      </main>
+    </section>
+
     <section id="productView" hidden>
       <header class="page-header">
-        <h1 data-i18n="home.cards.product.title">Product</h1>
-      </header>
-
-      <main class="layout">
-        <section class="panel" aria-labelledby="productSummaryTitle">
-          <h2 id="productSummaryTitle" data-i18n="product.summary.title">Product Inventory</h2>
-          <p class="hint" data-i18n="product.summary.desc">Review style summaries first, then drill down to color groups, SKU rows, and EPC details.</p>
+        <div class="page-header-main">
+          <h1 data-i18n="home.cards.product.title">Product</h1>
+          <p class="hint">Browse style-level and SKU-level inventory with fast filters.</p>
+        </div>
+        <div class="page-header-actions">
           <div class="product-summary-view-toggle" role="group" aria-label="Product Summary View Mode">
             <span class="product-summary-view-toggle__label" data-i18n="product.summary.view.label">View</span>
             <button id="productSummaryViewSku" type="button" class="button-secondary" data-summary-view="sku" data-i18n="product.summary.view.sku">SKU View</button>
             <button id="productSummaryViewNested" type="button" class="button-secondary is-active" data-summary-view="nested" data-i18n="product.summary.view.nested">Nested View</button>
           </div>
-          <div class="stack-form product-summary-toolbar">
+        </div>
+      </header>
+
+      <main class="layout page-content">
+        <section class="panel" aria-labelledby="productSummaryTitle">
+          <h2 id="productSummaryTitle" data-i18n="product.summary.title">Product Inventory</h2>
+          <p class="hint" data-i18n="product.summary.desc">Review style summaries first, then drill down to color groups, SKU rows, and EPC details.</p>
+          <div class="product-summary-toolbar product-summary-toolbar--row">
             <label>
               <span data-i18n="product.summary.filter.styleNo">Style No</span>
               <input id="productStyleNoFilter" type="text" placeholder="e.g. 4520001" data-i18n-placeholder="placeholder.productStyleNo" />
@@ -293,55 +281,69 @@
 
     <section id="csvImportView" hidden>
       <header class="page-header">
-        <h1 data-i18n="home.cards.csv.title">CSV Import</h1>
+        <div class="page-header-main">
+          <h1 data-i18n="home.cards.csv.title">CSV Import</h1>
+          <p class="hint">Import data with either simple upload or grouped EPC generation flow.</p>
+        </div>
+        <div class="page-header-actions">
+          <button id="csvDownloadTemplateButton" type="button" class="button-secondary">Download CSV Template</button>
+          <button id="csvImportHistoryButton" type="button" class="button-secondary">Import History</button>
+        </div>
       </header>
 
-      <main class="layout">
-        <section class="panel" aria-labelledby="importTitle">
-          <h2 id="importTitle" data-i18n="import.title">CSV Product Import</h2>
-          <form id="csvImportForm" class="stack-form">
-            <input id="csvFile" type="file" accept=".csv,text/csv" required />
-            <button type="submit" data-i18n="import.submit">Upload & Import</button>
-          </form>
-          <pre id="importResult" class="result-box" data-i18n="import.notStarted">Not imported yet</pre>
-        </section>
-
+      <main class="layout page-content">
         <section class="panel" aria-labelledby="groupedImportTitle">
-          <h2 id="groupedImportTitle" data-i18n="importGrouped.title">Grouped CSV Import (Auto SGTIN-96)</h2>
-          <p class="hint" data-i18n="importGrouped.specHint">Required columns: style_no, item_no, sku_ean13, product_name, color, size, quantity, price_usd</p>
-          <form id="groupedCsvImportForm" class="stack-form">
-            <label>
-              <span data-i18n="importGrouped.partitionLabel">Partition</span>
-              <select id="groupedPartition">
-                <option value="0">0</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5" selected>5</option>
-                <option value="6">6</option>
-              </select>
-            </label>
-            <label>
-              <span data-i18n="importGrouped.filterLabel">Filter</span>
-              <select id="groupedFilter">
-                <option value="0" selected>0</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-                <option value="7">7</option>
-              </select>
-            </label>
-            <input id="groupedCsvFile" type="file" accept=".csv,text/csv" required />
-            <button type="submit" data-i18n="importGrouped.submit">Generate EPC & Import</button>
-          </form>
-          <pre id="groupedImportResult" class="result-box" data-i18n="importGrouped.notStarted">Not imported yet</pre>
-          <section aria-labelledby="groupedPreviewTitle">
-            <h3 id="groupedPreviewTitle" data-i18n="importGrouped.previewTitle">Validation & Preview</h3>
-            <div id="groupedPreviewResult" class="result-box grouped-preview-box" data-i18n="importGrouped.previewEmpty">No file parsed yet</div>
+          <div class="csv-import-tabs" role="tablist" aria-label="CSV import mode tabs">
+            <button id="csvImportTabSimple" type="button" class="button-secondary" aria-selected="false">Simple Import</button>
+            <button id="csvImportTabGrouped" type="button" class="button-secondary is-active" aria-selected="true">Grouped Import - Auto SGTIN-96</button>
+          </div>
+
+          <section id="csvImportPanelGrouped" class="csv-import-panel" aria-labelledby="groupedImportTitle">
+            <h2 id="groupedImportTitle" data-i18n="importGrouped.title">Grouped CSV Import (Auto SGTIN-96)</h2>
+            <p class="hint" data-i18n="importGrouped.specHint">Required columns: style_no, item_no, sku_ean13, product_name, color, size, quantity, price_usd</p>
+            <form id="groupedCsvImportForm" class="stack-form">
+              <label>
+                <span data-i18n="importGrouped.partitionLabel">Partition</span>
+                <select id="groupedPartition">
+                  <option value="0">0</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5" selected>5</option>
+                  <option value="6">6</option>
+                </select>
+              </label>
+              <label>
+                <span data-i18n="importGrouped.filterLabel">Filter</span>
+                <select id="groupedFilter">
+                  <option value="0" selected>0</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                  <option value="6">6</option>
+                  <option value="7">7</option>
+                </select>
+              </label>
+              <input id="groupedCsvFile" type="file" accept=".csv,text/csv" required />
+              <button type="submit" data-i18n="importGrouped.submit">Generate EPC & Import</button>
+            </form>
+            <pre id="groupedImportResult" class="result-box" data-i18n="importGrouped.notStarted">Not imported yet</pre>
+            <section aria-labelledby="groupedPreviewTitle">
+              <h3 id="groupedPreviewTitle" data-i18n="importGrouped.previewTitle">Validation & Preview</h3>
+              <div id="groupedPreviewResult" class="result-box grouped-preview-box" data-i18n="importGrouped.previewEmpty">No file parsed yet</div>
+            </section>
+          </section>
+
+          <section id="csvImportPanelSimple" class="csv-import-panel" aria-labelledby="importTitle" hidden>
+            <h2 id="importTitle" data-i18n="import.title">CSV Product Import</h2>
+            <form id="csvImportForm" class="stack-form">
+              <input id="csvFile" type="file" accept=".csv,text/csv" required />
+              <button type="submit" data-i18n="import.submit">Upload & Import</button>
+            </form>
+            <pre id="importResult" class="result-box" data-i18n="import.notStarted">Not imported yet</pre>
           </section>
         </section>
       </main>
@@ -349,10 +351,13 @@
 
     <section id="settingView" hidden>
       <header class="page-header">
-        <h1 data-i18n="home.cards.setting.title">Setting</h1>
+        <div class="page-header-main">
+          <h1 data-i18n="home.cards.setting.title">Setting</h1>
+          <p class="hint">Configure Supabase connection, account management, and trial records.</p>
+        </div>
       </header>
 
-      <main class="layout">
+      <main class="layout page-content">
         <section class="panel" aria-labelledby="settingWorkspaceTitle">
           <h2 id="settingWorkspaceTitle">Setting Workspace</h2>
           <p class="hint">管理系統連線、帳號管理與 trial 申請紀錄。</p>

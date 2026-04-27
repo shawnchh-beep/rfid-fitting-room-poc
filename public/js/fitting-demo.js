@@ -30,8 +30,11 @@ const LANG_KEY = 'rfid_poc_lang_v1';
 const DEFAULT_LANG = 'en';
 const DEFAULT_SUPABASE_URL = 'https://trgxtbqjkhydvbfndmhk.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_RjeQR-HU84MRCpByTqZlxg_lwJHStMP';
+const EMBED_FLAG = 'embed';
 
 let currentLang = DEFAULT_LANG;
+
+const SUPPORTED_LANGS = ['en', 'zh-Hant'];
 
 const I18N = {
   en: {
@@ -39,11 +42,16 @@ const I18N = {
     'frd.header.title': 'Fitting Room Demo',
     'frd.header.subtitle': 'Select a product, choose a size, and drag it into a fitting room',
     'frd.aria.primaryNav': 'Primary',
+    'frd.aria.languageSelect': 'Language',
     'frd.nav.home': 'Home',
+    'frd.nav.dashboard': 'Dashboard',
     'frd.nav.fittingDemo': 'Fitting Demo',
     'frd.nav.product': 'Product',
     'frd.nav.csvImport': 'CSV Import',
     'frd.nav.setting': 'Setting',
+    'frd.language': 'Language',
+    'frd.top.connected': 'Connected',
+    'frd.auth.logout': 'Logout',
     'frd.openDashboard': 'Open Dashboard',
     'frd.resetDemo': 'Reset Demo',
     'frd.seedDemoData': 'Seed Demo Data',
@@ -131,11 +139,16 @@ const I18N = {
     'frd.header.title': '試衣間 Demo',
     'frd.header.subtitle': '選擇商品與尺寸後，拖曳到試衣間',
     'frd.aria.primaryNav': '主要導覽',
+    'frd.aria.languageSelect': '語言',
     'frd.nav.home': '首頁',
+    'frd.nav.dashboard': 'Dashboard',
     'frd.nav.fittingDemo': '試衣間 Demo',
     'frd.nav.product': '商品',
     'frd.nav.csvImport': 'CSV 匯入',
     'frd.nav.setting': '設定',
+    'frd.language': '語言',
+    'frd.top.connected': '已連線',
+    'frd.auth.logout': '登出',
     'frd.openDashboard': '開啟 Dashboard',
     'frd.resetDemo': '重置 Demo',
     'frd.seedDemoData': '建立 Demo 資料',
@@ -309,6 +322,35 @@ const el = {
   toastContainer: document.getElementById('fittingDemoToastContainer')
 };
 
+function isEmbedMode() {
+  const params = new URLSearchParams(window.location.search);
+  const raw = String(params.get(EMBED_FLAG) || '').trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes';
+}
+
+function applyEmbedMode() {
+  if (!isEmbedMode()) return;
+  document.body.classList.add('is-embedded-fitting-demo');
+  document.querySelectorAll('[data-embed-hide]').forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+    node.hidden = true;
+  });
+}
+
+function populateLanguageSelect() {
+  const select = document.getElementById('fittingDemoLanguageSelect');
+  if (!select) return;
+  const options = [
+    { value: 'en', label: '🇺🇸 English' },
+    { value: 'zh-Hant', label: '🇹🇼 繁體中文' }
+  ];
+  select.innerHTML = options
+    .map((opt) => `<option value="${opt.value}">${opt.label}</option>`)
+    .join('');
+  const selected = SUPPORTED_LANGS.includes(currentLang) ? currentLang : DEFAULT_LANG;
+  select.value = selected;
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -394,6 +436,93 @@ function parseProductKey(productKey) {
   };
 }
 
+function resolveRoomIdFromEventRow(row) {
+  const metadata = (row?.metadata && typeof row.metadata === 'object') ? row.metadata : {};
+  const metadataRoomId = Number(metadata.room_id || 0);
+  if (Number.isInteger(metadataRoomId) && metadataRoomId >= 1 && metadataRoomId <= 4) return metadataRoomId;
+  return roomIdFromReaderId(row?.reader_id);
+}
+
+function resolveEventProductKey(row) {
+  const metadata = (row?.metadata && typeof row.metadata === 'object') ? row.metadata : {};
+  const productKey = String(metadata.product_key || '').trim();
+  if (productKey) return productKey;
+  const epc = String(row?.epc_data || '').trim();
+  if (isValidEpcData(epc)) return `epc::${epc}`;
+  return '';
+}
+
+async function fetchActiveRoomAssignmentsFromEventsFallback() {
+  const rooms = buildEmptyRooms();
+  if (!state.supabase) return rooms;
+
+  const eventsRes = await state.supabase
+    .from('rfid_events')
+    .select('timestamp,event_type,reader_id,epc_data,metadata')
+    .order('timestamp', { ascending: false })
+    .limit(800);
+
+  if (eventsRes.error) {
+    console.warn('[FRD][fetchActiveRoomAssignmentsFromEventsFallback] rfid_events query failed, fallback to empty rooms', {
+      code: eventsRes.error?.code,
+      message: eventsRes.error?.message,
+      hint: eventsRes.error?.hint,
+      details: eventsRes.error?.details
+    });
+    return rooms;
+  }
+
+  const latestByKey = new Map();
+  (eventsRes.data || []).forEach((row) => {
+    const key = resolveEventProductKey(row);
+    if (!key || latestByKey.has(key)) return;
+    latestByKey.set(key, row);
+  });
+
+  const productByKey = await fetchProductsByProductKeyCompat();
+  let seq = 1;
+  latestByKey.forEach((row, key) => {
+    const normalizedType = normalizeEventType(row?.event_type);
+    if (!['item_entered_fitting_room', 'item_added_to_session'].includes(normalizedType)) return;
+
+    const roomId = resolveRoomIdFromEventRow(row);
+    const room = rooms.find((x) => x.roomId === roomId);
+    if (!room) return;
+
+    const metadata = (row?.metadata && typeof row.metadata === 'object') ? row.metadata : {};
+    const product = key.startsWith('epc::') ? null : productByKey.get(key);
+    const decodedKey = parseProductKey(key);
+    const epc = String(row?.epc_data || '').trim();
+    const sku = resolveSkuValue(
+      metadata.sku_ean13,
+      metadata.sku,
+      product?.sku_ean13,
+      product?.sku,
+      ''
+    );
+
+    room.items.push({
+      room_item_id: `room_item_${seq++}`,
+      item_key: key,
+      item_no: resolveSkuValue(metadata.item_no, product?.item_no, decodedKey.itemReference, key),
+      product_name: resolveSkuValue(metadata.product_name, metadata.name, product?.name_en, product?.name, `Item ${decodedKey.itemReference || key}`),
+      size: resolveSkuValue(metadata.size, product?.size, '-'),
+      sku_ean13: sku,
+      epc_data: isValidEpcData(epc) ? epc : '',
+      enteredAt: String(row?.timestamp || new Date().toISOString())
+    });
+  });
+
+  console.debug('[FRD][fetchActiveRoomAssignmentsFromEventsFallback] hydrated room assignments from events', {
+    eventRows: (eventsRes.data || []).length,
+    uniqueKeys: latestByKey.size,
+    roomItemCount: rooms.reduce((acc, room) => acc + room.items.length, 0),
+    byRoom: rooms.map((room) => ({ roomId: room.roomId, count: room.items.length }))
+  });
+
+  return rooms;
+}
+
 function roomIdFromReaderId(readerId) {
   const match = String(readerId || '').toUpperCase().match(/FITTING(?:_ROOM)?_ANTENNA_(\d+)/);
   const id = Number(match?.[1] || 1);
@@ -446,6 +575,11 @@ async function fetchActiveRoomAssignmentsFromDb() {
   const rooms = buildEmptyRooms();
   if (!state.supabase) return rooms;
 
+  console.debug('[FRD][fetchActiveRoomAssignmentsFromDb] start', {
+    hasSupabase: Boolean(state.supabase),
+    hasSession: Boolean(getSession()?.accessToken)
+  });
+
   const presenceRes = await state.supabase
     .from('fitting_room_presence')
     .select('product_key,entered_at,last_seen_at,last_reader_id')
@@ -458,8 +592,23 @@ async function fetchActiveRoomAssignmentsFromDb() {
       hint: presenceRes.error?.hint,
       details: presenceRes.error?.details
     });
-    return rooms;
+    const eventFallbackRooms = await fetchActiveRoomAssignmentsFromEventsFallback();
+    console.debug('[FRD][fetchActiveRoomAssignmentsFromDb] presence failed, event fallback summary', {
+      roomItemCount: eventFallbackRooms.reduce((acc, room) => acc + room.items.length, 0),
+      byRoom: eventFallbackRooms.map((room) => ({ roomId: room.roomId, count: room.items.length }))
+    });
+    return eventFallbackRooms;
   }
+
+  console.debug('[FRD][fetchActiveRoomAssignmentsFromDb] presence rows fetched', {
+    rows: (presenceRes.data || []).length,
+    sample: (presenceRes.data || []).slice(0, 5).map((row) => ({
+      product_key: String(row?.product_key || ''),
+      last_reader_id: String(row?.last_reader_id || ''),
+      entered_at: String(row?.entered_at || ''),
+      last_seen_at: String(row?.last_seen_at || '')
+    }))
+  });
 
   const productByKey = await fetchProductsByProductKeyCompat();
   const inventoryRows = await fetchInventoryCompat();
@@ -1675,6 +1824,18 @@ async function handleDropOnTarget(target) {
 }
 
 function bindEvents() {
+  const languageSelect = document.getElementById('fittingDemoLanguageSelect');
+  if (languageSelect) {
+    languageSelect.addEventListener('change', (event) => {
+      const nextLang = String(event.target?.value || '').trim();
+      if (!SUPPORTED_LANGS.includes(nextLang)) return;
+      currentLang = nextLang;
+      localStorage.setItem(LANG_KEY, currentLang);
+      applyFittingDemoI18n();
+      renderAll();
+    });
+  }
+
   document.addEventListener('click', (event) => {
     const sizeChip = event.target.closest('[data-sku-key]');
     if (sizeChip && !sizeChip.hasAttribute('disabled')) {
@@ -1822,8 +1983,22 @@ async function bootstrapFromDb() {
     return;
   }
 
+  console.debug('[FRD][bootstrapFromDb] init complete', {
+    hasSession: Boolean(getSession()?.accessToken),
+    hasSupabase: Boolean(state.supabase)
+  });
+
   try {
     const rows = await fetchCatalogFromDb();
+    console.debug('[FRD][bootstrapFromDb] catalog fetched', {
+      catalogRows: rows.length,
+      sample: rows.slice(0, 5).map((row) => ({
+        product_key: String(row?.product_key || ''),
+        sku_ean13: String(row?.sku_ean13 || ''),
+        quantity: Number(row?.quantity) || 0,
+        epc_list_count: Array.isArray(row?.epc_list) ? row.epc_list.length : 0
+      }))
+    });
     if (!rows.length) {
       console.warn('[FRD][bootstrapFromDb] catalog rows empty, fallback to mock mode');
       bootstrapMockData();
@@ -1835,6 +2010,11 @@ async function bootstrapFromDb() {
     state.selectedSize = null;
     state.selectedSkuKey = null;
     state.roomAssignments = await fetchActiveRoomAssignmentsFromDb();
+    console.debug('[FRD][bootstrapFromDb] room assignments fetched', {
+      roomCount: state.roomAssignments.length,
+      roomItemCount: state.roomAssignments.reduce((acc, room) => acc + room.items.length, 0),
+      byRoom: state.roomAssignments.map((room) => ({ roomId: room.roomId, count: room.items.length }))
+    });
     state.checkoutRecords = [];
     state.recentEvents = await fetchRecentEventsFromDb(50);
     state.draggingContext = null;
@@ -1863,6 +2043,8 @@ async function bootstrapFromDb() {
 
 async function bootstrap() {
   currentLang = getCurrentLang();
+  applyEmbedMode();
+  populateLanguageSelect();
   applyFittingDemoI18n();
   bindEvents();
   await bootstrapFromDb();

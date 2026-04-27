@@ -4,50 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RFID Fitting Room PoC - Product</title>
-  <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
-  <header class="page-header">
-    <h1 data-i18n="home.cards.product.title">Product</h1>
-    <div class="header-actions">
-      <nav class="top-nav" aria-label="Primary" data-i18n-aria-label="aria.primaryNav">
-        <a href="/" class="top-nav-link" data-i18n="nav.home">Home</a>
-        <a href="/product.html" class="top-nav-link is-active" aria-current="page" data-i18n="nav.product">Product</a>
-        <a href="/csv-import.html" class="top-nav-link" data-i18n="nav.csvImport">CSV Import</a>
-        <a href="/setting" class="top-nav-link" data-i18n="nav.setting">Setting</a>
-      </nav>
-      <label for="languageSelect" class="language-label" data-i18n="language.label">Language</label>
-      <select id="languageSelect" class="language-select" aria-label="Language" data-i18n-aria-label="aria.languageSelect"></select>
-      <button id="refreshButton" type="button" data-i18n="dashboard.refresh">Refresh</button>
-      <p id="connectionStatus" class="status-badge">Initializing…</p>
-    </div>
-  </header>
-
-  <main class="layout">
-    <section class="panel" aria-labelledby="productSummaryTitle">
-      <h2 id="productSummaryTitle" data-i18n="product.summary.title">Product Inventory</h2>
-      <p class="hint" data-i18n="product.summary.desc">Review style summaries first, then drill down to color groups, SKU rows, and EPC details.</p>
-      <div class="product-summary-view-toggle" role="group" aria-label="Product Summary View Mode" data-i18n-aria-label="product.summary.view.label">
-        <span class="product-summary-view-toggle__label" data-i18n="product.summary.view.label">View</span>
-        <button id="productSummaryViewSku" type="button" class="button-secondary" data-summary-view="sku" data-i18n="product.summary.view.sku">SKU View</button>
-        <button id="productSummaryViewNested" type="button" class="button-secondary is-active" data-summary-view="nested" data-i18n="product.summary.view.nested">Nested View</button>
-      </div>
-      <div class="stack-form product-summary-toolbar">
-        <label>
-          <span data-i18n="product.summary.filter.styleNo">Style No</span>
-          <input id="productStyleNoFilter" type="text" placeholder="e.g. 4520001" data-i18n-placeholder="placeholder.productStyleNo" />
-        </label>
-        <label>
-          <span data-i18n="product.summary.filter.itemNo">Item No</span>
-          <input id="productItemNoFilter" type="text" placeholder="e.g. 82210101" data-i18n-placeholder="placeholder.productItemNo" />
-        </label>
-        <button id="productFilterReset" type="button" data-i18n="product.summary.filter.reset">Clear Filters</button>
-      </div>
-      <div id="productSkuSummary" class="product-sku-summary"></div>
-    </section>
-  </main>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="js/main.js"></script>
+  <script>
+    window.location.replace('/product');
+  </script>
 </body>
 </html>

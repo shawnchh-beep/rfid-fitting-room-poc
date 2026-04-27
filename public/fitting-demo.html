@@ -6,29 +6,38 @@
   <title data-i18n="frd.pageTitle">RFID Fitting Room PoC - Fitting Room Demo</title>
   <link rel="stylesheet" href="./css/style.css" />
 </head>
-<body>
-  <header class="page-header frd-header">
-    <div>
-      <h1 data-i18n="frd.header.title">Fitting Room Demo</h1>
-      <p class="hint frd-subtitle" data-i18n="frd.header.subtitle">Select a product, choose a size, and drag it into a fitting room</p>
-    </div>
-    <div class="header-actions frd-header-actions">
-      <nav class="top-nav" aria-label="Primary" data-i18n-aria-label="frd.aria.primaryNav">
+<body class="fitting-demo-page">
+  <div class="app-shell">
+    <header class="app-topbar" data-embed-hide>
+      <div class="app-topbar__brand">RFID Retail Demo</div>
+      <nav class="top-nav app-topbar__nav" aria-label="Primary" data-i18n-aria-label="frd.aria.primaryNav">
         <a href="/" class="top-nav-link" data-i18n="frd.nav.home">Home</a>
-        <a href="/fitting-demo.html" class="top-nav-link is-active" aria-current="page" data-i18n="frd.nav.fittingDemo">Fitting Demo</a>
+        <a href="/dashboard" class="top-nav-link" data-i18n="frd.nav.dashboard">Dashboard</a>
+        <a href="/fitting-demo" class="top-nav-link is-active" aria-current="page" data-i18n="frd.nav.fittingDemo">Fitting Demo</a>
         <a href="/product.html" class="top-nav-link" data-i18n="frd.nav.product">Product</a>
         <a href="/csv-import.html" class="top-nav-link" data-i18n="frd.nav.csvImport">CSV Import</a>
         <a href="/setting" class="top-nav-link" data-i18n="frd.nav.setting">Setting</a>
       </nav>
-      <a href="/" class="top-nav-link frd-open-dashboard" data-i18n="frd.openDashboard">Open Dashboard</a>
-      <button id="fittingDemoResetButton" type="button" class="button-secondary" data-i18n="frd.resetDemo">Reset Demo</button>
-      <button id="fittingDemoSeedButton" type="button" class="button-secondary" data-i18n="frd.seedDemoData">Seed Demo Data</button>
-      <p id="fittingDemoAlertsBadge" class="status-badge" data-i18n="frd.alertsBadge">Active Alerts: 0</p>
-      <p id="fittingDemoStatus" class="status-badge" data-i18n="frd.status.mock">Mock Mode</p>
-    </div>
-  </header>
+      <div class="app-topbar__actions">
+        <label for="fittingDemoLanguageSelect" class="language-label" data-i18n="frd.language">Language</label>
+        <select id="fittingDemoLanguageSelect" class="language-select" aria-label="Language" data-i18n-aria-label="frd.aria.languageSelect"></select>
+        <span class="status-badge" data-i18n="frd.top.connected">Connected</span>
+        <button type="button" class="button-secondary" data-i18n="frd.auth.logout" onclick="window.location.href='/login.html'">Logout</button>
+      </div>
+    </header>
 
-  <main class="layout frd-layout">
+    <header class="page-header frd-header" data-embed-hide>
+      <div class="page-header-main">
+        <h1 data-i18n="frd.header.title">Fitting Room Demo</h1>
+        <p class="hint frd-subtitle" data-i18n="frd.header.subtitle">Simulate item movement from rack to fitting room and checkout.</p>
+      </div>
+      <div class="page-header-actions frd-header-actions">
+        <p id="fittingDemoAlertsBadge" class="status-badge" data-i18n="frd.alertsBadge">Active Alerts: 0</p>
+        <p id="fittingDemoStatus" class="status-badge" data-i18n="frd.status.db">DB Mode</p>
+      </div>
+    </header>
+
+  <main class="layout frd-layout page-content">
     <section class="panel frd-main" aria-label="Fitting Room Demo Board" data-i18n-aria-label="frd.aria.demoBoard">
       <section class="frd-col" aria-labelledby="rackPanelTitle">
         <div class="frd-col-header">
@@ -93,6 +102,8 @@
       </article>
     </section>
   </main>
+
+  </div>
 
   <div id="fittingDemoToastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 

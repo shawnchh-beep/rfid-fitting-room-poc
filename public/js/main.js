@@ -27,6 +27,7 @@ const SUPPORTED_LANGS = ['en', 'zh-Hant', 'zh-Hans', 'ja'];
 const SUPPORTED_MODES = ['demo', 'operational'];
 // Keep in sync with server-side timeout in api/rfid-webhook.js
 const FITTING_EXIT_TIMEOUT_MS = 30_000;
+const MAX_ACTIVITY_ITEMS = 20;
 const STATES = ['RACK', 'FITTING_ROOM', 'CHECKOUT', 'SOLD'];
 const BOARD_STATES = ['RACK', 'FITTING_ROOM', 'CHECKOUT'];
 const SETTING_TABS = ['general', 'accounts', 'trials'];
@@ -144,6 +145,19 @@ const el = {
   heroLiveStatus: document.getElementById('heroLiveStatus'),
   heroTrackingStatus: document.getElementById('heroTrackingStatus'),
   heroAiStatus: document.getElementById('heroAiStatus'),
+  revenueImpactBody: document.getElementById('revenueImpactBody'),
+  kpiMissedRevenue: document.getElementById('kpiMissedRevenue'),
+  kpiPotentialUplift: document.getElementById('kpiPotentialUplift'),
+  kpiTryOnToSaleRate: document.getElementById('kpiTryOnToSaleRate'),
+  kpiTopLossDriver: document.getElementById('kpiTopLossDriver'),
+  journeyFunnelBody: document.getElementById('journeyFunnelBody'),
+  aiBusinessInsightBody: document.getElementById('aiBusinessInsightBody'),
+  recommendedActionsBody: document.getElementById('recommendedActionsBody'),
+  topOpportunitiesBody: document.getElementById('topOpportunitiesBody'),
+  operationsAlertsBody: document.getElementById('operationsAlertsBody'),
+  replenishmentRiskBody: document.getElementById('replenishmentRiskBody'),
+  technicalBoardToggle: document.getElementById('technicalBoardToggle'),
+  technicalBoardBody: document.getElementById('technicalBoardBody'),
   overviewSnapshotBody: document.getElementById('overviewSnapshotBody'),
   overviewAiSummaryBody: document.getElementById('overviewAiSummaryBody'),
   overviewOpportunityBody: document.getElementById('overviewOpportunityBody'),
@@ -201,7 +215,7 @@ const el = {
 
 const I18N = {
   en: {
-    'app.title': 'RFID Fitting Room PoC Dashboard',
+    'app.title': 'RFID Retail Conversion Dashboard',
     'home.title': 'Main Menu',
     'home.cards.title': 'Select a module',
     'home.cards.dashboard.title': 'Dashboard',
@@ -237,7 +251,7 @@ const I18N = {
     'auth.role.user': 'User',
     'auth.role.admin': 'Admin',
     'config.saveAndConnect': 'Save & Connect',
-    'dashboard.title': 'Product Status Board',
+    'dashboard.title': 'RFID Retail Conversion Dashboard',
     'board.title': 'Visual Simulation Board',
     'board.lanes': 'Rack / Fitting / Checkout',
     'board.completeSale': 'Complete Sale',
@@ -293,7 +307,7 @@ const I18N = {
     'dashboard.abnormalStay': 'Abnormal stay',
     'kpi.total': 'Total Items',
     'kpi.fitting': 'In Fitting',
-    'kpi.abnormal': 'Abnormal Stay',
+    'kpi.abnormal': 'Customer Experience Risk',
     'kpi.checkout': 'At Checkout',
     'kpi.sold': 'Sold',
     'kpi.todayFitting': 'Today Fitting Sessions',
@@ -494,6 +508,59 @@ const I18N = {
     'analytics.aiSummary.stable': 'Store performance is stable. Continue monitoring try-on and conversion trend.',
     'analytics.aiSummary.viewFullInsights': 'View full insights',
     'analytics.aiSummary.askAi': 'Ask AI',
+    'dashboard31.hero.title': 'RFID Retail Conversion Dashboard',
+    'dashboard31.hero.subtitle': 'Turn fitting room activity into revenue growth.',
+    'dashboard31.status.liveStore': 'Live store: Active',
+    'dashboard31.status.tracking': 'RFID tracking: Normal',
+    'dashboard31.status.ai': 'AI assistant: Ready',
+    'dashboard31.revenue.missed': 'Missed Revenue Today',
+    'dashboard31.revenue.uplift': 'Potential Sales Uplift',
+    'dashboard31.revenue.rate': 'Try-On to Sale Rate',
+    'dashboard31.revenue.lossDriver': 'Top Loss Driver',
+    'dashboard31.revenue.lossDriverFallback': 'No major loss driver detected',
+    'dashboard31.journey.title': 'Customer Journey Funnel',
+    'dashboard31.journey.productInterest': 'Product Interest',
+    'dashboard31.journey.fittingRoom': 'Fitting Room',
+    'dashboard31.journey.purchaseIntent': 'Purchase Intent',
+    'dashboard31.journey.completedSales': 'Completed Sales',
+    'dashboard31.journey.dropOff': 'Main Drop-off Point',
+    'dashboard31.journey.dropOff.afterFitting': 'After fitting room',
+    'dashboard31.journey.dropOff.afterCheckout': 'After checkout',
+    'dashboard31.journey.dropOff.noActivity': 'No activity yet',
+    'dashboard31.ai.title': 'AI Business Insight',
+    'dashboard31.ai.headline': 'Insight headline',
+    'dashboard31.ai.summary': 'Business summary',
+    'dashboard31.ai.impact': 'Business impact',
+    'dashboard31.ai.reasons': 'Possible reasons',
+    'dashboard31.ai.confidence': 'Confidence',
+    'dashboard31.actions.title': 'Recommended Actions',
+    'dashboard31.actions.empty': 'No immediate action required',
+    'dashboard31.actions.priority.high': 'High',
+    'dashboard31.actions.priority.medium': 'Medium',
+    'dashboard31.actions.priority.low': 'Low',
+    'dashboard31.actions.expectedImpact': 'Expected impact',
+    'dashboard31.actions.relatedSkus': 'Related SKUs',
+    'dashboard31.opportunities.title': 'Top Revenue Opportunities',
+    'dashboard31.opportunities.empty': 'No revenue opportunities yet',
+    'dashboard31.opportunities.tryOn': 'Try-ons',
+    'dashboard31.opportunities.sales': 'Sales',
+    'dashboard31.opportunities.conversion': 'Conversion',
+    'dashboard31.opportunities.missedRevenue': 'Estimated missed revenue',
+    'dashboard31.opportunities.recommendedAction': 'Recommended action',
+    'dashboard31.alerts.title': 'Operations Alerts',
+    'dashboard31.alerts.empty': 'No active operational risk',
+    'dashboard31.replenishment.title': 'Replenishment Risk',
+    'dashboard31.replenishment.empty': 'No replenishment risk detected',
+    'dashboard31.replenishment.currentStock': 'Current stock',
+    'dashboard31.replenishment.safetyStock': 'Safety stock',
+    'dashboard31.replenishment.riskLevel': 'Risk level',
+    'dashboard31.replenishment.recommendedAction': 'Recommended action',
+    'dashboard31.risk.critical': 'Critical',
+    'dashboard31.risk.warning': 'Warning',
+    'dashboard31.risk.healthy': 'Healthy',
+    'dashboard31.technical.title': 'Technical Live Board',
+    'dashboard31.technical.show': 'Show Technical Details',
+    'dashboard31.technical.hide': 'Hide Technical Details',
     'analytics.overview.tryOnUnit': 'try-on',
     'placeholder.productStyleNo': 'e.g. 4520001',
     'placeholder.productItemNo': 'e.g. 82210101',
@@ -519,7 +586,7 @@ const I18N = {
     'demo.toast.resetFailed': 'Reset failed: {message}'
   },
   'zh-Hant': {
-    'app.title': 'RFID 試衣間 PoC 後台',
+    'app.title': 'RFID 零售轉換儀表板',
     'home.title': '主頁選單',
     'home.cards.title': '請選擇功能模組',
     'home.cards.dashboard.title': 'Dashboard',
@@ -553,7 +620,7 @@ const I18N = {
     'auth.role.user': '一般使用者',
     'auth.role.admin': '管理者',
     'config.saveAndConnect': '儲存設定並連線',
-    'dashboard.title': '商品狀態看板',
+    'dashboard.title': 'RFID 零售轉換儀表板',
     'board.title': '圖像化模擬看板',
     'board.lanes': '貨架 / 試衣間 / 結帳櫃檯',
     'board.completeSale': '完成銷售',
@@ -607,7 +674,7 @@ const I18N = {
     'dashboard.abnormalStay': '異常停留',
     'kpi.total': '商品總數',
     'kpi.fitting': '試穿中',
-    'kpi.abnormal': '異常停留',
+    'kpi.abnormal': '顧客體驗風險',
     'kpi.checkout': '結帳櫃檯',
     'kpi.sold': '已售出',
     'kpi.todayFitting': '今日試穿次數',
@@ -759,6 +826,37 @@ const I18N = {
     'analytics.aiSummary.stable': '目前門店表現穩定，持續觀察試穿與轉化趨勢。',
     'analytics.aiSummary.viewFullInsights': '查看完整洞察',
     'analytics.aiSummary.askAi': '詢問 AI',
+    'dashboard31.hero.title': 'RFID 零售轉換儀表板',
+    'dashboard31.hero.subtitle': '將試衣間活動轉化為營收成長。',
+    'dashboard31.status.liveStore': '門市即時：活躍',
+    'dashboard31.status.tracking': 'RFID 追蹤：正常',
+    'dashboard31.status.ai': 'AI 助理：已就緒',
+    'dashboard31.revenue.missed': '今日流失營收',
+    'dashboard31.revenue.uplift': '潛在營收提升',
+    'dashboard31.revenue.rate': '試穿到成交轉換率',
+    'dashboard31.revenue.lossDriver': '主要流失因子',
+    'dashboard31.revenue.lossDriverFallback': '目前無顯著流失因子',
+    'dashboard31.journey.title': '顧客旅程漏斗',
+    'dashboard31.journey.productInterest': '商品興趣',
+    'dashboard31.journey.fittingRoom': '試衣間',
+    'dashboard31.journey.purchaseIntent': '購買意圖',
+    'dashboard31.journey.completedSales': '完成成交',
+    'dashboard31.journey.dropOff': '主要流失節點',
+    'dashboard31.journey.dropOff.afterFitting': '試衣後流失',
+    'dashboard31.journey.dropOff.afterCheckout': '結帳前流失',
+    'dashboard31.journey.dropOff.noActivity': '目前無活動',
+    'dashboard31.ai.title': 'AI 商業洞察',
+    'dashboard31.actions.title': '建議行動',
+    'dashboard31.actions.empty': '目前無立即處理事項',
+    'dashboard31.opportunities.title': '營收機會清單',
+    'dashboard31.opportunities.empty': '目前無可排序機會',
+    'dashboard31.alerts.title': '營運警示',
+    'dashboard31.alerts.empty': '目前無營運風險',
+    'dashboard31.replenishment.title': '補貨風險',
+    'dashboard31.replenishment.empty': '目前無補貨風險',
+    'dashboard31.technical.title': '技術即時看板',
+    'dashboard31.technical.show': '顯示技術細節',
+    'dashboard31.technical.hide': '隱藏技術細節',
     'analytics.overview.tryOnUnit': '試穿',
     'placeholder.productStyleNo': '例如 4520001',
     'placeholder.productItemNo': '例如 82210101',
@@ -784,7 +882,7 @@ const I18N = {
     'demo.toast.resetFailed': '重置失敗：{message}'
   },
   'zh-Hans': {
-    'app.title': 'RFID 试衣间 PoC 后台',
+    'app.title': 'RFID 零售转化仪表板',
     'login.title': '登录 RFID 试衣间 PoC',
     'login.subtitle': '请先登录，再进入仪表板。',
     'login.username': '账号',
@@ -799,7 +897,7 @@ const I18N = {
     'nav.fittingDemo': '试衣间 Demo',
     'config.title': 'Supabase 连接设置',
     'config.saveAndConnect': '保存设置并连接',
-    'dashboard.title': '商品状态看板',
+    'dashboard.title': 'RFID 零售转化仪表板',
     'board.title': '图像化模拟看板',
     'board.lanes': '货架 / 试衣间 / 结账柜台',
     'board.completeSale': '完成销售',
@@ -884,7 +982,24 @@ const I18N = {
     'events.time': '时间',
     'kpi.total': '商品总数',
     'kpi.fitting': '试穿中',
-    'kpi.abnormal': '异常停留',
+    'kpi.abnormal': '顾客体验风险',
+    'dashboard31.hero.title': 'RFID 零售转化仪表板',
+    'dashboard31.hero.subtitle': '将试衣间活动转化为营收增长。',
+    'dashboard31.revenue.missed': '今日流失营收',
+    'dashboard31.revenue.uplift': '潜在营收提升',
+    'dashboard31.revenue.rate': '试穿到成交转化率',
+    'dashboard31.revenue.lossDriver': '主要流失因素',
+    'dashboard31.journey.title': '顾客旅程漏斗',
+    'dashboard31.journey.productInterest': '商品兴趣',
+    'dashboard31.journey.purchaseIntent': '购买意图',
+    'dashboard31.ai.title': 'AI 商业洞察',
+    'dashboard31.actions.title': '建议动作',
+    'dashboard31.opportunities.title': '营收机会清单',
+    'dashboard31.alerts.title': '运营预警',
+    'dashboard31.replenishment.title': '补货风险',
+    'dashboard31.technical.title': '技术实时看板',
+    'dashboard31.technical.show': '显示技术细节',
+    'dashboard31.technical.hide': '隐藏技术细节',
     'kpi.checkout': '结账柜台',
     'kpi.sold': '已售出',
     'kpi.todayFitting': '今日试穿次数',
@@ -904,7 +1019,7 @@ const I18N = {
     'backup.summary': '展开二级工具'
   },
   ja: {
-    'app.title': 'RFID試着室 PoC ダッシュボード',
+    'app.title': 'RFID リテール転換ダッシュボード',
     'login.title': 'RFID試着室 PoC にサインイン',
     'login.subtitle': 'ダッシュボードに進むにはサインインしてください。',
     'login.username': 'ユーザー名',
@@ -919,7 +1034,7 @@ const I18N = {
     'nav.fittingDemo': '試着室デモ',
     'config.title': 'Supabase 接続設定',
     'config.saveAndConnect': '保存して接続',
-    'dashboard.title': '商品ステータスボード',
+    'dashboard.title': 'RFID リテール転換ダッシュボード',
     'board.title': 'ビジュアルシミュレーションボード',
     'board.lanes': 'ラック / 試着室 / レジ',
     'board.completeSale': '販売完了',
@@ -1004,7 +1119,24 @@ const I18N = {
     'events.time': '時刻',
     'kpi.total': '商品総数',
     'kpi.fitting': '試着中',
-    'kpi.abnormal': '異常滞在',
+    'kpi.abnormal': '顧客体験リスク',
+    'dashboard31.hero.title': 'RFID リテール転換ダッシュボード',
+    'dashboard31.hero.subtitle': '試着室アクティビティを売上成長へつなげる。',
+    'dashboard31.revenue.missed': '本日の機会損失売上',
+    'dashboard31.revenue.uplift': '想定売上アップリフト',
+    'dashboard31.revenue.rate': '試着→購入転換率',
+    'dashboard31.revenue.lossDriver': '主要ロス要因',
+    'dashboard31.journey.title': '顧客ジャーニーファネル',
+    'dashboard31.journey.productInterest': '商品関心',
+    'dashboard31.journey.purchaseIntent': '購入意向',
+    'dashboard31.ai.title': 'AI ビジネスインサイト',
+    'dashboard31.actions.title': '推奨アクション',
+    'dashboard31.opportunities.title': '売上機会トップ',
+    'dashboard31.alerts.title': '運用アラート',
+    'dashboard31.replenishment.title': '補充リスク',
+    'dashboard31.technical.title': '技術ライブボード',
+    'dashboard31.technical.show': '技術詳細を表示',
+    'dashboard31.technical.hide': '技術詳細を非表示',
     'kpi.checkout': 'レジ',
     'kpi.sold': '販売済み',
     'kpi.todayFitting': '本日の試着セッション数',
@@ -1216,10 +1348,20 @@ function syncTopNavActiveState(pathname = window.location.pathname) {
   if (!navLinks.length) return;
 
   const currentPath = String(pathname || '/');
+  const currentComparable = currentPath
+    .replace('/product.html', '/product')
+    .replace('/csv-import.html', '/csv-import')
+    .replace('/setting.html', '/setting')
+    .replace('/fitting-demo.html', '/fitting-demo');
   navLinks.forEach((link) => {
     const href = link.getAttribute('href') || '';
     const url = new URL(href, window.location.origin);
-    const isActive = url.pathname === currentPath;
+    const linkComparable = String(url.pathname || '/')
+      .replace('/product.html', '/product')
+      .replace('/csv-import.html', '/csv-import')
+      .replace('/setting.html', '/setting')
+      .replace('/fitting-demo.html', '/fitting-demo');
+    const isActive = linkComparable === currentComparable;
     link.classList.toggle('is-active', isActive);
     if (isActive) {
       link.setAttribute('aria-current', 'page');
@@ -1295,10 +1437,10 @@ function handleHomeCardNavigation(type) {
   }
   if (type === 'fittingDemo') {
     console.info('[nav] redirect to fitting-demo', {
-      to: '/fitting-demo.html',
+      to: '/fitting-demo',
       fromPath: window.location.pathname
     });
-    window.location.href = '/fitting-demo.html';
+    navigate('/fitting-demo');
     return;
   }
   if (type === 'product') {
@@ -1659,7 +1801,7 @@ function applyAuthUi(session = getSession()) {
     if (href === '/setting' || href === '/setting.html') {
       toggleEntryVisibility(link, canSettingPage);
     }
-    if (href === '/fitting-demo.html') {
+    if (href === '/fitting-demo.html' || href === '/fitting-demo') {
       toggleEntryVisibility(link, canFittingPage);
     }
   });
@@ -1737,7 +1879,122 @@ function formatDateTime(value) {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString();
+  const locale = currentLang === 'zh-Hant'
+    ? 'zh-TW'
+    : (currentLang === 'zh-Hans' ? 'zh-CN' : currentLang);
+  return date.toLocaleString(locale);
+}
+
+function humanizeSnakeCase(text) {
+  const input = String(text || '').trim();
+  if (!input) return '-';
+  return input
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatEventTypeLabel(eventType) {
+  const normalized = String(eventType || '').trim().toLowerCase();
+  if (!normalized) return '-';
+  const map = {
+    sale_completed: 'Sale Completed',
+    enter_fitting_room: 'Enter Fitting Room',
+    exit_fitting_room: 'Exit Fitting Room',
+    left_fitting_room: 'Left Fitting Room',
+    move_to_checkout: 'Move To Checkout',
+    return_to_sales_floor: 'Return To Sales Floor',
+    tag_seen: 'Tag Seen'
+  };
+  return map[normalized] || humanizeSnakeCase(normalized);
+}
+
+function normalizeStateFromZone(zone) {
+  const normalized = String(zone || '').trim().toLowerCase();
+  if (normalized === 'fitting_room') return 'FITTING_ROOM';
+  if (normalized === 'checkout') return 'CHECKOUT';
+  if (normalized === 'sold') return 'SOLD';
+  return 'RACK';
+}
+
+function formatZoneLabel(zone) {
+  if (!zone) return '-';
+  const state = normalizeStateFromZone(zone);
+  return t(`state.${state}`);
+}
+
+function trimLogList(node, max = MAX_ACTIVITY_ITEMS) {
+  if (!node) return;
+  while (node.children.length > max) {
+    node.removeChild(node.lastElementChild);
+  }
+}
+
+function inferActivityTransition(event = {}) {
+  const fromZone = String(event?.from_zone || '').trim();
+  const toZone = String(event?.to_zone || '').trim();
+  if (fromZone && toZone) {
+    const fromStateByZone = normalizeStateFromZone(fromZone);
+    const toStateByZone = normalizeStateFromZone(toZone);
+    if (fromStateByZone !== toStateByZone) {
+      return { fromState: fromStateByZone, toState: toStateByZone };
+    }
+  }
+
+  const eventType = String(event?.event_type || '').trim().toLowerCase();
+  if (eventType === 'sale_completed') return { fromState: 'CHECKOUT', toState: 'SOLD' };
+  if (eventType === 'enter_fitting_room') return { fromState: 'RACK', toState: 'FITTING_ROOM' };
+  if (eventType === 'move_to_checkout') return { fromState: 'FITTING_ROOM', toState: 'CHECKOUT' };
+  if (eventType === 'exit_fitting_room' || eventType === 'left_fitting_room' || eventType === 'return_to_sales_floor') {
+    return { fromState: 'FITTING_ROOM', toState: 'RACK' };
+  }
+
+  return null;
+}
+
+function resolveEventProductName(event = {}, productsByKey = new Map()) {
+  const key = productKeyFromEvent(event);
+  const product = key ? productsByKey.get(key) : null;
+  return product?.display_name
+    || product?.name_en
+    || product?.name
+    || String(event?.epc_data || '').trim()
+    || t('dashboard.unnamedProduct');
+}
+
+function renderActivityTimelineFromEvents(recentEvents = [], products = []) {
+  if (!el.activityTimeline) return;
+  const productsByKey = new Map();
+  (Array.isArray(products) ? products : []).forEach((product) => {
+    const key = productKeyFromProduct(product);
+    if (!key) return;
+    productsByKey.set(key, product);
+  });
+
+  el.activityTimeline.innerHTML = '';
+  (Array.isArray(recentEvents) ? recentEvents : [])
+    .map((event) => {
+      const transition = inferActivityTransition(event);
+      if (!transition) return null;
+      return {
+        name: resolveEventProductName(event, productsByKey),
+        fromState: transition.fromState,
+        toState: transition.toState,
+        timestamp: event?.timestamp || null
+      };
+    })
+    .filter(Boolean)
+    .slice(0, MAX_ACTIVITY_ITEMS)
+    .forEach((entry) => appendActivityLog(entry));
+}
+
+function renderEventLogList(recentEvents = []) {
+  if (!el.eventLog) return;
+  el.eventLog.innerHTML = '';
+  (Array.isArray(recentEvents) ? recentEvents : [])
+    .slice(0, MAX_ACTIVITY_ITEMS)
+    .forEach((event) => appendEventLog(event));
 }
 
 function toLocalDatetimeInputValue(value) {
@@ -3555,6 +3812,24 @@ function computeStoryFunnelMetrics(todaySessions = [], todaySaleEvents = [], rec
   };
 }
 
+function toSafeNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function formatCurrency(value) {
+  const amount = toSafeNumber(value, 0);
+  return `$${amount.toFixed(2)}`;
+}
+
+function getProductUnitPrice(product = {}) {
+  const direct = toSafeNumber(product?.price, NaN);
+  if (Number.isFinite(direct)) return Math.max(0, direct);
+  const fromDisplay = toSafeNumber(product?.display_price, NaN);
+  if (Number.isFinite(fromDisplay)) return Math.max(0, fromDisplay);
+  return 0;
+}
+
 function computeOpportunityRows(products = [], recentEvents = []) {
   const eventRows = Array.isArray(recentEvents) ? recentEvents : [];
   const byKey = new Map();
@@ -3565,6 +3840,7 @@ function computeOpportunityRows(products = [], recentEvents = []) {
     byKey.set(productKey, {
       name: product.display_name || product.name_en || product.name || t('dashboard.unnamedProduct'),
       sku: resolveSkuValue(product?.sku) || '-',
+      unitPrice: getProductUnitPrice(product),
       tryOn: 0,
       sales: 0
     });
@@ -3598,10 +3874,343 @@ function computeOpportunityRows(products = [], recentEvents = []) {
   return rows
     .map((row) => ({
       ...row,
-      opportunityScore: Math.max(0, row.tryOn * (benchmark - row.conversion))
+      conversionRate: row.tryOn > 0 ? (row.sales / row.tryOn) : 0,
+      estimatedMissedRevenue: Math.max(0, row.tryOn * row.unitPrice * (1 - (row.tryOn > 0 ? (row.sales / row.tryOn) : 0))),
+      opportunityScore: Math.max(0, row.tryOn * row.unitPrice * (1 - (row.tryOn > 0 ? (row.sales / row.tryOn) : 0)) + (benchmark - row.conversion))
     }))
     .sort((a, b) => (b.opportunityScore - a.opportunityScore) || (b.tryOn - a.tryOn))
     .slice(0, 10);
+}
+
+function computeRevenueImpact({ opportunities = [], todayFittingCount = 0, todaySalesCount = 0 }) {
+  const missedRevenueToday = opportunities.reduce((acc, row) => {
+    if (row.tryOn > 0 && row.sales === 0) return acc + (row.tryOn * toSafeNumber(row.unitPrice, 0));
+    return acc;
+  }, 0);
+  const totalEstimatedMissed = opportunities.reduce((acc, row) => acc + toSafeNumber(row.estimatedMissedRevenue, 0), 0);
+  const upliftLow = totalEstimatedMissed * 0.4;
+  const upliftHigh = totalEstimatedMissed * 0.75;
+  const tryOnToSaleRate = todayFittingCount > 0 ? (todaySalesCount / todayFittingCount) : 0;
+  const topLossDriver = opportunities.find((row) => row.tryOn > 0 && row.sales === 0) || opportunities[0] || null;
+  return {
+    missedRevenueToday,
+    upliftLow,
+    upliftHigh,
+    tryOnToSaleRate,
+    topLossDriver
+  };
+}
+
+function countTodayEvents(recentEvents = [], eventType = '') {
+  const startMs = Date.parse(todayStartIso());
+  return (Array.isArray(recentEvents) ? recentEvents : []).filter((row) => {
+    if (eventType && row?.event_type !== eventType) return false;
+    const ts = Date.parse(row?.timestamp);
+    return Number.isFinite(ts) && ts >= startMs;
+  }).length;
+}
+
+function computeJourneyFunnel({ grouped = {}, todaySessions = [], todaySaleEvents = [], recentEvents = [] }) {
+  const rackInterestByState = Array.isArray(grouped?.RACK) ? grouped.RACK.length : 0;
+  const rackInterestByEvents = countTodayEvents(recentEvents, 'tag_seen');
+  const rackInterestCount = Math.max(rackInterestByState, rackInterestByEvents, 0);
+
+  const fittingBySessions = Array.isArray(todaySessions) ? todaySessions.length : 0;
+  const fittingByEvents = countTodayEvents(recentEvents, 'enter_fitting_room');
+  const fittingRoomCount = Math.max(fittingBySessions, fittingByEvents, 0);
+
+  const checkoutIntentCount = countTodayEvents(recentEvents, 'move_to_checkout');
+  const completedSalesCount = Array.isArray(todaySaleEvents) ? todaySaleEvents.length : 0;
+
+  const dropAfterFitting = Math.max(0, fittingRoomCount - checkoutIntentCount);
+  const dropAfterCheckout = Math.max(0, checkoutIntentCount - completedSalesCount);
+  const hasActivity = rackInterestCount + fittingRoomCount + checkoutIntentCount + completedSalesCount > 0;
+  let mainDropOffStage = 'no_activity';
+  if (hasActivity) {
+    mainDropOffStage = dropAfterFitting >= dropAfterCheckout ? 'after_fitting_room' : 'after_checkout';
+  }
+
+  return {
+    rackInterestCount,
+    fittingRoomCount,
+    checkoutIntentCount,
+    completedSalesCount,
+    mainDropOffStage,
+    tryOnToSaleRate: fittingRoomCount > 0 ? (completedSalesCount / fittingRoomCount) : 0
+  };
+}
+
+function computeAIBusinessInsight({ journey, revenueImpact, opportunities = [], grouped = {} }) {
+  const abnormalCount = (grouped?.FITTING_ROOM || []).filter((row) => row.abnormal).length;
+  const topOpportunity = opportunities[0] || null;
+  if (topOpportunity && topOpportunity.tryOn > 0 && topOpportunity.sales === 0) {
+    return {
+      headline: `${topOpportunity.name} has high fitting interest but zero conversion`,
+      summary: `${topOpportunity.tryOn} try-ons did not convert today.`,
+      businessImpact: `${formatCurrency(topOpportunity.estimatedMissedRevenue)} potential revenue at risk.`,
+      possibleReasons: 'Size availability mismatch, fitting guidance quality, or checkout hesitation.',
+      confidence: 0.82
+    };
+  }
+  if (abnormalCount > 0) {
+    return {
+      headline: 'Customer experience risk detected in fitting rooms',
+      summary: `${abnormalCount} long-dwell items may indicate assistance delays.`,
+      businessImpact: `Likely conversion drag with ${formatCurrency(revenueImpact.missedRevenueToday)} missed potential.`,
+      possibleReasons: 'Staff load imbalance, queue friction, or delayed support.',
+      confidence: 0.77
+    };
+  }
+  return {
+    headline: 'Store conversion is stable and under monitoring',
+    summary: `Try-on to sale rate is ${(journey.tryOnToSaleRate * 100).toFixed(1)}%.`,
+    businessImpact: 'No critical risk detected at this moment.',
+    possibleReasons: 'Balanced flow and normal product engagement.',
+    confidence: 0.66
+  };
+}
+
+function computeRecommendedActions({ grouped = {}, opportunities = [], journey, skuRows = [] }) {
+  const actions = [];
+  const abnormalRows = (grouped?.FITTING_ROOM || []).filter((row) => row.abnormal);
+  if (abnormalRows.length > 0) {
+    actions.push({
+      priority: 1,
+      type: 'staff_follow_up',
+      title: 'Follow up long-dwell fitting sessions',
+      reason: `${abnormalRows.length} items show long dwell signals.`,
+      suggestedAction: 'Assign floor staff to immediate assistance and room throughput checks.',
+      expectedImpact: 'Reduce abandonment after fitting and improve conversion consistency.',
+      severity: 'high',
+      relatedSkus: abnormalRows.map((row) => resolveSkuValue(row?.product?.sku)).filter(Boolean).slice(0, 6)
+    });
+  }
+
+  const zeroSaleOpportunity = opportunities.filter((row) => row.tryOn > 0 && row.sales === 0).slice(0, 3);
+  if (zeroSaleOpportunity.length > 0) {
+    actions.push({
+      priority: 2,
+      type: 'product_review',
+      title: 'Review high-interest zero-conversion products',
+      reason: `${zeroSaleOpportunity.length} products have try-ons without sales.`,
+      suggestedAction: 'Audit sizing, price positioning, and in-room recommendation scripts.',
+      expectedImpact: 'Recover missed revenue from high-intent traffic.',
+      severity: 'high',
+      relatedSkus: zeroSaleOpportunity.map((row) => row.sku).filter(Boolean)
+    });
+  }
+
+  const lowStockRows = (skuRows || []).filter((row) => row.currentStock < row.safetyStock).slice(0, 5);
+  if (lowStockRows.length > 0) {
+    actions.push({
+      priority: 3,
+      type: 'restock',
+      title: 'Prioritize low-stock replenishment',
+      reason: `${lowStockRows.length} SKUs are below safety stock.`,
+      suggestedAction: 'Trigger replenishment orders for high-gap SKUs.',
+      expectedImpact: 'Prevent lost sales due to stockouts in high-demand items.',
+      severity: 'medium',
+      relatedSkus: lowStockRows.map((row) => row.sku).filter(Boolean)
+    });
+  }
+
+  if (journey.checkoutIntentCount > journey.completedSalesCount) {
+    actions.push({
+      priority: 4,
+      type: 'checkout_flow_review',
+      title: 'Review checkout conversion flow',
+      reason: `${journey.checkoutIntentCount - journey.completedSalesCount} intents did not complete purchase.`,
+      suggestedAction: 'Inspect queue time, payment friction, and final-sales assistance.',
+      expectedImpact: 'Increase capture rate from checkout intent to completed sales.',
+      severity: 'medium',
+      relatedSkus: []
+    });
+  }
+
+  return actions.sort((a, b) => a.priority - b.priority);
+}
+
+function computeTopRevenueOpportunities(opportunities = []) {
+  return (Array.isArray(opportunities) ? opportunities : []).slice(0, 8).map((row) => ({
+    name: row.name,
+    sku: row.sku,
+    tryOn: row.tryOn,
+    sales: row.sales,
+    conversionRate: row.conversionRate,
+    opportunityScore: row.opportunityScore,
+    estimatedMissedRevenue: row.estimatedMissedRevenue,
+    recommendedAction: row.sales === 0 ? 'product_review' : 'monitor'
+  }));
+}
+
+function computeOperationAlerts({ grouped = {}, journey }) {
+  const fittingRows = grouped?.FITTING_ROOM || [];
+  const abnormalCount = fittingRows.filter((row) => row.abnormal).length;
+  const alerts = [];
+  if (abnormalCount > 0) {
+    alerts.push({ level: 'critical', title: 'Customer Experience Risk', detail: `${abnormalCount} long-dwell items`, action: 'Dispatch staff to active fitting rooms.' });
+  }
+  if (fittingRows.length > 0) {
+    alerts.push({ level: 'warning', title: 'Uncleared fitting-room items', detail: `${fittingRows.length} items still in fitting flow`, action: 'Validate room turnover and session reset.' });
+  }
+  if (journey.checkoutIntentCount > journey.completedSalesCount) {
+    alerts.push({ level: 'info', title: 'Checkout conversion gap', detail: `${journey.checkoutIntentCount - journey.completedSalesCount} intents not converted`, action: 'Review POS queue and checkout support.' });
+  }
+  return alerts.slice(0, 5);
+}
+
+function computeReplenishmentRisk(skuRows = []) {
+  return (Array.isArray(skuRows) ? skuRows : [])
+    .filter((row) => row.currentStock < row.safetyStock)
+    .slice(0, 8)
+    .map((row) => ({
+      sku: row.sku,
+      currentStock: row.currentStock,
+      safetyStock: row.safetyStock,
+      riskLevel: row.riskLevel,
+      recommendedAction: row.suggestedQty > 0 ? `Restock +${row.suggestedQty}` : 'Monitor'
+    }));
+}
+
+function buildDashboardSummaryModel({ grouped = {}, todaySessions = [], todaySaleEvents = [], recentEvents = [], products = [], sales7d = [], inventoryRows = [] }) {
+  const opportunities = computeOpportunityRows(products, recentEvents);
+  const todayFittingCount = Array.isArray(todaySessions) ? todaySessions.length : 0;
+  const todaySalesCount = Array.isArray(todaySaleEvents) ? todaySaleEvents.length : 0;
+  const revenueImpact = computeRevenueImpact({ opportunities, todayFittingCount, todaySalesCount });
+  const journey = computeJourneyFunnel({ grouped, todaySessions, todaySaleEvents, recentEvents });
+  const skuRows = computeSkuReplenishment(products, sales7d, inventoryRows);
+  const aiInsight = computeAIBusinessInsight({ journey, revenueImpact, opportunities, grouped });
+  const actions = computeRecommendedActions({ grouped, opportunities, journey, skuRows });
+  const topOpportunities = computeTopRevenueOpportunities(opportunities);
+  const operationAlerts = computeOperationAlerts({ grouped, journey });
+  const replenishmentRisk = computeReplenishmentRisk(skuRows);
+  return {
+    revenueImpact,
+    journey,
+    aiInsight,
+    actions,
+    topOpportunities,
+    operationAlerts,
+    replenishmentRisk
+  };
+}
+
+function renderDashboardSummary(summaryModel) {
+  if (!summaryModel) return;
+  const { revenueImpact, journey, aiInsight, actions, topOpportunities, operationAlerts, replenishmentRisk } = summaryModel;
+
+  if (el.kpiMissedRevenue) el.kpiMissedRevenue.textContent = formatCurrency(revenueImpact.missedRevenueToday);
+  if (el.kpiPotentialUplift) el.kpiPotentialUplift.textContent = `${formatCurrency(revenueImpact.upliftLow)} - ${formatCurrency(revenueImpact.upliftHigh)}`;
+  if (el.kpiTryOnToSaleRate) el.kpiTryOnToSaleRate.textContent = `${(revenueImpact.tryOnToSaleRate * 100).toFixed(1)}%`;
+  if (el.kpiTopLossDriver) el.kpiTopLossDriver.textContent = revenueImpact.topLossDriver?.name || t('dashboard31.revenue.lossDriverFallback');
+
+  if (el.journeyFunnelBody) {
+    const maxValue = Math.max(journey.rackInterestCount, journey.fittingRoomCount, journey.checkoutIntentCount, journey.completedSalesCount, 1);
+    const dropOffText = journey.mainDropOffStage === 'after_fitting_room'
+      ? t('dashboard31.journey.dropOff.afterFitting')
+      : (journey.mainDropOffStage === 'after_checkout' ? t('dashboard31.journey.dropOff.afterCheckout') : t('dashboard31.journey.dropOff.noActivity'));
+    el.journeyFunnelBody.innerHTML = `
+      <div class="analytics-funnel-step">
+        <div class="analytics-funnel-label-row"><span>${escapeHtml(t('dashboard31.journey.productInterest'))}</span><strong>${escapeHtml(String(journey.rackInterestCount))}</strong></div>
+        <div class="analytics-funnel-track"><div class="analytics-funnel-fill" style="width:${Math.max(6, (journey.rackInterestCount / maxValue) * 100).toFixed(1)}%"></div></div>
+      </div>
+      <div class="analytics-funnel-step">
+        <div class="analytics-funnel-label-row"><span>${escapeHtml(t('dashboard31.journey.fittingRoom'))}</span><strong>${escapeHtml(String(journey.fittingRoomCount))}</strong></div>
+        <div class="analytics-funnel-track"><div class="analytics-funnel-fill" style="width:${Math.max(6, (journey.fittingRoomCount / maxValue) * 100).toFixed(1)}%"></div></div>
+      </div>
+      <div class="analytics-funnel-step">
+        <div class="analytics-funnel-label-row"><span>${escapeHtml(t('dashboard31.journey.purchaseIntent'))}</span><strong>${escapeHtml(String(journey.checkoutIntentCount))}</strong></div>
+        <div class="analytics-funnel-track"><div class="analytics-funnel-fill" style="width:${Math.max(6, (journey.checkoutIntentCount / maxValue) * 100).toFixed(1)}%"></div></div>
+      </div>
+      <div class="analytics-funnel-step">
+        <div class="analytics-funnel-label-row"><span>${escapeHtml(t('dashboard31.journey.completedSales'))}</span><strong>${escapeHtml(String(journey.completedSalesCount))}</strong></div>
+        <div class="analytics-funnel-track"><div class="analytics-funnel-fill" style="width:${Math.max(6, (journey.completedSalesCount / maxValue) * 100).toFixed(1)}%"></div></div>
+      </div>
+      <p class="hint">${escapeHtml(t('dashboard31.journey.dropOff'))}: <strong>${escapeHtml(dropOffText)}</strong></p>
+    `;
+  }
+
+  if (el.aiBusinessInsightBody) {
+    el.aiBusinessInsightBody.innerHTML = `
+      <div class="dashboard31-insight-headline">${escapeHtml(aiInsight.headline)}</div>
+      <p class="hint">${escapeHtml(aiInsight.summary)}</p>
+      <p class="hint">${escapeHtml(aiInsight.businessImpact)}</p>
+      <p class="hint">${escapeHtml(aiInsight.possibleReasons)}</p>
+      <p class="hint">${escapeHtml(t('dashboard31.ai.confidence'))}: <strong>${escapeHtml(`${Math.round(toSafeNumber(aiInsight.confidence, 0) * 100)}%`)}</strong></p>
+    `;
+  }
+
+  if (el.recommendedActionsBody) {
+    if (!actions.length) {
+      el.recommendedActionsBody.innerHTML = `<p class="analytics-empty">${escapeHtml(t('dashboard31.actions.empty'))}</p>`;
+    } else {
+      el.recommendedActionsBody.innerHTML = `<ul class="analytics-alert-list">${actions.map((action) => `
+        <li class="analytics-alert-item analytics-alert-item--${escapeHtml(action.severity === 'high' ? 'critical' : (action.severity === 'medium' ? 'warning' : 'info'))}">
+          <div><strong>${escapeHtml(action.title)}</strong></div>
+          <div>${escapeHtml(action.reason)}</div>
+          <div class="hint">${escapeHtml(action.suggestedAction)}</div>
+          <div class="hint">${escapeHtml(t('dashboard31.actions.expectedImpact'))}: ${escapeHtml(action.expectedImpact)}</div>
+          <div class="hint">${escapeHtml(t('dashboard31.actions.relatedSkus'))}: ${escapeHtml((action.relatedSkus || []).join(', ') || '-')}</div>
+        </li>
+      `).join('')}</ul>`;
+    }
+  }
+
+  if (el.topOpportunitiesBody) {
+    if (!topOpportunities.length) {
+      el.topOpportunitiesBody.innerHTML = `<p class="analytics-empty">${escapeHtml(t('dashboard31.opportunities.empty'))}</p>`;
+    } else {
+      el.topOpportunitiesBody.innerHTML = topOpportunities.map((row) => `
+        <div class="analytics-opportunity-row">
+          <strong>${escapeHtml(row.name)}</strong>
+          <span>${escapeHtml(t('dashboard31.opportunities.tryOn'))}: ${escapeHtml(String(row.tryOn))}</span>
+          <span>${escapeHtml(t('dashboard31.opportunities.sales'))}: ${escapeHtml(String(row.sales))}</span>
+          <span>${escapeHtml(t('dashboard31.opportunities.conversion'))}: ${escapeHtml((toSafeNumber(row.conversionRate, 0) * 100).toFixed(1))}%</span>
+          <span>${escapeHtml(t('dashboard31.opportunities.missedRevenue'))}: ${escapeHtml(formatCurrency(row.estimatedMissedRevenue))}</span>
+        </div>
+      `).join('');
+    }
+  }
+
+  if (el.operationsAlertsBody) {
+    if (!operationAlerts.length) {
+      el.operationsAlertsBody.innerHTML = `<p class="analytics-empty">${escapeHtml(t('dashboard31.alerts.empty'))}</p>`;
+    } else {
+      el.operationsAlertsBody.innerHTML = `<ul class="analytics-alert-list">${operationAlerts.map((alert) => `
+        <li class="analytics-alert-item analytics-alert-item--${escapeHtml(alert.level)}">
+          <div><strong>${escapeHtml(alert.title)}</strong></div>
+          <div>${escapeHtml(alert.detail)}</div>
+          <div class="hint">${escapeHtml(alert.action)}</div>
+        </li>
+      `).join('')}</ul>`;
+    }
+  }
+
+  if (el.replenishmentRiskBody) {
+    if (!replenishmentRisk.length) {
+      el.replenishmentRiskBody.innerHTML = `<p class="analytics-empty">${escapeHtml(t('dashboard31.replenishment.empty'))}</p>`;
+    } else {
+      el.replenishmentRiskBody.innerHTML = replenishmentRisk.map((row) => `
+        <div class="analytics-safety-row">
+          <strong>${escapeHtml(row.sku)}</strong>
+          <span>${escapeHtml(t('dashboard31.replenishment.currentStock'))}: ${escapeHtml(String(row.currentStock))}</span>
+          <span>${escapeHtml(t('dashboard31.replenishment.safetyStock'))}: ${escapeHtml(String(row.safetyStock))}</span>
+          <span>${escapeHtml(t('dashboard31.replenishment.riskLevel'))}: ${escapeHtml(t(`dashboard31.risk.${row.riskLevel}`))}</span>
+          <span>${escapeHtml(t('dashboard31.replenishment.recommendedAction'))}: ${escapeHtml(row.recommendedAction)}</span>
+        </div>
+      `).join('');
+    }
+  }
+}
+
+function setTechnicalBoardVisibility(expanded) {
+  if (el.technicalBoardBody) {
+    el.technicalBoardBody.hidden = !expanded;
+  }
+  if (el.technicalBoardToggle) {
+    el.technicalBoardToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    el.technicalBoardToggle.textContent = expanded ? t('dashboard31.technical.hide') : t('dashboard31.technical.show');
+  }
 }
 
 function computeAlertRows(grouped = {}) {
@@ -4065,6 +4674,17 @@ function renderDashboard(products, latestEventMap, presenceMap, todaySessions = 
   if (el.kpiTodaySales) el.kpiTodaySales.textContent = String(todaySales);
   if (el.kpiConversionRate) el.kpiConversionRate.textContent = `${conversionRate.toFixed(1)}%`;
 
+  const summaryModel = buildDashboardSummaryModel({
+    grouped,
+    todaySessions,
+    todaySaleEvents,
+    recentEvents,
+    products,
+    sales7d,
+    inventoryRows
+  });
+  renderDashboardSummary(summaryModel);
+
   renderManagerOverview({ grouped, todaySessions, todaySaleEvents, products, recentEvents });
 
   renderAnalyticsModules({ products, grouped, todaySessions, todaySaleEvents, recentEvents, sales7d, inventoryRows });
@@ -4148,7 +4768,7 @@ function renderProductDetailOverlay({ product, state, event }) {
   });
 }
 
-function appendActivityLog({ name, fromState, toState }) {
+function appendActivityLog({ name, fromState, toState, timestamp }) {
   if (!el.activityTimeline) return;
   const li = document.createElement('li');
   li.innerHTML = `
@@ -4157,12 +4777,10 @@ function appendActivityLog({ name, fromState, toState }) {
       from: t(`state.${fromState}`),
       to: t(`state.${toState}`)
     }))}</strong></div>
-    <div>${t('events.time')}: ${escapeHtml(new Date().toISOString())}</div>
+    <div>${t('events.time')}: ${escapeHtml(formatDateTime(timestamp || new Date().toISOString()))}</div>
   `;
   el.activityTimeline.prepend(li);
-  while (el.activityTimeline.children.length > 20) {
-    el.activityTimeline.removeChild(el.activityTimeline.lastElementChild);
-  }
+  trimLogList(el.activityTimeline);
 }
 
 function zoneFromBoardState(state) {
@@ -4417,19 +5035,19 @@ function appendEventLog(payload) {
     console.error('[dom] #eventLog not found, skip appendEventLog');
     return;
   }
+  const fromZone = payload?.from_zone || '';
+  const toZone = payload?.to_zone || '';
   const li = document.createElement('li');
   li.innerHTML = `
     <div><strong>${escapeHtml(payload.reader_id || t('events.unknownReader'))}</strong></div>
     <div>${t('events.epc')}: ${escapeHtml(payload.epc_data || '-')}</div>
-    <div>${t('events.eventType')}: ${escapeHtml(payload.event_type || '-')}</div>
-    <div>${t('events.fromZone')}: ${escapeHtml(payload.from_zone || '-')}</div>
-    <div>${t('events.toZone')}: ${escapeHtml(payload.to_zone || '-')}</div>
-    <div>${t('events.time')}: ${escapeHtml(payload.timestamp || new Date().toISOString())}</div>
+    <div>${t('events.eventType')}: ${escapeHtml(formatEventTypeLabel(payload.event_type))}</div>
+    <div>${t('events.fromZone')}: ${escapeHtml(fromZone ? formatZoneLabel(fromZone) : '-')}</div>
+    <div>${t('events.toZone')}: ${escapeHtml(toZone ? formatZoneLabel(toZone) : '-')}</div>
+    <div>${t('events.time')}: ${escapeHtml(formatDateTime(payload.timestamp || new Date().toISOString()))}</div>
   `;
   el.eventLog.prepend(li);
-  while (el.eventLog.children.length > 20) {
-    el.eventLog.removeChild(el.eventLog.lastElementChild);
-  }
+  trimLogList(el.eventLog);
 }
 
 async function fetchAndRenderDashboard() {
@@ -4626,6 +5244,9 @@ async function fetchAndRenderDashboard() {
   const safeSales7d = sales7dRes?.error ? [] : (sales7dRes?.data || []);
   const safeInventoryRows = inventoryRes?.error ? [] : (inventoryRes?.data || []);
   const safeRecentEvents = eventsRes?.data || [];
+
+  renderActivityTimelineFromEvents(safeRecentEvents, localizedProducts);
+  renderEventLogList(safeRecentEvents);
 
   if (!inventoryRes?.error && safeInventoryRows.length === 0 && (productsRes.data || []).length > 0) {
     console.warn('[dashboard] inventory_items returned 0 rows while products exist; possible RLS/no-select-policy or wrong project data source', {
@@ -4921,6 +5542,9 @@ function boot() {
       currentLang = nextLang;
       writeStorage(LANG_KEY, currentLang);
       applyI18nToStaticText();
+      if (el.technicalBoardBody && el.technicalBoardToggle) {
+        setTechnicalBoardVisibility(!el.technicalBoardBody.hidden);
+      }
       if (supabase) {
         try {
           await fetchAndRenderDashboard();
@@ -5157,6 +5781,13 @@ function boot() {
     el.simulateForm.addEventListener('submit', handleSimulateSubmit);
   }
   bindBoardDnD();
+  if (el.technicalBoardToggle) {
+    setTechnicalBoardVisibility(false);
+    el.technicalBoardToggle.addEventListener('click', () => {
+      const expanded = el.technicalBoardBody ? !el.technicalBoardBody.hidden : false;
+      setTechnicalBoardVisibility(expanded);
+    });
+  }
   if (el.refreshButton) {
     el.refreshButton.addEventListener('click', async () => {
       try {
@@ -5164,6 +5795,28 @@ function boot() {
       } catch (error) {
         setStatus(t('status.refreshFailed', { message: error.message }), 'err');
       }
+    });
+  }
+  const csvImportTabGrouped = document.getElementById('csvImportTabGrouped');
+  const csvImportTabSimple = document.getElementById('csvImportTabSimple');
+  const csvImportPanelGrouped = document.getElementById('csvImportPanelGrouped');
+  const csvImportPanelSimple = document.getElementById('csvImportPanelSimple');
+  if (csvImportTabGrouped && csvImportTabSimple && csvImportPanelGrouped && csvImportPanelSimple) {
+    csvImportTabGrouped.addEventListener('click', () => {
+      csvImportPanelGrouped.hidden = false;
+      csvImportPanelSimple.hidden = true;
+      csvImportTabGrouped.classList.add('is-active');
+      csvImportTabSimple.classList.remove('is-active');
+      csvImportTabGrouped.setAttribute('aria-selected', 'true');
+      csvImportTabSimple.setAttribute('aria-selected', 'false');
+    });
+    csvImportTabSimple.addEventListener('click', () => {
+      csvImportPanelGrouped.hidden = true;
+      csvImportPanelSimple.hidden = false;
+      csvImportTabSimple.classList.add('is-active');
+      csvImportTabGrouped.classList.remove('is-active');
+      csvImportTabSimple.setAttribute('aria-selected', 'true');
+      csvImportTabGrouped.setAttribute('aria-selected', 'false');
     });
   }
 
@@ -5216,7 +5869,7 @@ function boot() {
       navigate('/', { replace: true });
       return;
     }
-    if (path === '/fitting-demo.html' && !canViewFittingDemo(activeSession)) {
+    if ((path === '/fitting-demo' || path === '/fitting-demo.html') && !canViewFittingDemo(activeSession)) {
       setStatus('目前帳號無試衣間 Demo 權限', 'warn');
       navigate('/', { replace: true });
       return;

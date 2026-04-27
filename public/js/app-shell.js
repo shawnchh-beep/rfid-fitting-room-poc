@@ -1,9 +1,11 @@
-const VIEW_IDS = ['homeView', 'dashboardView', 'productView', 'csvImportView', 'settingView'];
+const VIEW_IDS = ['homeView', 'dashboardView', 'fittingDemoView', 'productView', 'csvImportView', 'settingView'];
 
 const ROUTE_TO_VIEW = {
   '/': 'homeView',
   '/dashboard': 'dashboardView',
   '/dashboard.html': 'dashboardView',
+  '/fitting-demo': 'fittingDemoView',
+  '/fitting-demo.html': 'fittingDemoView',
   '/product': 'productView',
   '/product.html': 'productView',
   '/csv-import': 'csvImportView',
