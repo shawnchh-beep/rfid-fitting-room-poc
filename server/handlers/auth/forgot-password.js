@@ -38,7 +38,8 @@ export async function handleAuthForgotPassword(req, res) {
     const envAppBaseUrl = normalizeBaseUrl(process.env.APP_BASE_URL);
     const requestBaseUrl = resolveRequestBaseUrl(req);
     const fallbackBaseUrl = normalizeBaseUrl('http://localhost:3000');
-    const appBaseUrl = envAppBaseUrl || requestBaseUrl || fallbackBaseUrl;
+    // Prefer runtime request host to avoid stale APP_BASE_URL pointing to old domains.
+    const appBaseUrl = requestBaseUrl || envAppBaseUrl || fallbackBaseUrl;
     const redirectTo = `${appBaseUrl}/auth-callback.html?next=/reset-password.html`;
 
     // Diagnostic logs for reset-link routing issues.
@@ -55,6 +56,7 @@ export async function handleAuthForgotPassword(req, res) {
         envAppBaseUrl,
         requestBaseUrl,
         appBaseUrl,
+        baseUrlSource: requestBaseUrl ? 'request' : (envAppBaseUrl ? 'env' : 'fallback'),
         redirectTo,
         requestHost,
         forwardedProto,
