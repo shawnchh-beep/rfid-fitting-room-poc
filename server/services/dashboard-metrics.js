@@ -50,6 +50,23 @@ function resolveProductKeyFromEvent(event = {}) {
   return parseEpcToKey(event?.epc_data);
 }
 
+function computeKeyDiagnostics(products = [], recentEvents = []) {
+  const productsTotal = Array.isArray(products) ? products.length : 0;
+  const eventsTotal = Array.isArray(recentEvents) ? recentEvents.length : 0;
+
+  const productsWithResolvableKey = (Array.isArray(products) ? products : []).filter((product) => Boolean(resolveProductKeyFromProduct(product))).length;
+  const eventsWithResolvableKey = (Array.isArray(recentEvents) ? recentEvents : []).filter((event) => Boolean(resolveProductKeyFromEvent(event))).length;
+
+  return {
+    productsTotal,
+    productsWithResolvableKey,
+    productsWithoutResolvableKey: Math.max(0, productsTotal - productsWithResolvableKey),
+    eventsTotal,
+    eventsWithResolvableKey,
+    eventsWithoutResolvableKey: Math.max(0, eventsTotal - eventsWithResolvableKey)
+  };
+}
+
 function resolveProductName(product = {}) {
   return normalizeText(product?.display_name, product?.name_en, product?.name, 'Unnamed Product');
 }
@@ -566,6 +583,18 @@ export async function buildDashboardData({ supabase, query = {} }) {
   const presenceRows = presenceRes.error ? [] : (presenceRes.data || []);
   const inventoryRows = inventoryRes.error ? [] : (inventoryRes.data || []);
 
+  const keyDiag = computeKeyDiagnostics(products, recentEvents);
+  console.info('[dashboard-metrics] query-result snapshot', {
+    queryMeta,
+    productsCount: products.length,
+    recentEventsCount: recentEvents.length,
+    todaySalesCount: todaySales.length,
+    todaySessionsCount: todaySessions.length,
+    presenceCount: presenceRows.length,
+    inventoryCount: inventoryRows.length,
+    keyDiag
+  });
+
   const presenceMap = new Map(presenceRows.map((row) => [normalizeText(row?.product_key), row]).filter(([k]) => k));
   const latestEventMap = buildLatestEventMap(recentEvents);
 
@@ -579,6 +608,14 @@ export async function buildDashboardData({ supabase, query = {} }) {
     if (isFreshPresence(presence)) state = 'FITTING_ROOM';
     grouped[state].push({ product, event, presence });
   }
+
+  console.info('[dashboard-metrics] grouped snapshot', {
+    rack: grouped.RACK.length,
+    fittingRoom: grouped.FITTING_ROOM.length,
+    checkout: grouped.CHECKOUT.length,
+    sold: grouped.SOLD.length,
+    productsDroppedByKey: keyDiag.productsWithoutResolvableKey
+  });
 
   const opportunitiesRaw = buildOpportunities(products, recentEvents);
   const opportunities = opportunitiesRaw.slice(0, 50);
@@ -647,4 +684,3 @@ export async function buildDashboardData({ supabase, query = {} }) {
     actions: recommendedActions
   };
 }
-

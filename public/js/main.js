@@ -4296,6 +4296,20 @@ function renderDashboardSummary(summaryModel) {
   if (!summaryModel) return;
   const { revenueImpact, journey, aiInsight, actions, topOpportunities, operationAlerts, replenishmentRisk } = summaryModel;
 
+  console.log('[dashboard31] render start', {
+    hasSummaryModel: Boolean(summaryModel),
+    kpiMissedRevenueEl: Boolean(el.kpiMissedRevenue),
+    journeyFunnelBodyEl: Boolean(el.journeyFunnelBody),
+    aiBusinessInsightBodyEl: Boolean(el.aiBusinessInsightBody),
+    topOpportunitiesBodyEl: Boolean(el.topOpportunitiesBody),
+    operationsAlertsBodyEl: Boolean(el.operationsAlertsBody),
+    replenishmentRiskBodyEl: Boolean(el.replenishmentRiskBody),
+    opportunitiesCount: Array.isArray(topOpportunities) ? topOpportunities.length : -1,
+    actionsCount: Array.isArray(actions) ? actions.length : -1,
+    alertsCount: Array.isArray(operationAlerts) ? operationAlerts.length : -1,
+    replenishmentCount: Array.isArray(replenishmentRisk) ? replenishmentRisk.length : -1
+  });
+
   if (el.kpiMissedRevenue) el.kpiMissedRevenue.textContent = formatCurrency(revenueImpact.missedRevenueToday);
   if (el.kpiPotentialUplift) el.kpiPotentialUplift.textContent = `${formatCurrency(revenueImpact.upliftLow)} - ${formatCurrency(revenueImpact.upliftHigh)}`;
   if (el.kpiTryOnToSaleRate) el.kpiTryOnToSaleRate.textContent = `${(revenueImpact.tryOnToSaleRate * 100).toFixed(1)}%`;
@@ -4398,6 +4412,19 @@ function renderDashboardSummary(summaryModel) {
       `).join('');
     }
   }
+
+  console.log('[dashboard31] render done', {
+    kpiMissedRevenueText: el.kpiMissedRevenue?.textContent || null,
+    journeyHtmlLen: el.journeyFunnelBody?.innerHTML?.length || 0,
+    aiHtmlLen: el.aiBusinessInsightBody?.innerHTML?.length || 0,
+    oppHtmlLen: el.topOpportunitiesBody?.innerHTML?.length || 0,
+    alertsHtmlLen: el.operationsAlertsBody?.innerHTML?.length || 0,
+    replenishHtmlLen: el.replenishmentRiskBody?.innerHTML?.length || 0,
+    dashboardViewHidden: el.dashboardView?.hidden,
+    homeViewHidden: el.homeView?.hidden,
+    appShellHidden: el.appShell?.hidden,
+    currentPath: window.location.pathname
+  });
 }
 
 function setTechnicalBoardVisibility(expanded) {
@@ -5253,6 +5280,76 @@ function appendEventLog(payload) {
 }
 
 async function fetchAndRenderDashboard() {
+  const renderSummaryFromApiFallback = async () => {
+    try {
+      const res = await fetch('/api/dashboard/summary?range=today', { method: 'GET', headers: { ...getApiAuthHeaders() } });
+      const payload = await parseJsonResponse(res);
+      if (!res.ok || !payload) {
+        console.warn('[dashboard31] api summary fallback unavailable', { status: res.status, ok: res.ok });
+        return false;
+      }
+
+      const revenue = payload?.revenueImpact || {};
+      const journey = payload?.journeyFunnel || {};
+      const opportunities = Array.isArray(payload?.topRevenueOpportunities) ? payload.topRevenueOpportunities : [];
+      const actions = Array.isArray(payload?.recommendedActions) ? payload.recommendedActions : [];
+      const alerts = Array.isArray(payload?.operationAlerts) ? payload.operationAlerts : [];
+      const replenishment = Array.isArray(payload?.replenishmentRisk) ? payload.replenishmentRisk : [];
+      const ai = payload?.aiInsight || {};
+
+      const normalizedSummary = {
+        revenueImpact: {
+          missedRevenueToday: toSafeNumber(revenue.missedRevenueToday, 0),
+          upliftLow: toSafeNumber(revenue.potentialUpliftMin, 0),
+          upliftHigh: toSafeNumber(revenue.potentialUpliftMax, 0),
+          tryOnToSaleRate: toSafeNumber(revenue.tryOnToSaleRate, 0) / 100,
+          topLossDriver: revenue?.topLossDriver
+            ? { name: revenue.topLossDriver.productName || revenue.topLossDriver.sku || '-' }
+            : null
+        },
+        journey: {
+          rackInterestCount: toSafeNumber(journey.rackInterestCount, 0),
+          fittingRoomCount: toSafeNumber(journey.fittingRoomCount, 0),
+          checkoutIntentCount: toSafeNumber(journey.checkoutIntentCount, 0),
+          completedSalesCount: toSafeNumber(journey.completedSalesCount, 0),
+          mainDropOffStage: String(journey.mainDropOffStage || 'no_activity')
+        },
+        aiInsight: {
+          headline: String(ai.headline || '-'),
+          summary: String(ai.summary || '-'),
+          businessImpact: String(ai.businessImpact || '-'),
+          possibleReasons: Array.isArray(ai.possibleReasons) ? ai.possibleReasons.join(' / ') : String(ai.possibleReasons || '-'),
+          confidence: typeof ai.confidence === 'number' ? ai.confidence : 0.5
+        },
+        actions: actions.map((row) => ({
+          title: String(row?.title || '-'),
+          reason: String(row?.reason || '-'),
+          suggestedAction: String(row?.suggestedAction || '-'),
+          expectedImpact: String(row?.expectedImpact || '-'),
+          relatedSkus: Array.isArray(row?.relatedSkus) ? row.relatedSkus : [],
+          severity: String(row?.severity || 'info')
+        })),
+        topOpportunities: opportunities.map((row) => ({
+          name: String(row?.productName || row?.sku || '-'),
+          sku: String(row?.sku || '-'),
+          tryOn: toSafeNumber(row?.tryOnCount, 0),
+          sales: toSafeNumber(row?.salesCount, 0),
+          conversionRate: toSafeNumber(row?.conversionRate, 0) / 100,
+          estimatedMissedRevenue: toSafeNumber(row?.estimatedMissedRevenue, 0)
+        })),
+        operationAlerts: alerts,
+        replenishmentRisk: replenishment
+      };
+
+      renderDashboardSummary(normalizedSummary);
+      console.warn('[dashboard31] applied API summary fallback render');
+      return true;
+    } catch (error) {
+      console.warn('[dashboard31] api summary fallback failed', error);
+      return false;
+    }
+  };
+
   if (!supabase) {
     setStatus(t('status.notConnected'), 'warn');
     console.warn('[dashboard] supabase client not ready', {
@@ -5260,6 +5357,7 @@ async function fetchAndRenderDashboard() {
       savedUrl: readStorage(URL_KEY, null),
       hasAnonKey: !!readStorage(ANON_KEY, '')
     });
+    await renderSummaryFromApiFallback();
     return;
   }
 
@@ -5273,7 +5371,16 @@ async function fetchAndRenderDashboard() {
 
   const sevenDaysAgoIso = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000)).toISOString();
 
-  const [productsRes, eventsRes, translationsRes, presenceRes, todaySessionsRes, todaySalesRes, sales7dRes, inventoryRes] = await Promise.all([
+  let productsRes;
+  let eventsRes;
+  let translationsRes;
+  let presenceRes;
+  let todaySessionsRes;
+  let todaySalesRes;
+  let sales7dRes;
+  let inventoryRes;
+  try {
+    [productsRes, eventsRes, translationsRes, presenceRes, todaySessionsRes, todaySalesRes, sales7dRes, inventoryRes] = await Promise.all([
     supabase.from('products').select('id,name,name_en,description_en,image_url,price,size,color,sku,style_no,item_no,epc_data,epc_company_prefix,item_reference').order('id', { ascending: true }),
     supabase.from('rfid_events').select('epc_data,reader_id,timestamp,event_type,event_source,from_zone,to_zone').order('timestamp', { ascending: false }).limit(500),
     supabase.from('product_translations').select('product_id,locale,name,description').eq('locale', currentLang),
@@ -5282,7 +5389,12 @@ async function fetchAndRenderDashboard() {
     supabase.from('rfid_events').select('epc_data,timestamp,event_type').eq('event_type', 'sale_completed').gte('timestamp', todayStartIso()),
     supabase.from('rfid_events').select('epc_data').eq('event_type', 'sale_completed').gte('timestamp', sevenDaysAgoIso),
     supabase.from('inventory_items').select('product_id,sku,style_no,item_no,status,epc_data')
-  ]);
+    ]);
+  } catch (error) {
+    console.error('[dashboard] supabase query pipeline threw', error);
+    await renderSummaryFromApiFallback();
+    return;
+  }
 
   if (todaySessionsRes?.error && todaySessionsRes.error.code === '42703') {
     const fallbackTodaySessionsRes = await supabase

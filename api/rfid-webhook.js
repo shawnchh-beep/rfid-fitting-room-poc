@@ -35,6 +35,13 @@ function normalizeEventEnvelope({ readerId, bodyEventType, bodyEventSource, body
 
   const inferredToZone = bodyToZone || zoneFromReader(readerId);
   const inferredFromZone = bodyFromZone || null;
+  const normalizedEventSource = (() => {
+    const raw = String(bodyEventSource || '').trim().toLowerCase();
+    if (!raw) return 'simulator';
+    if (raw === 'fitting_demo_drag') return 'demo_drag';
+    if (['demo_drag', 'simulator', 'rfid_reader', 'system'].includes(raw)) return raw;
+    return raw;
+  })();
 
   const inferredEventType = normalizedBodyEventType || (() => {
     if (inferredToZone === 'fitting_room') return 'enter_fitting_room';
@@ -46,7 +53,7 @@ function normalizeEventEnvelope({ readerId, bodyEventType, bodyEventSource, body
 
   return {
     eventType: inferredEventType,
-    eventSource: bodyEventSource || 'simulator',
+    eventSource: normalizedEventSource,
     fromZone: inferredFromZone,
     toZone: inferredToZone
   };
@@ -421,6 +428,7 @@ export default async function handler(req, res) {
   } = req.body || {};
 
   try {
+    let phase = 'decode_epc';
     // 1. 解碼 EPC
     let companyPrefix;
     let itemReference;
@@ -462,6 +470,7 @@ export default async function handler(req, res) {
     // 2. Debounce Check: 檢查過去 3 秒內是否有相同 Reader 讀到相同 EPC
     const threeSecondsAgo = new Date(Date.now() - 3000).toISOString();
 
+    phase = 'debounce_query';
     const { data: existingEvents, error: queryError } = await supabase
       .from('rfid_events')
       .select('id')
@@ -475,6 +484,7 @@ export default async function handler(req, res) {
     if (existingEvents && existingEvents.length > 0) {
       // 仍需更新試衣間 heartbeat，避免持續讀取時因 debounce 造成 10 秒誤判離場
       if (isFittingReader) {
+        phase = 'debounce_presence_upsert';
         const presenceUpsert = await upsertFittingPresence({
           productKey,
           companyPrefix,
@@ -496,11 +506,13 @@ export default async function handler(req, res) {
         }
 
         if (!presenceUpsert.error) {
+          phase = 'debounce_resolve_sku';
           const { sku, error: skuError } = await resolveProductSku(companyPrefix, itemReference);
           if (skuError) throw skuError;
 
           if (presenceUpsert.isNewVisit) {
             if (presenceUpsert.previousLastSeenAt) {
+              phase = 'debounce_close_open_session';
               const closePrev = await closeOpenSession({
                 productKey,
                 leftAtIso: presenceUpsert.previousLastSeenAt
@@ -510,6 +522,7 @@ export default async function handler(req, res) {
               }
             }
 
+            phase = 'debounce_open_session';
             const openRes = await openSession({
               productKey,
               companyPrefix,
@@ -533,6 +546,7 @@ export default async function handler(req, res) {
     }
 
     // 3. 寫入資料庫
+    phase = 'insert_rfid_event';
     const insertResult = await insertRfidEventCompat({
       epc_data,
       reader_id,
@@ -554,6 +568,7 @@ export default async function handler(req, res) {
 
     // 4. 更新試衣間在場快照
     if (isFittingReader) {
+      phase = 'insert_presence_upsert';
       const presenceUpsert = await upsertFittingPresence({
         productKey,
         companyPrefix,
@@ -571,15 +586,24 @@ export default async function handler(req, res) {
         previousLastSeenAt: presenceUpsert.previousLastSeenAt || null
       });
       if (presenceUpsert.error && !isMissingPresenceTable(presenceUpsert.error)) {
+        console.error('[rfid-webhook] phase failure', {
+          phase,
+          code: presenceUpsert.error?.code || null,
+          message: presenceUpsert.error?.message || null,
+          details: presenceUpsert.error?.details || null,
+          hint: presenceUpsert.error?.hint || null
+        });
         throw presenceUpsert.error;
       }
 
       if (!presenceUpsert.error) {
+        phase = 'insert_resolve_sku';
         const { sku, error: skuError } = await resolveProductSku(companyPrefix, itemReference);
         if (skuError) throw skuError;
 
         if (presenceUpsert.isNewVisit) {
           if (presenceUpsert.previousLastSeenAt) {
+            phase = 'insert_close_open_session';
             const closePrev = await closeOpenSession({
               productKey,
               leftAtIso: presenceUpsert.previousLastSeenAt
@@ -589,6 +613,7 @@ export default async function handler(req, res) {
             }
           }
 
+          phase = 'insert_open_session';
           const openRes = await openSession({
             productKey,
             companyPrefix,
@@ -602,6 +627,7 @@ export default async function handler(req, res) {
         }
       }
     } else {
+      phase = 'non_fitting_clear_presence';
       const presenceDelete = await clearFittingPresence(productKey);
       console.log('[rfid-webhook] non-fitting branch presence clear result', {
         productKey,
@@ -611,17 +637,33 @@ export default async function handler(req, res) {
         errorMessage: presenceDelete.error?.message || null
       });
       if (presenceDelete.error && !isMissingPresenceTable(presenceDelete.error)) {
+        console.error('[rfid-webhook] phase failure', {
+          phase,
+          code: presenceDelete.error?.code || null,
+          message: presenceDelete.error?.message || null,
+          details: presenceDelete.error?.details || null,
+          hint: presenceDelete.error?.hint || null
+        });
         throw presenceDelete.error;
       }
 
+      phase = 'non_fitting_close_open_session';
       const closeRes = await closeOpenSession({ productKey, leftAtIso: nowIso });
       if (closeRes.error && !isMissingSessionsTable(closeRes.error) && !isMissingSessionColumns(closeRes.error)) {
+        console.error('[rfid-webhook] phase failure', {
+          phase,
+          code: closeRes.error?.code || null,
+          message: closeRes.error?.message || null,
+          details: closeRes.error?.details || null,
+          hint: closeRes.error?.hint || null
+        });
         throw closeRes.error;
       }
     }
 
     let conversion = null;
     if (eventEnvelope.eventType === 'sale_completed') {
+      phase = 'mark_session_converted';
       const convertedRes = await markSessionConvertedWithinWindow({
         productKey,
         saleTimeIso: nowIso
@@ -636,6 +678,7 @@ export default async function handler(req, res) {
       };
     }
 
+    phase = 'update_inventory_status';
     const targetInventoryStatus = resolveInventoryStatusByEvent(eventEnvelope.eventType, eventEnvelope.toZone);
     const inventoryStatusUpdate = await updateInventoryStatusByEpc({
       epcData: epc_data,
@@ -674,7 +717,12 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Webhook Error:', error);
+    console.error('Webhook Error:', {
+      message: error?.message || String(error),
+      code: error?.code || null,
+      details: error?.details || null,
+      hint: error?.hint || null
+    });
     return res.status(500).json({
       error: 'Internal Server Error',
       debug: {

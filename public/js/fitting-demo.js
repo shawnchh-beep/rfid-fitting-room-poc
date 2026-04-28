@@ -738,7 +738,7 @@ async function syncDemoEventToDb({ eventType, context }) {
       epc_data: epcData,
       reader_id: readerFromEventType(normalizedEventType),
       event_type: normalizedEventType,
-      event_source: 'fitting_demo_drag',
+      event_source: 'demo_drag',
       from_zone: zones.from_zone,
       to_zone: zones.to_zone
     })
