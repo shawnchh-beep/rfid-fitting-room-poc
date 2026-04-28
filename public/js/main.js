@@ -13,7 +13,6 @@ const PRODUCT_SUMMARY_VIEW_KEY = STORAGE_KEYS.productSummaryView;
 const OVERSTAY_DEMO_KEY = STORAGE_KEYS.overstayDemoMinutes;
 const OVERSTAY_OPERATIONAL_KEY = STORAGE_KEYS.overstayOperationalMinutes;
 const SESSION_KEY = STORAGE_KEYS.session;
-const BUILD_MARKER = 'dashboard31-route-hydrate-2026-04-28T04:42Z';
 const DASHBOARD_ROUTE_PATHS = new Set(['/dashboard', '/dashboard.html']);
 const DEFAULT_SUPABASE_URL = 'https://trgxtbqjkhydvbfndmhk.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_RjeQR-HU84MRCpByTqZlxg_lwJHStMP';
@@ -4439,34 +4438,6 @@ function setTechnicalBoardVisibility(expanded) {
   }
 }
 
-function mountBuildMarker() {
-  try {
-    const existing = document.getElementById('buildMarkerBadge');
-    if (existing) {
-      existing.textContent = `BUILD ${BUILD_MARKER}`;
-      return;
-    }
-
-    const badge = document.createElement('div');
-    badge.id = 'buildMarkerBadge';
-    badge.textContent = `BUILD ${BUILD_MARKER}`;
-    badge.style.position = 'fixed';
-    badge.style.right = '10px';
-    badge.style.bottom = '10px';
-    badge.style.zIndex = '99999';
-    badge.style.padding = '4px 8px';
-    badge.style.borderRadius = '8px';
-    badge.style.background = 'rgba(17,24,39,.92)';
-    badge.style.color = '#fff';
-    badge.style.fontSize = '11px';
-    badge.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
-    badge.style.pointerEvents = 'none';
-    document.body.appendChild(badge);
-  } catch (error) {
-    console.warn('[build-marker] mount failed', error);
-  }
-}
-
 function computeAlertRows(grouped = {}) {
   const fittingRows = grouped?.FITTING_ROOM || [];
   const abnormalCount = fittingRows.filter((row) => row.abnormal).length;
@@ -5852,8 +5823,6 @@ async function handleSimulateSubmit(event) {
 }
 
 function boot() {
-  console.info('[build-marker] loaded', BUILD_MARKER);
-  mountBuildMarker();
   const sharedState = getAppState();
   if (sharedState?.supabaseClient) {
     supabase = sharedState.supabaseClient;
