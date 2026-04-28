@@ -13,6 +13,8 @@ const PRODUCT_SUMMARY_VIEW_KEY = STORAGE_KEYS.productSummaryView;
 const OVERSTAY_DEMO_KEY = STORAGE_KEYS.overstayDemoMinutes;
 const OVERSTAY_OPERATIONAL_KEY = STORAGE_KEYS.overstayOperationalMinutes;
 const SESSION_KEY = STORAGE_KEYS.session;
+const BUILD_MARKER = 'dashboard31-route-hydrate-2026-04-28T04:42Z';
+const DASHBOARD_ROUTE_PATHS = new Set(['/dashboard', '/dashboard.html']);
 const DEFAULT_SUPABASE_URL = 'https://trgxtbqjkhydvbfndmhk.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_RjeQR-HU84MRCpByTqZlxg_lwJHStMP';
 const DEFAULT_LANG = 'en';
@@ -4437,6 +4439,34 @@ function setTechnicalBoardVisibility(expanded) {
   }
 }
 
+function mountBuildMarker() {
+  try {
+    const existing = document.getElementById('buildMarkerBadge');
+    if (existing) {
+      existing.textContent = `BUILD ${BUILD_MARKER}`;
+      return;
+    }
+
+    const badge = document.createElement('div');
+    badge.id = 'buildMarkerBadge';
+    badge.textContent = `BUILD ${BUILD_MARKER}`;
+    badge.style.position = 'fixed';
+    badge.style.right = '10px';
+    badge.style.bottom = '10px';
+    badge.style.zIndex = '99999';
+    badge.style.padding = '4px 8px';
+    badge.style.borderRadius = '8px';
+    badge.style.background = 'rgba(17,24,39,.92)';
+    badge.style.color = '#fff';
+    badge.style.fontSize = '11px';
+    badge.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+    badge.style.pointerEvents = 'none';
+    document.body.appendChild(badge);
+  } catch (error) {
+    console.warn('[build-marker] mount failed', error);
+  }
+}
+
 function computeAlertRows(grouped = {}) {
   const fittingRows = grouped?.FITTING_ROOM || [];
   const abnormalCount = fittingRows.filter((row) => row.abnormal).length;
@@ -4907,7 +4937,17 @@ function renderDashboard(products, latestEventMap, presenceMap, todaySessions = 
     sales7d,
     inventoryRows
   });
-  renderDashboardSummary(summaryModel);
+  try {
+    console.log('[dashboard31] before renderDashboardSummary', {
+      hasFunction: typeof renderDashboardSummary === 'function',
+      hasSummaryModel: Boolean(summaryModel),
+      hasRevenueImpact: Boolean(summaryModel?.revenueImpact),
+      path: window.location.pathname
+    });
+    renderDashboardSummary(summaryModel);
+  } catch (error) {
+    console.error('[dashboard31] renderDashboardSummary failed', error);
+  }
 
   renderManagerOverview({ grouped, todaySessions, todaySaleEvents, products, recentEvents });
 
@@ -5279,75 +5319,98 @@ function appendEventLog(payload) {
   trimLogList(el.eventLog);
 }
 
-async function fetchAndRenderDashboard() {
-  const renderSummaryFromApiFallback = async () => {
-    try {
-      const res = await fetch('/api/dashboard/summary?range=today', { method: 'GET', headers: { ...getApiAuthHeaders() } });
-      const payload = await parseJsonResponse(res);
-      if (!res.ok || !payload) {
-        console.warn('[dashboard31] api summary fallback unavailable', { status: res.status, ok: res.ok });
-        return false;
+async function hydrateDashboard31FromSummaryApi(reason = 'manual') {
+  try {
+    console.info('[dashboard31] hydrate start', {
+      reason,
+      path: window.location.pathname,
+      dashboardViewHidden: el.dashboardView?.hidden,
+      appShellHidden: el.appShell?.hidden
+    });
+
+    const res = await fetch('/api/dashboard/summary?range=today', { method: 'GET', headers: { ...getApiAuthHeaders() } });
+    const payload = await (async () => {
+      try {
+        return await res.json();
+      } catch {
+        return null;
       }
-
-      const revenue = payload?.revenueImpact || {};
-      const journey = payload?.journeyFunnel || {};
-      const opportunities = Array.isArray(payload?.topRevenueOpportunities) ? payload.topRevenueOpportunities : [];
-      const actions = Array.isArray(payload?.recommendedActions) ? payload.recommendedActions : [];
-      const alerts = Array.isArray(payload?.operationAlerts) ? payload.operationAlerts : [];
-      const replenishment = Array.isArray(payload?.replenishmentRisk) ? payload.replenishmentRisk : [];
-      const ai = payload?.aiInsight || {};
-
-      const normalizedSummary = {
-        revenueImpact: {
-          missedRevenueToday: toSafeNumber(revenue.missedRevenueToday, 0),
-          upliftLow: toSafeNumber(revenue.potentialUpliftMin, 0),
-          upliftHigh: toSafeNumber(revenue.potentialUpliftMax, 0),
-          tryOnToSaleRate: toSafeNumber(revenue.tryOnToSaleRate, 0) / 100,
-          topLossDriver: revenue?.topLossDriver
-            ? { name: revenue.topLossDriver.productName || revenue.topLossDriver.sku || '-' }
-            : null
-        },
-        journey: {
-          rackInterestCount: toSafeNumber(journey.rackInterestCount, 0),
-          fittingRoomCount: toSafeNumber(journey.fittingRoomCount, 0),
-          checkoutIntentCount: toSafeNumber(journey.checkoutIntentCount, 0),
-          completedSalesCount: toSafeNumber(journey.completedSalesCount, 0),
-          mainDropOffStage: String(journey.mainDropOffStage || 'no_activity')
-        },
-        aiInsight: {
-          headline: String(ai.headline || '-'),
-          summary: String(ai.summary || '-'),
-          businessImpact: String(ai.businessImpact || '-'),
-          possibleReasons: Array.isArray(ai.possibleReasons) ? ai.possibleReasons.join(' / ') : String(ai.possibleReasons || '-'),
-          confidence: typeof ai.confidence === 'number' ? ai.confidence : 0.5
-        },
-        actions: actions.map((row) => ({
-          title: String(row?.title || '-'),
-          reason: String(row?.reason || '-'),
-          suggestedAction: String(row?.suggestedAction || '-'),
-          expectedImpact: String(row?.expectedImpact || '-'),
-          relatedSkus: Array.isArray(row?.relatedSkus) ? row.relatedSkus : [],
-          severity: String(row?.severity || 'info')
-        })),
-        topOpportunities: opportunities.map((row) => ({
-          name: String(row?.productName || row?.sku || '-'),
-          sku: String(row?.sku || '-'),
-          tryOn: toSafeNumber(row?.tryOnCount, 0),
-          sales: toSafeNumber(row?.salesCount, 0),
-          conversionRate: toSafeNumber(row?.conversionRate, 0) / 100,
-          estimatedMissedRevenue: toSafeNumber(row?.estimatedMissedRevenue, 0)
-        })),
-        operationAlerts: alerts,
-        replenishmentRisk: replenishment
-      };
-
-      renderDashboardSummary(normalizedSummary);
-      console.warn('[dashboard31] applied API summary fallback render');
-      return true;
-    } catch (error) {
-      console.warn('[dashboard31] api summary fallback failed', error);
+    })();
+    if (!res.ok || !payload) {
+      console.warn('[dashboard31] hydrate unavailable', { reason, status: res.status, ok: res.ok });
       return false;
     }
+
+    const revenue = payload?.revenueImpact || {};
+    const journey = payload?.journeyFunnel || {};
+    const opportunities = Array.isArray(payload?.topRevenueOpportunities) ? payload.topRevenueOpportunities : [];
+    const actions = Array.isArray(payload?.recommendedActions) ? payload.recommendedActions : [];
+    const alerts = Array.isArray(payload?.operationAlerts) ? payload.operationAlerts : [];
+    const replenishment = Array.isArray(payload?.replenishmentRisk) ? payload.replenishmentRisk : [];
+    const ai = payload?.aiInsight || {};
+
+    renderDashboardSummary({
+      revenueImpact: {
+        missedRevenueToday: toSafeNumber(revenue.missedRevenueToday, 0),
+        upliftLow: toSafeNumber(revenue.potentialUpliftMin, 0),
+        upliftHigh: toSafeNumber(revenue.potentialUpliftMax, 0),
+        tryOnToSaleRate: toSafeNumber(revenue.tryOnToSaleRate, 0) / 100,
+        topLossDriver: revenue?.topLossDriver
+          ? { name: revenue.topLossDriver.productName || revenue.topLossDriver.sku || '-' }
+          : null
+      },
+      journey: {
+        rackInterestCount: toSafeNumber(journey.rackInterestCount, 0),
+        fittingRoomCount: toSafeNumber(journey.fittingRoomCount, 0),
+        checkoutIntentCount: toSafeNumber(journey.checkoutIntentCount, 0),
+        completedSalesCount: toSafeNumber(journey.completedSalesCount, 0),
+        mainDropOffStage: String(journey.mainDropOffStage || 'no_activity')
+      },
+      aiInsight: {
+        headline: String(ai.headline || '-'),
+        summary: String(ai.summary || '-'),
+        businessImpact: String(ai.businessImpact || '-'),
+        possibleReasons: Array.isArray(ai.possibleReasons) ? ai.possibleReasons.join(' / ') : String(ai.possibleReasons || '-'),
+        confidence: typeof ai.confidence === 'number' ? ai.confidence : 0.5
+      },
+      actions: actions.map((row) => ({
+        title: String(row?.title || '-'),
+        reason: String(row?.reason || '-'),
+        suggestedAction: String(row?.suggestedAction || '-'),
+        expectedImpact: String(row?.expectedImpact || '-'),
+        relatedSkus: Array.isArray(row?.relatedSkus) ? row.relatedSkus : [],
+        severity: String(row?.severity || 'info')
+      })),
+      topOpportunities: opportunities.map((row) => ({
+        name: String(row?.productName || row?.sku || '-'),
+        sku: String(row?.sku || '-'),
+        tryOn: toSafeNumber(row?.tryOnCount, 0),
+        sales: toSafeNumber(row?.salesCount, 0),
+        conversionRate: toSafeNumber(row?.conversionRate, 0) / 100,
+        estimatedMissedRevenue: toSafeNumber(row?.estimatedMissedRevenue, 0)
+      })),
+      operationAlerts: alerts,
+      replenishmentRisk: replenishment
+    });
+
+    console.info('[dashboard31] hydrate done', {
+      reason,
+      missedRevenue: revenue.missedRevenueToday ?? null,
+      opportunitiesCount: opportunities.length,
+      actionsCount: actions.length
+    });
+    return true;
+  } catch (error) {
+    console.warn('[dashboard31] hydrate failed', { reason, error });
+    return false;
+  }
+}
+
+async function fetchAndRenderDashboard() {
+  const renderSummaryFromApiFallback = async () => {
+    const applied = await hydrateDashboard31FromSummaryApi('fetch-fallback');
+    if (applied) console.warn('[dashboard31] applied API summary fallback render');
+    return applied;
   };
 
   if (!supabase) {
@@ -5789,6 +5852,8 @@ async function handleSimulateSubmit(event) {
 }
 
 function boot() {
+  console.info('[build-marker] loaded', BUILD_MARKER);
+  mountBuildMarker();
   const sharedState = getAppState();
   if (sharedState?.supabaseClient) {
     supabase = sharedState.supabaseClient;
@@ -6197,6 +6262,11 @@ function boot() {
 
     setShellViewByPath(path);
     syncTopNavActiveState(path);
+    if (DASHBOARD_ROUTE_PATHS.has(path)) {
+      hydrateDashboard31FromSummaryApi('route-change').catch((error) => {
+        console.warn('[dashboard31] route-change hydrate failed', error);
+      });
+    }
     if (path === '/setting' || path === '/setting.html') {
       setSettingTab(getSettingTabFromHash(), { updateHash: false });
     }
