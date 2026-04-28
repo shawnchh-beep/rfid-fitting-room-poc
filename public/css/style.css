@@ -490,6 +490,10 @@ body.is-embedded-fitting-demo .frd-main {
   border-radius: 0;
 }
 
+body.is-embedded-fitting-demo .frd-fullscreen-hint {
+  display: none;
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -2255,6 +2259,15 @@ button:hover {
   margin: 6px 0 0;
   max-width: 760px;
   font-size: 15px;
+}
+
+.frd-fullscreen-hint {
+  margin: 8px 0 0;
+  padding-left: 10px;
+  border-left: 2px solid #bfdbfe;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .frd-header-actions {
