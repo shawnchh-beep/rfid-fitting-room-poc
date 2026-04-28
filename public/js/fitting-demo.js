@@ -9,10 +9,16 @@ const SUPPORTED_LANGS = ['en', 'zh-Hant'];
 const EMBED_FLAG = 'embed';
 
 const EVENT_TYPE_LABELS = {
+  enter_fitting_room: 'frd.event.enteredRoom',
   item_entered_fitting_room: 'frd.event.enteredRoom',
+  exit_fitting_room: 'frd.event.leftRoom',
+  left_fitting_room: 'frd.event.leftRoom',
   item_left_fitting_room: 'frd.event.leftRoom',
+  return_to_sales_floor: 'frd.event.returnedRack',
   item_returned_to_floor: 'frd.event.returnedRack',
+  move_to_checkout: 'frd.event.movedCheckout',
   item_moved_to_checkout: 'frd.event.movedCheckout',
+  item_sold: 'frd.event.saleCompleted',
   sale_completed: 'frd.event.saleCompleted'
 };
 
@@ -89,6 +95,7 @@ const I18N = {
     'frd.toast.itemReturned': 'Lost conversion opportunity',
     'frd.toast.sentCheckout': 'Ready for checkout',
     'frd.toast.conversionImproved': 'Conversion improved',
+    'frd.toast.dbSyncFailed': 'Could not sync action to DB. Reverted demo state.',
     'frd.event.enteredRoom': 'Entered fitting room',
     'frd.event.leftRoom': 'Left fitting room',
     'frd.event.returnedRack': 'Returned to rack',
@@ -167,6 +174,7 @@ const I18N = {
     'frd.toast.itemReturned': '流失一次轉換機會',
     'frd.toast.sentCheckout': '已準備結帳',
     'frd.toast.conversionImproved': '轉換率提升',
+    'frd.toast.dbSyncFailed': '無法同步操作到資料庫，已還原 Demo 狀態。',
     'frd.event.enteredRoom': '進入試衣間',
     'frd.event.leftRoom': '離開試衣間',
     'frd.event.returnedRack': '回到貨架',
@@ -209,7 +217,10 @@ const state = {
   kpi: {
     tryOns: 0,
     sales: 0,
-    missedRevenue: 0
+    missedRevenue: 0,
+    potentialUplift: null,
+    source: 'local',
+    lastSyncedAt: null
   }
 };
 
@@ -314,6 +325,48 @@ function getApiAuthHeaders() {
   return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 }
 
+function getJsonApiHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    ...getApiAuthHeaders()
+  };
+}
+
+async function parseJsonResponse(response) {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+function getApiErrorMessage(payload, fallback) {
+  return String(
+    payload?.error?.message
+    || payload?.error
+    || payload?.message
+    || payload?.debug?.message
+    || fallback
+    || ft('frd.toast.actionCouldNotComplete')
+  );
+}
+
+function cloneStateValue(value) {
+  if (typeof structuredClone === 'function') return structuredClone(value);
+  return JSON.parse(JSON.stringify(value));
+}
+
+function todayStartIso() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
+function toSafeNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function formatPrice(priceUsd) {
   const amount = Number(priceUsd);
   if (!Number.isFinite(amount)) return '$0.00';
@@ -322,6 +375,34 @@ function formatPrice(priceUsd) {
     currency: 'USD',
     maximumFractionDigits: 2
   }).format(amount);
+}
+
+function normalizeDbEventType(eventType) {
+  const type = String(eventType || '').trim().toLowerCase();
+  if (type === 'item_entered_fitting_room' || type === 'item_added_to_session' || type === 'enter_room') return 'enter_fitting_room';
+  if (type === 'item_left_fitting_room' || type === 'item_returned_to_floor' || type === 'exit_room') return 'left_fitting_room';
+  if (type === 'item_moved_to_checkout') return 'move_to_checkout';
+  if (type === 'item_sold') return 'sale_completed';
+  return type;
+}
+
+function readerFromEventType(eventType) {
+  const type = normalizeDbEventType(eventType);
+  if (type === 'enter_fitting_room') return 'FITTING_ROOM_ANTENNA_1';
+  if (type === 'move_to_checkout') return 'CHECKOUT_ANTENNA_1';
+  if (type === 'sale_completed') return 'SOLD_ANTENNA_1';
+  return 'RACK_ANTENNA_1';
+}
+
+function zonesFromEventType(eventType) {
+  const type = normalizeDbEventType(eventType);
+  if (type === 'enter_fitting_room') return { from_zone: 'sales_floor', to_zone: 'fitting_room' };
+  if (type === 'move_to_checkout') return { from_zone: 'fitting_room', to_zone: 'checkout' };
+  if (type === 'sale_completed') return { from_zone: 'checkout', to_zone: 'sold' };
+  if (type === 'left_fitting_room' || type === 'exit_fitting_room' || type === 'return_to_sales_floor') {
+    return { from_zone: 'fitting_room', to_zone: 'sales_floor' };
+  }
+  return { from_zone: null, to_zone: 'sales_floor' };
 }
 
 function formatTime(iso) {
@@ -386,6 +467,64 @@ function generateDemoEpcPool(seed, quantity) {
   return Array.from({ length: count }, (_, idx) => `300000${normalizedSeed}${String(idx + 1).padStart(8, '0')}`.slice(0, 24));
 }
 
+function toFixedBin(value, bits) {
+  const n = BigInt(value);
+  if (n < 0n) throw new Error('negative value');
+  const bin = n.toString(2);
+  if (bin.length > bits) throw new Error('value out of range');
+  return bin.padStart(bits, '0');
+}
+
+function encodeDemoSgtin96({ itemReference, serial, companyPrefix = '1234567', partition = 5, filter = 1 }) {
+  const partitionTable = {
+    0: { companyPrefixBits: 40, itemReferenceBits: 4, companyPrefixDigits: 12, itemReferenceDigits: 1 },
+    1: { companyPrefixBits: 37, itemReferenceBits: 7, companyPrefixDigits: 11, itemReferenceDigits: 2 },
+    2: { companyPrefixBits: 34, itemReferenceBits: 10, companyPrefixDigits: 10, itemReferenceDigits: 3 },
+    3: { companyPrefixBits: 30, itemReferenceBits: 14, companyPrefixDigits: 9, itemReferenceDigits: 4 },
+    4: { companyPrefixBits: 27, itemReferenceBits: 17, companyPrefixDigits: 8, itemReferenceDigits: 5 },
+    5: { companyPrefixBits: 24, itemReferenceBits: 20, companyPrefixDigits: 7, itemReferenceDigits: 6 },
+    6: { companyPrefixBits: 20, itemReferenceBits: 24, companyPrefixDigits: 6, itemReferenceDigits: 7 }
+  };
+  const spec = partitionTable[Number(partition)];
+  if (!spec) throw new Error('unsupported partition');
+  const company = String(companyPrefix || '').replace(/\D/g, '').slice(-spec.companyPrefixDigits).padStart(spec.companyPrefixDigits, '0');
+  const item = String(itemReference || '').replace(/\D/g, '').slice(-spec.itemReferenceDigits).padStart(spec.itemReferenceDigits, '0');
+  const serialText = String(serial || '1').replace(/\D/g, '').slice(-10) || '1';
+  const binary = [
+    toFixedBin(48, 8),
+    toFixedBin(Number(filter) || 1, 3),
+    toFixedBin(Number(partition), 3),
+    toFixedBin(company, spec.companyPrefixBits),
+    toFixedBin(item, spec.itemReferenceBits),
+    toFixedBin(serialText, 38)
+  ].join('');
+  return BigInt(`0b${binary}`).toString(16).toUpperCase().padStart(24, '0');
+}
+
+function generateFallbackEpc(itemNo, sku, sequence = 1) {
+  try {
+    return encodeDemoSgtin96({
+      itemReference: String(itemNo || sku || sequence).replace(/\D/g, '').slice(-6).padStart(6, '0'),
+      serial: `${String(sku || '').replace(/\D/g, '').slice(-6)}${String(sequence).padStart(4, '0')}`
+    });
+  } catch {
+    return '';
+  }
+}
+
+function generateEpcFromCatalogIdentifiers({ epcCompanyPrefix, itemReference, sku, sequence = 1 }) {
+  if (!epcCompanyPrefix || !itemReference) return '';
+  try {
+    return encodeDemoSgtin96({
+      companyPrefix: epcCompanyPrefix,
+      itemReference,
+      serial: `${String(sku || '').replace(/\D/g, '').slice(-6)}${String(sequence).padStart(4, '0')}`
+    });
+  } catch {
+    return '';
+  }
+}
+
 function buildRackData(rows) {
   const groups = new Map();
   (rows || []).forEach((row) => {
@@ -394,14 +533,20 @@ function buildRackData(rows) {
     const productName = firstNonEmpty(row?.product_name, row?.name_en, row?.name, `Item ${itemNo}`);
     const color = firstNonEmpty(row?.color, '-');
     const size = firstNonEmpty(row?.size, '-');
+    const epcCompanyPrefix = firstNonEmpty(row?.epc_company_prefix, row?.epcCompanyPrefix);
+    const itemReference = firstNonEmpty(row?.item_reference, row?.itemReference);
     if (!itemNo || !sku) return;
 
+    const productId = firstNonEmpty(row?.product_id, row?.id);
     const key = `${itemNo}::${color}::${productName}`;
     if (!groups.has(key)) {
       groups.set(key, {
         key,
+        product_id: productId,
         style_no: firstNonEmpty(row?.style_no, row?.styleNo),
         item_no: itemNo,
+        epc_company_prefix: epcCompanyPrefix,
+        item_reference: itemReference,
         product_name: productName,
         color,
         image_url: row?.image_url || imagePathForItem(itemNo),
@@ -415,13 +560,19 @@ function buildRackData(rows) {
       : (Array.isArray(row?.epc_pool) ? row.epc_pool.filter(isValidEpcData) : []);
 
     groups.get(key).variants.push({
-      product_id: firstNonEmpty(row?.product_id, row?.id),
+      product_id: productId,
       skuKey: sku,
       sku_ean13: sku,
       size,
       quantity,
       unit_price: Number(row?.price_usd ?? row?.price ?? row?.unit_price ?? 0) || 0,
-      epc_pool: epcPool.length ? [...epcPool] : generateDemoEpcPool(sku, quantity),
+      epc_pool: epcPool.length
+        ? [...epcPool]
+        : [
+            generateEpcFromCatalogIdentifiers({ epcCompanyPrefix, itemReference, sku, sequence: 1 }),
+            generateFallbackEpc(itemNo, sku, 1),
+            ...generateDemoEpcPool(sku, quantity)
+          ].filter(isValidEpcData),
       item_key: key
     });
   });
@@ -453,6 +604,43 @@ async function fetchCatalogRows() {
   } catch {
     return [];
   }
+}
+
+async function fetchDashboardSummary() {
+  try {
+    const response = await fetch('/api/dashboard/summary?range=today', {
+      method: 'GET',
+      headers: { ...getApiAuthHeaders() }
+    });
+    const payload = await parseJsonResponse(response);
+    if (!response.ok) throw new Error(getApiErrorMessage(payload, 'Failed to read dashboard summary'));
+    return payload || null;
+  } catch (error) {
+    console.warn('[fitting-demo] dashboard summary fetch failed', error);
+    return null;
+  }
+}
+
+function applyKpiSnapshotFromSummary(summary) {
+  if (!summary) return false;
+  const funnel = summary?.journeyFunnel || {};
+  const revenue = summary?.revenueImpact || {};
+  state.kpi = {
+    tryOns: Math.max(0, Math.round(toSafeNumber(funnel.fittingRoomCount, state.kpi.tryOns))),
+    sales: Math.max(0, Math.round(toSafeNumber(funnel.completedSalesCount, state.kpi.sales))),
+    missedRevenue: Math.max(0, toSafeNumber(revenue.missedRevenueToday, state.kpi.missedRevenue)),
+    potentialUplift: Math.max(0, toSafeNumber(revenue.potentialUpliftMax, state.kpi.potentialUplift ?? getPotentialUplift())),
+    source: 'db',
+    lastSyncedAt: summary?.storeStatus?.lastUpdatedAt || new Date().toISOString()
+  };
+  return true;
+}
+
+async function refreshKpiFromDb({ shouldRender = true } = {}) {
+  const summary = await fetchDashboardSummary();
+  const applied = applyKpiSnapshotFromSummary(summary);
+  if (applied && shouldRender) renderAll();
+  return applied;
 }
 
 function getSelectedItem() {
@@ -510,6 +698,83 @@ function pushEvent(eventType, context, roomId = 1) {
   state.recentEvents.unshift(event);
 }
 
+function createStateSnapshot() {
+  return {
+    rackItems: cloneStateValue(state.rackItems),
+    selectedItemKey: state.selectedItemKey,
+    selectedSkuKey: state.selectedSkuKey,
+    roomAssignments: cloneStateValue(state.roomAssignments),
+    checkoutRecords: cloneStateValue(state.checkoutRecords),
+    completedSalesRecords: cloneStateValue(state.completedSalesRecords),
+    recentEvents: cloneStateValue(state.recentEvents),
+    roomItemSeq: state.roomItemSeq,
+    kpi: cloneStateValue(state.kpi)
+  };
+}
+
+function restoreStateSnapshot(snapshot) {
+  if (!snapshot) return;
+  state.rackItems = snapshot.rackItems;
+  state.selectedItemKey = snapshot.selectedItemKey;
+  state.selectedSkuKey = snapshot.selectedSkuKey;
+  state.roomAssignments = snapshot.roomAssignments;
+  state.checkoutRecords = snapshot.checkoutRecords;
+  state.completedSalesRecords = snapshot.completedSalesRecords;
+  state.recentEvents = snapshot.recentEvents;
+  state.roomItemSeq = snapshot.roomItemSeq;
+  state.kpi = snapshot.kpi;
+  state.draggingContext = null;
+}
+
+async function syncDemoEventToDb({ eventType, context }) {
+  const epcData = String(context?.epc_data || '').trim();
+  if (!isValidEpcData(epcData)) return { skipped: true, reason: 'missing_valid_epc' };
+  const normalizedEventType = normalizeDbEventType(eventType);
+  const zones = zonesFromEventType(normalizedEventType);
+  const response = await fetch('/api/rfid-webhook', {
+    method: 'POST',
+    headers: getJsonApiHeaders(),
+    body: JSON.stringify({
+      epc_data: epcData,
+      reader_id: readerFromEventType(normalizedEventType),
+      event_type: normalizedEventType,
+      event_source: 'fitting_demo_drag',
+      from_zone: zones.from_zone,
+      to_zone: zones.to_zone
+    })
+  });
+  const payload = await parseJsonResponse(response);
+  if (!response.ok) throw new Error(getApiErrorMessage(payload, ft('frd.toast.actionCouldNotComplete')));
+  return payload || { status: 'success' };
+}
+
+async function syncDemoEventsToDb(events) {
+  const results = [];
+  for (const event of events) {
+    results.push(await syncDemoEventToDb(event));
+  }
+  return results;
+}
+
+async function runOptimisticDbAction(action, eventsFactory, successToastKey, successLevel = 'ok') {
+  const snapshot = createStateSnapshot();
+  const result = action();
+  if (!result) return false;
+  try {
+    const events = eventsFactory(result).filter((event) => event?.eventType && event?.context);
+    await syncDemoEventsToDb(events);
+    await refreshKpiFromDb();
+    if (successToastKey) showToast(ft(successToastKey), successLevel);
+    return true;
+  } catch (error) {
+    console.warn('[fitting-demo] DB sync failed, reverting optimistic action', error);
+    restoreStateSnapshot(snapshot);
+    renderAll();
+    showToast(`${ft('frd.toast.dbSyncFailed')} ${error?.message || ''}`.trim(), 'err');
+    return false;
+  }
+}
+
 function getCheckoutTotal() {
   return state.checkoutRecords.reduce((sum, record) => sum + (Number(record.unit_price) || 0), 0);
 }
@@ -521,6 +786,9 @@ function getConversionRate() {
 }
 
 function getPotentialUplift() {
+  if (state.kpi.source === 'db' && Number.isFinite(Number(state.kpi.potentialUplift))) {
+    return Number(state.kpi.potentialUplift);
+  }
   return (Number(state.kpi.missedRevenue) || 0) * 0.4 + getCheckoutTotal() * 0.2;
 }
 
@@ -746,12 +1014,12 @@ function buildRoomDragContext(roomItemId) {
   };
 }
 
-function moveRackItemToRoom(context, roomId = 1) {
+function applyMoveRackItemToRoom(context, roomId = 1) {
   const hit = findVariantBySku(context?.skuKey);
   const room = getRoomById(roomId);
-  if (!hit || !room || Number(hit.variant.quantity) <= 0) return false;
+  if (!hit || !room || Number(hit.variant.quantity) <= 0) return null;
 
-  const epcData = takeEpcFromVariant(hit.variant) || context.epc_data || '';
+  const epcData = takeEpcFromVariant(hit.variant) || context.epc_data || generateFallbackEpc(context.item_no, context.sku_ean13, state.roomItemSeq);
   hit.variant.quantity = Math.max(0, Number(hit.variant.quantity) - 1);
   syncRackTotals();
 
@@ -774,13 +1042,21 @@ function moveRackItemToRoom(context, roomId = 1) {
   pushEvent('item_entered_fitting_room', roomEntry, roomId);
   ensureValidSelection();
   renderAll();
-  showToast(ft('frd.toast.itemEntered'), 'ok');
-  return true;
+  return { roomEntry, roomId };
 }
 
-function returnRoomItemToRack(roomItemId) {
+function moveRackItemToRoom(context, roomId = 1) {
+  return runOptimisticDbAction(
+    () => applyMoveRackItemToRoom(context, roomId),
+    ({ roomEntry }) => [{ eventType: 'enter_fitting_room', context: roomEntry }],
+    'frd.toast.itemEntered',
+    'ok'
+  );
+}
+
+function applyReturnRoomItemToRack(roomItemId) {
   const hit = getRoomEntryById(roomItemId);
-  if (!hit) return false;
+  if (!hit) return null;
   const entry = hit.entry;
   hit.room.items = hit.room.items.filter((item) => String(item.room_item_id) !== String(roomItemId));
 
@@ -795,13 +1071,21 @@ function returnRoomItemToRack(roomItemId) {
   pushEvent('item_left_fitting_room', entry, hit.room.roomId);
   pushEvent('item_returned_to_floor', entry, hit.room.roomId);
   renderAll();
-  showToast(ft('frd.toast.itemReturned'), 'warn');
-  return true;
+  return { entry, roomId: hit.room.roomId };
 }
 
-function sendRoomItemToCheckout(roomItemId) {
+function returnRoomItemToRack(roomItemId) {
+  return runOptimisticDbAction(
+    () => applyReturnRoomItemToRack(roomItemId),
+    ({ entry }) => [{ eventType: 'left_fitting_room', context: entry }],
+    'frd.toast.itemReturned',
+    'warn'
+  );
+}
+
+function applySendRoomItemToCheckout(roomItemId) {
   const hit = getRoomEntryById(roomItemId);
-  if (!hit) return false;
+  if (!hit) return null;
   const entry = hit.entry;
   hit.room.items = hit.room.items.filter((item) => String(item.room_item_id) !== String(roomItemId));
   const checkoutRecord = {
@@ -812,17 +1096,26 @@ function sendRoomItemToCheckout(roomItemId) {
   pushEvent('item_left_fitting_room', entry, hit.room.roomId);
   pushEvent('item_moved_to_checkout', entry, hit.room.roomId);
   renderAll();
-  showToast(ft('frd.toast.sentCheckout'), 'ok');
-  return true;
+  return { entry, checkoutRecord, roomId: hit.room.roomId };
 }
 
-function completeSale() {
+function sendRoomItemToCheckout(roomItemId) {
+  return runOptimisticDbAction(
+    () => applySendRoomItemToCheckout(roomItemId),
+    ({ entry }) => [{ eventType: 'move_to_checkout', context: entry }],
+    'frd.toast.sentCheckout',
+    'ok'
+  );
+}
+
+function applyCompleteSale() {
   if (!state.checkoutRecords.length) {
     showToast(ft('frd.toast.actionCouldNotComplete'), 'warn');
-    return;
+    return null;
   }
 
   const completedAt = new Date().toISOString();
+  const records = [...state.checkoutRecords];
   state.checkoutRecords.forEach((record) => {
     pushEvent('sale_completed', record, 1);
     state.completedSalesRecords.unshift({ ...record, completedAt });
@@ -830,7 +1123,16 @@ function completeSale() {
   state.kpi.sales += state.checkoutRecords.length;
   state.checkoutRecords = [];
   renderAll();
-  showToast(ft('frd.toast.conversionImproved'), 'ok');
+  return { records };
+}
+
+function completeSale() {
+  return runOptimisticDbAction(
+    () => applyCompleteSale(),
+    ({ records }) => records.map((record) => ({ eventType: 'sale_completed', context: record })),
+    'frd.toast.conversionImproved',
+    'ok'
+  );
 }
 
 function isValidMove(source, targetZone) {
@@ -1009,7 +1311,7 @@ function resetDemoState() {
   state.recentEvents = [];
   state.draggingContext = null;
   state.roomItemSeq = 1;
-  state.kpi = { tryOns: 0, sales: 0, missedRevenue: 0 };
+  state.kpi = { tryOns: 0, sales: 0, missedRevenue: 0, potentialUplift: null, source: 'local', lastSyncedAt: null };
 }
 
 async function bootstrapData() {
@@ -1023,6 +1325,7 @@ async function bootstrapData() {
     state.dataSource = 'mock';
   }
   resetDemoState();
+  await refreshKpiFromDb({ shouldRender: false });
   renderAll();
 }
 
@@ -1036,6 +1339,9 @@ async function bootstrap() {
   setInterval(() => {
     if (state.roomAssignments.some((room) => room.items.length > 0)) renderAll();
   }, 1000);
+  setInterval(() => {
+    refreshKpiFromDb().catch((error) => console.warn('[fitting-demo] periodic KPI refresh failed', error));
+  }, 15000);
 }
 
 bootstrap();

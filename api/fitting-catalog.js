@@ -77,7 +77,8 @@ export default async function handler(req, res) {
     const productsRes = await selectWithFallback(
       'products',
       [
-        'id,name,name_en,price,size,color,sku,sku_ean13,style_no,item_no,epc_data',
+        'id,name,name_en,price,size,color,sku,sku_ean13,style_no,item_no,epc_data,epc_company_prefix,item_reference',
+        'id,name,name_en,price,size,color,sku,sku_ean13,style_no,item_no,epc_company_prefix,item_reference',
         'id,name,name_en,price,size,color,sku,sku_ean13,style_no,item_no',
         'id,name,name_en,price,size,color,sku,style_no,item_no',
         'id,name,name_en,price,size,color,sku',
@@ -154,6 +155,8 @@ export default async function handler(req, res) {
         product_id: productId || null,
         style_no: resolveText(p?.style_no, sku),
         item_no: resolveText(p?.item_no, sku),
+        epc_company_prefix: resolveText(p?.epc_company_prefix),
+        item_reference: resolveText(p?.item_reference),
         sku_ean13: sku,
         product_name: resolveText(p?.name_en, p?.name, p?.item_no, 'Unknown'),
         color: resolveText(p?.color, '-'),
