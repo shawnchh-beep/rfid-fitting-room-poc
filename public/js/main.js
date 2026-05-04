@@ -13,6 +13,7 @@ const PRODUCT_SUMMARY_VIEW_KEY = STORAGE_KEYS.productSummaryView;
 const OVERSTAY_DEMO_KEY = STORAGE_KEYS.overstayDemoMinutes;
 const OVERSTAY_OPERATIONAL_KEY = STORAGE_KEYS.overstayOperationalMinutes;
 const SESSION_KEY = STORAGE_KEYS.session;
+const DEMO_TOKEN = 'demo-readonly';
 const DASHBOARD_ROUTE_PATHS = new Set(['/dashboard', '/dashboard.html']);
 const DEFAULT_SUPABASE_URL = 'https://trgxtbqjkhydvbfndmhk.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_RjeQR-HU84MRCpByTqZlxg_lwJHStMP';
@@ -217,7 +218,9 @@ const el = {
   adminTrialTableBody: document.getElementById('adminTrialTableBody'),
   adminTrialEmptyHint: document.getElementById('adminTrialEmptyHint'),
   adminTrialMessage: document.getElementById('adminTrialMessage'),
-  adminTrialLoadMoreButton: document.getElementById('adminTrialLoadMoreButton')
+  adminTrialLoadMoreButton: document.getElementById('adminTrialLoadMoreButton'),
+  homeReadonlyBanner: document.getElementById('homeReadonlyBanner'),
+  dashboardReadonlyBanner: document.getElementById('dashboardReadonlyBanner')
 };
 
 const I18N = {
@@ -235,6 +238,8 @@ const I18N = {
     'home.cards.setting.desc': 'Open Supabase and system settings',
     'home.cards.csv.title': 'CSV Import',
     'home.cards.csv.desc': 'Open import tools and upload data',
+    'demo.readonly.banner': 'You are in Demo read-only mode: dashboard view only, system operations are disabled.',
+    'error.demoReadonly': 'Demo read-only mode cannot perform this action',
     'home.actions.openDashboard': 'Open Dashboard',
     'home.actions.backHome': 'Back to Home',
     'login.title': 'Sign in to RFID Fitting Room PoC',
@@ -625,6 +630,8 @@ const I18N = {
     'home.cards.setting.desc': '開啟 Supabase 與系統設定',
     'home.cards.csv.title': 'CSV Import',
     'home.cards.csv.desc': '開啟導入工具並上傳資料',
+    'demo.readonly.banner': '你正在 Demo 唯讀模式：僅可瀏覽 Dashboard，系統操作已停用。',
+    'error.demoReadonly': 'Demo 唯讀模式無法執行此操作',
     'home.actions.openDashboard': '開啟 Dashboard',
     'home.actions.backHome': '返回主頁',
     'login.title': '登入 RFID 試衣間 PoC',
@@ -940,6 +947,8 @@ const I18N = {
     'nav.csvImport': 'CSV 导入',
     'nav.setting': '设置',
     'nav.fittingDemo': '试衣间 Demo',
+    'demo.readonly.banner': '你正在 Demo 只读模式：仅可浏览 Dashboard，系统操作已禁用。',
+    'error.demoReadonly': 'Demo 只读模式无法执行此操作',
     'config.title': 'Supabase 连接设置',
     'config.saveAndConnect': '保存设置并连接',
     'dashboard.title': 'RFID 零售转化仪表板',
@@ -1095,6 +1104,8 @@ const I18N = {
     'nav.csvImport': 'CSV インポート',
     'nav.setting': '設定',
     'nav.fittingDemo': '試着室デモ',
+    'demo.readonly.banner': '現在はデモ閲覧専用モードです。ダッシュボードのみ閲覧可能で、システム操作は無効です。',
+    'error.demoReadonly': 'デモ閲覧専用モードではこの操作はできません',
     'config.title': 'Supabase 接続設定',
     'config.saveAndConnect': '保存して接続',
     'dashboard.title': 'RFID リテール転換ダッシュボード',
@@ -1296,7 +1307,13 @@ function getSession() {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
-    if (!parsed?.accessToken || !parsed?.expiresAt) {
+    if (!parsed?.expiresAt) {
+      writeStorage(SESSION_KEY, null);
+      return null;
+    }
+    const role = String(parsed?.profile?.role || '').trim();
+    const isDemo = role === 'demo_viewer' || parsed?.demo?.enabled === true;
+    if (!isDemo && !parsed?.accessToken) {
       writeStorage(SESSION_KEY, null);
       return null;
     }
@@ -1317,6 +1334,16 @@ function setSession(session) {
 
 function clearSession() {
   writeStorage(SESSION_KEY, null);
+}
+
+function isDemoViewer(session = getSession()) {
+  return String(session?.profile?.role || '').trim() === 'demo_viewer' || session?.demo?.enabled === true;
+}
+
+function ensureDemoWritable(session = getSession()) {
+  if (!isDemoViewer(session)) return true;
+  setStatus(t('error.demoReadonly'), 'warn');
+  return false;
 }
 
 function setAppVisibility(isAuthenticated) {
@@ -1523,6 +1550,11 @@ function handleHomeCardNavigation(type) {
     return;
   }
   if (type === 'fittingDemo') {
+    if (isDemoViewer(session)) {
+      setStatus(t('error.demoReadonly'), 'warn');
+      navigate('/');
+      return;
+    }
     console.info('[nav] redirect to fitting-demo', {
       to: '/fitting-demo',
       fromPath: window.location.pathname
@@ -1531,6 +1563,11 @@ function handleHomeCardNavigation(type) {
     return;
   }
   if (type === 'product') {
+    if (isDemoViewer(session)) {
+      setStatus(t('error.demoReadonly'), 'warn');
+      navigate('/');
+      return;
+    }
     navigate('/product.html');
     return;
   }
@@ -1560,6 +1597,9 @@ function getRoomReaderId(room, fallback = 'FITTING_ROOM_ANTENNA_1') {
 }
 
 async function sendRfidEvent({ epcData, readerId, eventType, fromZone, toZone, note }) {
+  if (!ensureDemoWritable()) {
+    throw new Error(t('error.demoReadonly'));
+  }
   const response = await fetch('/api/rfid-webhook', {
     method: 'POST',
     headers: buildJsonHeaders(),
@@ -1833,10 +1873,12 @@ function getApiAuthHeaders() {
   const headers = {};
 
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  if (isDemoViewer(session)) headers['x-demo-token'] = DEMO_TOKEN;
   return headers;
 }
 
 function canUseCsvImport(session = getSession()) {
+  if (isDemoViewer(session)) return false;
   const role = String(session?.profile?.role || '').trim();
   const fromPermissions = session?.permissions?.canUseCsvImport;
   if (typeof fromPermissions === 'boolean') return fromPermissions;
@@ -1844,6 +1886,7 @@ function canUseCsvImport(session = getSession()) {
 }
 
 function canUseSetting(session = getSession()) {
+  if (isDemoViewer(session)) return false;
   const role = String(session?.profile?.role || '').trim();
   const fromPermissions = session?.permissions?.canUseSetting;
   if (typeof fromPermissions === 'boolean') return fromPermissions;
@@ -1851,6 +1894,7 @@ function canUseSetting(session = getSession()) {
 }
 
 function canViewFittingDemo(session = getSession()) {
+  if (isDemoViewer(session)) return false;
   const role = String(session?.profile?.role || '').trim();
   const fromPermissions = session?.permissions?.canViewFittingDemo;
   if (typeof fromPermissions === 'boolean') return fromPermissions;
@@ -1874,10 +1918,14 @@ function applyAuthUi(session = getSession()) {
   const canCsv = canUseCsvImport(session);
   const canSettingPage = canUseSetting(session);
   const canFittingPage = canViewFittingDemo(session);
+  const demoViewer = isDemoViewer(session);
 
   toggleEntryVisibility(el.homeCardCsvImport, canCsv);
   toggleEntryVisibility(el.homeCardSetting, canSettingPage);
   toggleEntryVisibility(el.homeCardFittingDemo, canFittingPage);
+  toggleEntryVisibility(el.homeCardProduct, !demoViewer);
+  if (el.homeReadonlyBanner) el.homeReadonlyBanner.hidden = !demoViewer;
+  if (el.dashboardReadonlyBanner) el.dashboardReadonlyBanner.hidden = !demoViewer;
 
   const navLinks = Array.from(document.querySelectorAll('.top-nav-link'));
   navLinks.forEach((link) => {
@@ -1890,6 +1938,9 @@ function applyAuthUi(session = getSession()) {
     }
     if (href === '/fitting-demo.html' || href === '/fitting-demo') {
       toggleEntryVisibility(link, canFittingPage);
+    }
+    if (href === '/product.html' || href === '/product') {
+      toggleEntryVisibility(link, !demoViewer);
     }
   });
 }
@@ -2178,6 +2229,9 @@ function getAdminUserPayloadFromForm() {
 }
 
 async function adminApiFetch(path, options = {}) {
+  if (!ensureDemoWritable()) {
+    throw new Error(t('error.demoReadonly'));
+  }
   const response = await fetch(path, {
     ...options,
     headers: {
@@ -2922,6 +2976,7 @@ function buildItemReferenceFromEan13(ean13, partition) {
 
 async function handleGroupedCsvImport(event) {
   event.preventDefault();
+  if (!ensureDemoWritable()) return;
   console.log('[grouped-import] submit triggered', {
     at: new Date().toISOString(),
     hasForm: !!el.groupedCsvImportForm,
@@ -5047,6 +5102,9 @@ function eventTypeFromTransition(fromState, toState) {
 }
 
 async function syncDragAction({ product, fromState, toState }) {
+  if (!ensureDemoWritable()) {
+    throw new Error(t('error.demoReadonly'));
+  }
   if (!product?.epc_data || !isValidEpcData(product.epc_data)) {
     throw new Error(t('error.epcMust24Hex'));
   }
@@ -5710,6 +5768,7 @@ async function handleConfigSubmit(event) {
 
 async function handleCsvImport(event) {
   event.preventDefault();
+  if (!ensureDemoWritable()) return;
   if (!canUseCsvImport()) {
     el.importResult.textContent = [
       '匯入失敗',
@@ -5785,6 +5844,7 @@ async function handleCsvImport(event) {
 
 async function handleSimulateSubmit(event) {
   event.preventDefault();
+  if (!ensureDemoWritable()) return;
   const readerId = el.simulateForm.reader_id.value.trim();
   const epcData = el.simulateForm.epc_data.value.trim();
 
@@ -6225,6 +6285,11 @@ function boot() {
     }
     if ((path === '/fitting-demo' || path === '/fitting-demo.html') && !canViewFittingDemo(activeSession)) {
       setStatus('目前帳號無試衣間 Demo 權限', 'warn');
+      navigate('/', { replace: true });
+      return;
+    }
+    if ((path === '/product' || path === '/product.html') && isDemoViewer(activeSession)) {
+      setStatus(t('error.demoReadonly'), 'warn');
       navigate('/', { replace: true });
       return;
     }

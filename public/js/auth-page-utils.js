@@ -1,5 +1,6 @@
 const LANG_KEY = 'rfid_poc_lang_v1';
 const SESSION_KEY = 'rfid_poc_login_session_v1';
+const DEMO_TOKEN = 'demo-readonly';
 const URL_KEY = 'supabaseUrl';
 const ANON_KEY = 'supabaseAnonKey';
 
@@ -26,6 +27,8 @@ const I18N = {
     'login.forgot': 'Forgot password',
     'login.trialCta': 'Apply for a 14-day trial account',
     'login.trialHint': 'No official account yet? Activate a trial workspace and receive an email invite.',
+    'login.demoCta': 'Enter Demo Dashboard',
+    'login.demoHint': 'Demo mode is read-only. You can view dashboard metrics but cannot modify data or system settings.',
     'login.success': 'Signed in successfully. Redirecting…',
     'login.error.missing_token': 'Missing recovery token. Please request a new link.',
     'login.error.invalid_recovery_link': 'Invalid or expired recovery link.',
@@ -92,6 +95,8 @@ const I18N = {
     'login.forgot': '忘記密碼',
     'login.trialCta': '申請 14 天試用帳號',
     'login.trialHint': '尚未有正式帳號？先開通試用環境，由系統寄送啟用信。',
+    'login.demoCta': '進入 Demo 儀表板',
+    'login.demoHint': 'Demo 模式為唯讀，只能瀏覽 Dashboard，無法修改資料或系統設定。',
     'login.success': '登入成功，正在跳轉…',
     'login.error.missing_token': '缺少驗證資訊，請重新申請連結。',
     'login.error.invalid_recovery_link': '重設連結無效或已過期。',
@@ -158,6 +163,8 @@ const I18N = {
     'login.forgot': '忘记密码',
     'login.trialCta': '申请 14 天试用账号',
     'login.trialHint': '还没有正式账号？先开通试用环境，系统将发送激活邮件。',
+    'login.demoCta': '进入 Demo 仪表板',
+    'login.demoHint': 'Demo 模式为只读，只能浏览 Dashboard，无法修改数据或系统设置。',
     'login.success': '登录成功，正在跳转…',
     'login.error.missing_token': '缺少验证信息，请重新申请链接。',
     'login.error.invalid_recovery_link': '重置链接无效或已过期。',
@@ -224,6 +231,8 @@ const I18N = {
     'login.forgot': 'パスワードを忘れた',
     'login.trialCta': '14日間トライアルアカウントを申請',
     'login.trialHint': '正式アカウントがない場合は、トライアル環境を有効化して招待メールを受け取れます。',
+    'login.demoCta': 'デモダッシュボードへ',
+    'login.demoHint': 'デモモードは閲覧専用です。ダッシュボードは閲覧できますが、データや設定の変更はできません。',
     'login.success': 'サインインしました。リダイレクト中…',
     'login.error.missing_token': '認証情報が不足しています。リンクを再発行してください。',
     'login.error.invalid_recovery_link': 'リンクが無効か期限切れです。',
@@ -345,6 +354,40 @@ export function writeSession(session) {
     return;
   }
   window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+}
+
+export function writeDemoSession() {
+  const now = Date.now();
+  const expiresAt = new Date(now + (6 * 60 * 60 * 1000)).toISOString();
+  writeSession({
+    accessToken: '',
+    refreshToken: null,
+    expiresAt,
+    user: {
+      id: 'demo-viewer',
+      email: 'demo@local'
+    },
+    profile: {
+      role: 'demo_viewer',
+      status: 'active',
+      full_name: 'Demo Viewer',
+      company_name: 'Demo Workspace',
+      job_title: 'Guest'
+    },
+    permissions: {
+      canViewDashboard: true,
+      canViewProduct: false,
+      canViewFittingDemo: false,
+      canUseFittingDemo: false,
+      canUseCsvImport: false,
+      canUseSetting: false,
+      canManageAccounts: false
+    },
+    demo: {
+      enabled: true,
+      token: DEMO_TOKEN
+    }
+  });
 }
 
 export function getSafeNextPath(input, fallback = '/') {

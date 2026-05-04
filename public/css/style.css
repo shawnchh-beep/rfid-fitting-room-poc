@@ -243,11 +243,44 @@ body.is-embedded-fitting-demo {
   transform: translateY(-1px);
 }
 
+.trial-entry-button--demo,
+.trial-entry-button--demo:visited {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.trial-entry-button--demo:hover {
+  background: #fef3c7;
+  box-shadow: 0 6px 14px rgba(245, 158, 11, 0.22);
+}
+
 .trial-entry-hint {
   margin: 8px 0 0;
   font-size: 12px;
   line-height: 1.45;
   color: var(--color-text-muted);
+}
+
+.trial-entry-hint--demo {
+  color: #92400e;
+  margin-bottom: 4px;
+}
+
+.demo-readonly-banner {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #f59e0b;
+  border-radius: 10px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.home-card.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .trial-hero-note {

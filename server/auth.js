@@ -2,7 +2,8 @@ import { getSupabaseAdminClient } from './supabase.js';
 
 const WEBHOOK_ALLOWED_ROLES = new Set(['trial', 'user', 'admin', 'service_backend']);
 const BULK_ALLOWED_ROLES = new Set(['user', 'admin', 'service_backend']);
-const ANY_APP_USER_ROLES = new Set(['guest', 'trial', 'user', 'admin']);
+const ANY_APP_USER_ROLES = new Set(['guest', 'trial', 'user', 'admin', 'demo_viewer']);
+const DEMO_TOKEN = 'demo-readonly';
 
 function getHeader(req, key) {
   return String(req?.headers?.[key] || '').trim();
@@ -17,6 +18,10 @@ function getBearerToken(req) {
 
 function getServiceToken(req) {
   return getHeader(req, 'x-api-token');
+}
+
+function getDemoToken(req) {
+  return getHeader(req, 'x-demo-token');
 }
 
 function baseError(status, code, message) {
@@ -71,13 +76,43 @@ function buildPrincipalFromProfile({ user, profile }) {
 function buildPermissions(role) {
   const r = String(role || '').trim();
   return {
-    canViewDashboard: ['guest', 'trial', 'user', 'admin'].includes(r),
+    canViewDashboard: ['guest', 'trial', 'user', 'admin', 'demo_viewer'].includes(r),
     canViewProduct: ['guest', 'trial', 'user', 'admin'].includes(r),
     canViewFittingDemo: ['trial', 'user', 'admin'].includes(r),
     canUseFittingDemo: ['trial', 'user', 'admin'].includes(r),
     canUseCsvImport: ['user', 'admin'].includes(r),
     canUseSetting: ['admin'].includes(r),
     canManageAccounts: ['admin'].includes(r)
+  };
+}
+
+function resolveDemoPrincipal(req) {
+  const token = getDemoToken(req);
+  if (token !== DEMO_TOKEN) return null;
+  return {
+    ok: true,
+    auth_mode: 'demo_token',
+    mode: 'demo_token',
+    role: 'demo_viewer',
+    user_id: 'demo-viewer',
+    email: 'demo@local',
+    status: 'active',
+    trial_expires_at: null,
+    user: {
+      id: 'demo-viewer',
+      email: 'demo@local',
+      role: 'demo_viewer',
+      status: 'active',
+      trial_expires_at: null
+    },
+    profile: {
+      role: 'demo_viewer',
+      status: 'active',
+      full_name: 'Demo Viewer',
+      company_name: 'Demo Workspace',
+      job_title: 'Guest',
+      trial_expires_at: null
+    }
   };
 }
 
@@ -242,8 +277,9 @@ async function authorize(req, allowedRoles = new Set()) {
     };
   }
 
+  const demoPrincipal = resolveDemoPrincipal(req);
   const hasBearer = Boolean(getBearerToken(req));
-  const principal = hasBearer ? await resolveBearerPrincipal(req) : resolveServicePrincipal(req);
+  const principal = demoPrincipal || (hasBearer ? await resolveBearerPrincipal(req) : resolveServicePrincipal(req));
   if (!principal.ok) return principal;
 
   if (allowedRoles.size > 0 && !allowedRoles.has(principal.role)) {

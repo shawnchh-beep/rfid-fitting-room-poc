@@ -51,6 +51,8 @@
 
       <a href="/trial-request.html" class="trial-entry-button" data-i18n="login.trialCta">申請 14 天試用帳號</a>
       <p class="trial-entry-hint" data-i18n="login.trialHint">尚未有正式帳號？先開通試用環境，由系統寄送啟用信。</p>
+      <button id="demoEntryButton" type="button" class="trial-entry-button trial-entry-button--demo" data-i18n="login.demoCta">進入 Demo 儀表板</button>
+      <p class="trial-entry-hint trial-entry-hint--demo" data-i18n="login.demoHint">Demo 模式為唯讀，只能瀏覽 Dashboard，無法修改資料或系統設定。</p>
 
       <p id="message" class="auth-message" aria-live="polite"></p>
     </section>
@@ -63,6 +65,7 @@
       bindLangSelect,
       createAuthClient,
       getSafeNextPath,
+      writeDemoSession,
       t,
       writeSession
     } from '/js/auth-page-utils.js';
@@ -70,6 +73,7 @@
     const form = document.getElementById('login-form');
     const message = document.getElementById('message');
     const langSelect = document.getElementById('lang');
+    const demoButton = document.getElementById('demoEntryButton');
     const query = new URLSearchParams(window.location.search);
     const nextPath = getSafeNextPath(query.get('next'), '/');
 
@@ -80,6 +84,13 @@
     if (errorCode) {
       message.textContent = t(`login.error.${errorCode}`);
     }
+
+    demoButton?.addEventListener('click', () => {
+      writeDemoSession();
+      message.textContent = t('login.success');
+      message.classList.remove('is-error');
+      window.location.href = '/dashboard';
+    });
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
