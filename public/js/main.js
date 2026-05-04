@@ -5760,6 +5760,13 @@ async function handleConfigSubmit(event) {
     writeStorage(ANON_KEY, anonKey);
     writeJsonStorage(STORAGE_KEY, { url, anonKey });
     const session = getSession();
+    if (isDemoViewer(session)) {
+      console.info('[demo] skip supabase realtime connect from settings, using API fallback', {
+        at: new Date().toISOString()
+      });
+      await fetchAndRenderDashboard();
+      return;
+    }
     await connectSupabase(url, anonKey, session?.accessToken || null);
   } catch (error) {
     setStatus(t('status.connectionFailed', { message: error.message }), 'err');
@@ -6312,6 +6319,15 @@ function boot() {
     setShellAuthVisibility(true);
     applyAuthUi(session);
     syncTopNavActiveState(getCurrentPath());
+    if (isDemoViewer(session)) {
+      console.info('[demo] skip auto supabase connect on boot, using dashboard API fallback', {
+        at: new Date().toISOString()
+      });
+      fetchAndRenderDashboard().catch((error) => {
+        setStatus(t('status.autoConnectFailed', { message: error.message }), 'err');
+      });
+      return;
+    }
     if (url && anonKey) {
       connectSupabase(url, anonKey, session?.accessToken || null).catch((error) => {
         setStatus(t('status.autoConnectFailed', { message: error.message }), 'err');
