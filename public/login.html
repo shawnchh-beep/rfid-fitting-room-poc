@@ -87,9 +87,13 @@
 
     demoButton?.addEventListener('click', () => {
       writeDemoSession();
+      console.info('[demo-entry] demo session written, redirecting via index route', {
+        at: new Date().toISOString(),
+        target: '/?next=%2Fdashboard'
+      });
       message.textContent = t('login.success');
       message.classList.remove('is-error');
-      window.location.href = '/dashboard';
+      window.location.href = '/?next=%2Fdashboard';
     });
 
     form.addEventListener('submit', async (event) => {
