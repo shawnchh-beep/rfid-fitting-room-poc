@@ -21,6 +21,9 @@
       <div class="app-topbar__actions">
         <label for="languageSelect" class="language-label" data-i18n="language.label">Language</label>
         <select id="languageSelect" class="language-select" aria-label="Language" data-i18n-aria-label="aria.languageSelect"></select>
+        <a class="contact-link-pill" href="mailto:contact@getrfid.link">
+          <span data-i18n="contact.linkLabel">Contact</span>: contact@getrfid.link
+        </a>
         <p id="connectionStatus" class="status-badge text-warn">Initializing…</p>
         <button id="logoutButton" type="button" class="button-secondary" data-i18n="auth.logout">Logout</button>
       </div>
@@ -35,6 +38,11 @@
         </div>
       </header>
       <main class="layout page-content home-layout">
+        <aside class="contact-banner" role="note" aria-label="Contact support">
+          <strong data-i18n="contact.banner.title">Need help?</strong>
+          <span data-i18n="contact.banner.desc">If you have any questions, contact us at</span>
+          <a href="mailto:contact@getrfid.link">contact@getrfid.link</a>
+        </aside>
         <section class="panel" aria-labelledby="homeCardsTitle">
           <h2 id="homeCardsTitle" data-i18n="home.cards.title">Select a module</h2>
           <div class="home-card-grid">
@@ -71,6 +79,10 @@
           <p id="dashboardReadonlyBanner" class="demo-readonly-banner" data-i18n="demo.readonly.banner" hidden>你正在 Demo 唯讀模式：僅可瀏覽 Dashboard，無法操作系統。</p>
         </div>
         <div class="page-header-actions">
+          <p class="contact-inline">
+            <span data-i18n="contact.inline">Questions? Contact</span>
+            <a href="mailto:contact@getrfid.link">contact@getrfid.link</a>
+          </p>
           <span id="heroLiveStatus" class="status-badge" data-i18n="dashboard31.status.liveStore">Live store: Active</span>
           <span id="heroTrackingStatus" class="status-badge" data-i18n="dashboard31.status.tracking">RFID tracking: Normal</span>
           <span id="heroAiStatus" class="status-badge" data-i18n="dashboard31.status.ai">AI assistant: Ready</span>
@@ -236,6 +248,10 @@
           <p class="hint" data-i18n="product.summary.story">Explore products from style signals to SKU actions with focused retail insights.</p>
         </div>
         <div class="page-header-actions">
+          <p class="contact-inline">
+            <span data-i18n="contact.inline">Questions? Contact</span>
+            <a href="mailto:contact@getrfid.link">contact@getrfid.link</a>
+          </p>
           <div class="product-summary-view-toggle" role="group" aria-label="Product Summary View Mode">
             <span class="product-summary-view-toggle__label" data-i18n="product.summary.view.label">View</span>
             <button id="productSummaryViewInventory" type="button" class="button-secondary is-active" data-summary-view="inventory" data-i18n="product.summary.view.inventory">Inventory View</button>
@@ -273,6 +289,10 @@
           <p class="hint">Import data with either simple upload or grouped EPC generation flow.</p>
         </div>
         <div class="page-header-actions">
+          <p class="contact-inline">
+            <span data-i18n="contact.inline">Questions? Contact</span>
+            <a href="mailto:contact@getrfid.link">contact@getrfid.link</a>
+          </p>
           <button id="csvDownloadTemplateButton" type="button" class="button-secondary">Download CSV Template</button>
           <button id="csvImportHistoryButton" type="button" class="button-secondary">Import History</button>
         </div>
@@ -341,6 +361,10 @@
         <div class="page-header-main">
           <h1 data-i18n="home.cards.setting.title">Setting</h1>
           <p class="hint">Configure Supabase connection, account management, and trial records.</p>
+          <p class="contact-inline">
+            <span data-i18n="contact.inline">Questions? Contact</span>
+            <a href="mailto:contact@getrfid.link">contact@getrfid.link</a>
+          </p>
         </div>
       </header>
 

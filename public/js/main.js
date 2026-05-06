@@ -614,7 +614,11 @@ const I18N = {
     'demo.toast.alertsCleared': 'Alerts cleared',
     'demo.toast.alertsClearFailed': 'Unable to clear alerts: {message}',
     'demo.toast.resetDone': 'Demo environment reset',
-    'demo.toast.resetFailed': 'Reset failed: {message}'
+    'demo.toast.resetFailed': 'Reset failed: {message}',
+    'contact.linkLabel': 'Contact',
+    'contact.banner.title': 'Need help?',
+    'contact.banner.desc': 'If you have any questions, contact us at',
+    'contact.inline': 'Questions? Contact'
   },
   'zh-Hant': {
     'app.title': 'RFID 零售轉換儀表板',
@@ -931,7 +935,11 @@ const I18N = {
     'demo.toast.alertsCleared': '警示已清除',
     'demo.toast.alertsClearFailed': '無法清除警示：{message}',
     'demo.toast.resetDone': 'Demo 環境已重置',
-    'demo.toast.resetFailed': '重置失敗：{message}'
+    'demo.toast.resetFailed': '重置失敗：{message}',
+    'contact.linkLabel': '聯絡',
+    'contact.banner.title': '需要協助嗎？',
+    'contact.banner.desc': '若你有任何問題，請聯繫',
+    'contact.inline': '有問題請聯繫'
   },
   'zh-Hans': {
     'app.title': 'RFID 零售转化仪表板',
@@ -1088,7 +1096,11 @@ const I18N = {
     'timeline.dragAction': '{name}: {from} → {to}',
     'backup.title': '备援 / 测试工具',
     'backup.hint': '以下工具为二级界面，供维护与测试使用。',
-    'backup.summary': '展开二级工具'
+    'backup.summary': '展开二级工具',
+    'contact.linkLabel': '联系',
+    'contact.banner.title': '需要协助吗？',
+    'contact.banner.desc': '如果你有任何问题，请联系',
+    'contact.inline': '有问题请联系'
   },
   ja: {
     'app.title': 'RFID リテール転換ダッシュボード',
@@ -1245,7 +1257,11 @@ const I18N = {
     'timeline.dragAction': '{name}: {from} → {to}',
     'backup.title': 'バックアップ / テストツール',
     'backup.hint': '以下は保守・テスト用の二次ツールです。',
-    'backup.summary': '二次ツールを開く'
+    'backup.summary': '二次ツールを開く',
+    'contact.linkLabel': '連絡',
+    'contact.banner.title': 'お困りですか？',
+    'contact.banner.desc': 'ご不明点がある場合は、次までご連絡ください',
+    'contact.inline': 'ご不明点はご連絡ください'
   }
 };
 

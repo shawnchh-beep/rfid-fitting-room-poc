@@ -76,7 +76,8 @@ const I18N = {
     'trial.error.registered': 'This email is already registered.',
     'trial.error.rateLimited': 'Too many requests. Please try again later.',
     'trial.error.submitFailed': 'Failed to submit trial request. Please try again later.',
-    'trial.success': 'Your request has been received. Please check your email for activation instructions.'
+    'trial.success': 'Your request has been received. Please check your email for activation instructions.',
+    'contact.inline': 'Questions? Contact'
   },
   'zh-Hant': {
     'common.language': '語言',
@@ -144,7 +145,8 @@ const I18N = {
     'trial.error.registered': '此郵箱已註冊帳號。',
     'trial.error.rateLimited': '申請過於頻繁，請稍後再試。',
     'trial.error.submitFailed': '送出失敗，請稍後再試。',
-    'trial.success': '已收到你的申請，請留意信箱中的啟用通知。'
+    'trial.success': '已收到你的申請，請留意信箱中的啟用通知。',
+    'contact.inline': '有問題請聯繫'
   },
   'zh-Hans': {
     'common.language': '语言',
@@ -212,7 +214,8 @@ const I18N = {
     'trial.error.registered': '此邮箱已注册账号。',
     'trial.error.rateLimited': '申请过于频繁，请稍后再试。',
     'trial.error.submitFailed': '提交失败，请稍后再试。',
-    'trial.success': '已收到你的申请，请留意邮箱中的激活通知。'
+    'trial.success': '已收到你的申请，请留意邮箱中的激活通知。',
+    'contact.inline': '有问题请联系'
   },
   ja: {
     'common.language': '言語',
@@ -280,7 +283,8 @@ const I18N = {
     'trial.error.registered': 'このメールは既に登録済みです。',
     'trial.error.rateLimited': 'リクエストが多すぎます。しばらくしてからお試しください。',
     'trial.error.submitFailed': '送信に失敗しました。しばらくしてから再試行してください。',
-    'trial.success': '申請を受け付けました。有効化案内メールをご確認ください。'
+    'trial.success': '申請を受け付けました。有効化案内メールをご確認ください。',
+    'contact.inline': 'ご不明点はご連絡ください'
   }
 };
 
