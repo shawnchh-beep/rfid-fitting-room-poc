@@ -254,13 +254,12 @@
     return `我抽到：${reading.result_title}\n${reading.result_text}\n${shareUrl}`;
   }
 
-  function showSharePanel(reading) {
-    lastShareUrl = reading.share_url || '';
-    if (!lastShareUrl) {
-      sharePanel.hidden = true;
-      return;
-    }
+  function getDefaultShareUrl() {
+    return new URL('/fortuneteller', window.location.origin).toString();
+  }
 
+  function showSharePanel(reading) {
+    lastShareUrl = reading.share_url || getDefaultShareUrl();
     shareLinkInput.value = withShareSource(lastShareUrl, 'copy');
     sharePanel.hidden = false;
   }
