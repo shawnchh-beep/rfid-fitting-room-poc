@@ -25,6 +25,34 @@ const FORTUNE_METHODS = {
   tarot: '塔羅牌'
 };
 
+const FOOD_CHOICES = [
+  ['鹹酥雞', '今天別假裝養生，快樂先裹粉下鍋。'],
+  ['牛肉麵', '湯要熱，心可以冷，至少胃先被照顧。'],
+  ['滷肉飯', '別再挑了，人生需要一碗務實的油亮。'],
+  ['鍋貼', '脆皮能救的局，比你想像多一點。'],
+  ['珍珠奶茶', '理智先放旁邊，糖分會暫時接管政權。'],
+  ['臭豆腐', '越怕越該吃，反正你的人生也不全是香的。'],
+  ['蚵仔煎', '糊一點沒關係，好吃比體面重要。'],
+  ['雞排', '今天適合大塊解決，不要小口假優雅。'],
+  ['肉圓', '外表軟，內心有料，跟你剛好相反。'],
+  ['關東煮', '選幾串就好，別把便利商店當人生岔路口。'],
+  ['麻辣燙', '需要一點刺激，不然你又要把無聊說成穩定。'],
+  ['炒米粉', '簡單但可靠，比你那些複雜計畫強。'],
+  ['小籠包', '小心燙，今天別連吃飯都衝動犯案。'],
+  ['飯糰', '先把肚子黏住，靈魂晚點再處理。'],
+  ['蔥油餅', '酥一點，人生已經夠軟爛了。'],
+  ['豆花', '今天適合溫柔收尾，別再跟晚餐吵架。']
+];
+
+function pickFood(seed) {
+  let hash = 0;
+  String(seed).split('').forEach((char) => {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  });
+  const [name, line] = FOOD_CHOICES[hash % FOOD_CHOICES.length];
+  return { name, line };
+}
+
 const TRIGRAMS = {
   qian: { title: '天', lines: ['front', 'front', 'front'] },
   dui: { title: '澤', lines: ['front', 'front', 'back'] },
@@ -123,12 +151,13 @@ const HEXAGRAM_MATRIX = {
 
 function baguaText(title, keywords) {
   const [a, b, c] = keywords.split('、');
+  const food = pickFood(`${title}:${keywords}`);
   return {
     love: `${title}說感情要${a}，但別把腦補當證據；先講清楚，不然曖昧會被你演成迷霧劇場。`,
     study: `${title}提醒學業靠${b}，不是靠焦慮加班；書先打開，知識不會自己爬進腦袋。`,
     career: `${title}指向${c}，職場別只會點頭微笑；該出手時出手，別把機會晾到過期。`,
     money: `${title}叫你先看${a}，別一衝就變韭菜自助餐。`,
-    food: `${title}偏向${a}，別再問宇宙，胃比你誠實。`,
+    food: `${title}點名${food.name}。${food.line}`,
     travel: `${title}說${a}可行，但行程別排到像逃難。`,
     decision: `${title}偏${a}，別裝深思，你只是怕負責。`,
     roast: `${title}配${a}，今天運勢像有在跑，但跑錯棚。`,
@@ -178,12 +207,13 @@ function tarotText(card, orientation) {
   const isReversed = orientation === 'reversed';
   const state = isReversed ? '逆位' : '正位';
   const advice = isReversed ? '先煞車，別把直覺開成災難片' : '可以前進，但別把自信開成擴音器';
+  const food = pickFood(`${card}:${state}`);
   return {
     love: `${card}${state}說感情有訊號，但別急著腦補婚禮；${advice}，對方不是你劇本裡的臨演。`,
     study: `${card}${state}提醒學習要收心；少滑兩次手機，分數不一定暴漲，但至少不會繼續裝死。`,
     career: `${card}${state}指向工作節奏調整；別只會開會點頭，成果才是職場最殘酷的照妖鏡。`,
     money: `${card}${state}提醒你：${advice}，別把衝動叫投資。`,
-    food: `${card}${state}建議${advice}，別餓到連理智都下班。`,
+    food: `${card}${state}叫你吃${food.name}。${food.line}`,
     travel: `${card}${state}說${advice}，去可以，別把麻煩當風景。`,
     decision: `${card}${state}給你答案：${advice}，別再演選擇困難。`,
     roast: `${card}${state}吐槽你：${advice}，人生先別急著加戲。`,
