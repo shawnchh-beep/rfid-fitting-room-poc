@@ -1,4 +1,5 @@
 (function () {
+  const page = document.body;
   const form = document.querySelector('#fortuneForm');
   const submitButton = document.querySelector('#submitButton');
   const statusMessage = document.querySelector('#statusMessage');
@@ -76,6 +77,13 @@
       const timer = setTimeout(resolve, ms);
       ritualTimers.push(timer);
     });
+  }
+
+  function setFlowStep(step) {
+    page.dataset.step = step;
+    if (window.matchMedia('(max-width: 820px)').matches) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }
 
   function clearRitualTimers() {
@@ -198,12 +206,13 @@
     resultKeywords.textContent = reading.result_keywords;
     resultText.textContent = reading.result_text;
     resultPanel.hidden = false;
-    resultPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    setFlowStep('result');
     lastReadingText = `我的占卜結果：${reading.result_title}\n${reading.result_keywords}\n${reading.result_text}`;
   }
 
   async function performReading(payload, options = {}) {
     const isManualTarot = options.manual && payload.method === 'tarot';
+    setFlowStep('ritual');
     setBusy(true);
     clearPendingManual();
 
@@ -248,6 +257,7 @@
   function prepareManualReading(payload) {
     pendingPayload = payload;
     pendingManualMethod = payload.method;
+    setFlowStep('ritual');
     setWaitingForManual(true);
     resetRitual();
 
@@ -303,12 +313,14 @@
       clearPendingManual();
       setWaitingForManual(false);
       setMethodVisual(event.target.value);
+      setFlowStep('setup');
     }
     if (event.target?.name === 'drawMode') {
       clearPendingManual();
       setWaitingForManual(false);
       resetRitual();
       setStatus('');
+      setFlowStep('setup');
     }
   });
 
@@ -339,8 +351,9 @@
     clearPendingManual();
     setWaitingForManual(false);
     resetRitual();
-    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setFlowStep('setup');
   });
 
+  setFlowStep('setup');
   setMethodVisual(getSelected('method'));
 })();
