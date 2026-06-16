@@ -95,7 +95,11 @@ function pickResult(method, topic) {
     result_key: selected.key,
     result_title: selected.title,
     result_keywords: selected.keywords,
-    result_text: selected.text[topic] || selected.text.random
+    result_text: selected.text[topic] || selected.text.random,
+    result_lines: selected.lines || null,
+    result_visual: selected.visual || null,
+    result_orientation: selected.orientation || null,
+    result_base_key: selected.base_key || null
   };
 }
 
@@ -168,6 +172,10 @@ async function handler(req, res) {
       result_title: result.result_title,
       result_keywords: result.result_keywords,
       result_text: result.result_text,
+      result_lines: result.result_lines,
+      result_visual: result.result_visual,
+      result_orientation: result.result_orientation,
+      result_base_key: result.result_base_key,
       created_at: insert.data.created_at
     },
     usage: {

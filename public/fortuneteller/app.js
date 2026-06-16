@@ -9,6 +9,7 @@
   const turtleShell = document.querySelector('#turtleShell');
   const ritualAction = document.querySelector('#ritualAction');
   const trigramSymbol = document.querySelector('#trigramSymbol');
+  const hexagramLines = document.querySelector('#hexagramLines');
   const trigramName = document.querySelector('#trigramName');
   const trigramTone = document.querySelector('#trigramTone');
   const resultPanel = document.querySelector('#resultPanel');
@@ -151,7 +152,8 @@
   }
 
   function applyCoinResult(reading) {
-    const faces = baguaFaceMap[reading.result_key] || generateCoinFaces(`${reading.id || ''}${reading.result_key || ''}`);
+    const lines = Array.isArray(reading.result_lines) && reading.result_lines.length === 6 ? reading.result_lines : null;
+    const faces = lines?.slice(0, 3) || baguaFaceMap[reading.result_key] || generateCoinFaces(`${reading.id || ''}${reading.result_key || ''}`);
     const coins = coinSet.querySelectorAll('.coin');
     coins.forEach((coin, index) => {
       coin.dataset.face = faces[index];
@@ -159,16 +161,23 @@
 
     const trigram = trigramMap[faces.join('-')] || trigramMap['front-front-front'];
     trigramSymbol.textContent = trigram.symbol;
-    trigramName.textContent = trigram.name;
-    trigramTone.textContent = trigram.tone;
+    trigramName.textContent = reading.result_title || trigram.name;
+    trigramTone.textContent = reading.result_keywords || trigram.tone;
+    hexagramLines.innerHTML = '';
+    (lines || faces).slice().reverse().forEach((line) => {
+      const item = document.createElement('span');
+      item.className = `hexagram-line hexagram-line--${line === 'front' ? 'yang' : 'yin'}`;
+      hexagramLines.appendChild(item);
+    });
     coinSet.className = 'coin-set is-settled';
   }
 
   function applyTarotResult(reading) {
     const selected = cardSet.querySelector('.tarot-card.is-selected');
-    const visual = tarotVisuals[reading.result_key] || ['TODAY', '☾', '宇宙想嘴你'];
+    const visual = reading.result_visual || tarotVisuals[reading.result_key] || ['TODAY', '☾', '宇宙想嘴你'];
     if (selected) {
-      selected.dataset.card = reading.result_key || 'today';
+      selected.dataset.card = reading.result_base_key || reading.result_key || 'today';
+      selected.dataset.orientation = reading.result_orientation || 'upright';
       selected.querySelector('.tarot-card__title').textContent = visual[0];
       selected.querySelector('.tarot-card__symbol').textContent = visual[1];
       selected.querySelector('.tarot-card__keyword').textContent = visual[2];

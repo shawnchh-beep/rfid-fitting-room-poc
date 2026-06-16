@@ -416,7 +416,7 @@ body[data-step="result"] .status-message {
   bottom: 22px;
   z-index: 3;
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: auto auto auto;
   gap: 0 10px;
   align-items: center;
   min-width: 230px;
@@ -429,11 +429,30 @@ body[data-step="result"] .status-message {
   transition: opacity 360ms ease, transform 360ms ease;
 }
 
-.trigram-result span {
+.trigram-result > span {
   grid-row: span 2;
   color: var(--gold);
   font-size: 2rem;
   line-height: 1;
+}
+
+.hexagram-lines {
+  grid-row: span 2;
+  display: grid;
+  gap: 3px;
+  width: 34px;
+}
+
+.hexagram-line {
+  position: relative;
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--gold);
+}
+
+.hexagram-line--yin {
+  background: linear-gradient(90deg, var(--gold) 0 38%, transparent 38% 62%, var(--gold) 62% 100%);
 }
 
 .trigram-result strong {
