@@ -172,9 +172,10 @@
     ritualScene.classList.add('is-casting');
     if (method === 'tarot') {
       cardSet.className = 'card-set is-shuffling';
-      wait(900).then(() => { cardSet.className = 'card-set is-cutting'; });
-      wait(1500).then(() => { cardSet.className = 'card-set is-spreading'; });
-      wait(2200).then(() => { cardSet.className = 'card-set is-drawing'; });
+      wait(850).then(() => { cardSet.className = 'card-set is-stacking'; });
+      wait(1550).then(() => { cardSet.className = 'card-set is-cutting'; });
+      wait(2150).then(() => { cardSet.className = 'card-set is-spreading'; });
+      wait(2700).then(() => { cardSet.className = 'card-set is-drawing'; });
       return;
     }
     coinSet.className = 'coin-set is-casting';
@@ -262,9 +263,23 @@
     resetRitual();
 
     if (payload.method === 'tarot') {
-      cardSet.className = 'card-set is-pickable';
+      ritualScene.classList.add('is-casting');
+      cardSet.className = 'card-set is-shuffling';
       ritualAction.hidden = true;
-      setStatus('請從牌背裡抽一張。放心，抽歪了宇宙也會自己圓。');
+      setStatus('正在洗牌疊牌，等等會抽出三張給你選。');
+      wait(850).then(() => {
+        if (pendingManualMethod === 'tarot') {
+          cardSet.className = 'card-set is-stacking';
+          setStatus('牌堆疊好了，宇宙正在把三張牌推出來。');
+        }
+      });
+      wait(1650).then(() => {
+        if (pendingManualMethod === 'tarot') {
+          ritualScene.classList.remove('is-casting');
+          cardSet.className = 'card-set is-pickable';
+          setStatus('請從三張牌背裡抽一張。放心，抽歪了宇宙也會自己圓。');
+        }
+      });
       return;
     }
 

@@ -216,8 +216,8 @@ body[data-step="result"] .status-message {
   z-index: 4;
   display: grid;
   place-items: center;
-  width: 136px;
-  height: 98px;
+  width: 180px;
+  height: 128px;
   border: 1px solid rgba(232, 189, 97, .42);
   border-radius: 52% 52% 46% 46%;
   background:
@@ -278,7 +278,7 @@ body[data-step="result"] .status-message {
 
 .coin-set.is-casting .turtle-shell {
   opacity: 1;
-  animation: shellShake .48s ease-in-out 2 forwards, shellPour .54s .96s ease forwards;
+  animation: shellShake .54s ease-in-out 3 forwards, shellPour .72s 1.72s ease forwards;
 }
 
 .coin-orbit {
@@ -596,17 +596,40 @@ body[data-step="result"] .status-message {
 }
 
 .card-set.is-shuffling .tarot-deck {
-  animation: deckShuffle 1s ease-in-out infinite;
+  animation: deckShuffle .86s ease-in-out infinite;
+}
+
+.card-set.is-stacking .tarot-deck {
+  animation: deckStack .86s ease-in-out both;
+}
+
+.card-set.is-stacking .tarot-card {
+  opacity: .62;
+}
+
+.card-set.is-stacking .card-a {
+  transform: translate(-57%, -54%) rotate(-8deg) scale(.96);
+}
+
+.card-set.is-stacking .card-b {
+  transform: translate(-50%, -50%) rotate(0deg) scale(.98);
+}
+
+.card-set.is-stacking .card-c {
+  transform: translate(-43%, -46%) rotate(8deg) scale(.96);
 }
 
 .card-set.is-pickable .tarot-deck {
-  opacity: .42;
-  transform: translate(-50%, -50%) scale(.9);
+  opacity: .58;
+  transform: translate(-50%, -50%) scale(.94) rotate(0deg);
 }
 
 .card-set.is-pickable .tarot-card {
   cursor: pointer;
   opacity: 1;
+  animation-duration: .82s;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(.2, .84, .23, 1);
 }
 
 .card-set.is-pickable .tarot-card:hover {
@@ -615,14 +638,19 @@ body[data-step="result"] .status-message {
 
 .card-set.is-pickable .card-a {
   transform: translate(-160%, -36%) rotate(-18deg);
+  animation-name: cardDealA;
 }
 
 .card-set.is-pickable .card-b {
   transform: translate(-50%, -52%) rotate(0deg);
+  animation-name: cardDealB;
+  animation-delay: .12s;
 }
 
 .card-set.is-pickable .card-c {
   transform: translate(60%, -36%) rotate(18deg);
+  animation-name: cardDealC;
+  animation-delay: .24s;
 }
 
 .card-set.is-cutting .tarot-deck {
@@ -742,6 +770,13 @@ body[data-step="result"] .status-message {
   75% { transform: translate(-58%, -48%) rotate(2deg); }
 }
 
+@keyframes deckStack {
+  0% { transform: translate(-50%, -50%) rotate(-8deg) scale(1.02); }
+  36% { transform: translate(-58%, -54%) rotate(7deg) scale(1.04); }
+  72% { transform: translate(-46%, -47%) rotate(-4deg) scale(.98); }
+  100% { transform: translate(-50%, -50%) rotate(0deg) scale(.96); }
+}
+
 @keyframes deckCut {
   0% { transform: translate(-50%, -50%) rotate(-3deg); }
   42% { transform: translate(-14%, -66%) rotate(11deg); }
@@ -750,13 +785,33 @@ body[data-step="result"] .status-message {
 
 @keyframes shellShake {
   0%, 100% { transform: translate(-50%, -52%) rotate(-3deg); }
-  25% { transform: translate(-54%, -53%) rotate(-11deg); }
-  50% { transform: translate(-47%, -50%) rotate(9deg); }
-  75% { transform: translate(-52%, -55%) rotate(-7deg); }
+  25% { transform: translate(-56%, -54%) rotate(-13deg); }
+  50% { transform: translate(-45%, -50%) rotate(11deg); }
+  75% { transform: translate(-53%, -56%) rotate(-8deg); }
 }
 
 @keyframes shellPour {
-  to { opacity: .18; transform: translate(-50%, -58%) rotate(-18deg) scale(.88); }
+  0% { opacity: 1; transform: translate(-50%, -52%) rotate(-3deg) scale(1); }
+  44% { opacity: .94; transform: translate(-50%, -58%) rotate(-19deg) scale(.98); }
+  100% { opacity: 0; transform: translate(-50%, -64%) rotate(-24deg) scale(.9); }
+}
+
+@keyframes cardDealA {
+  from { opacity: 0; transform: translate(-50%, -50%) rotate(-6deg) scale(.82); }
+  55% { opacity: 1; }
+  to { opacity: 1; transform: translate(-160%, -36%) rotate(-18deg); }
+}
+
+@keyframes cardDealB {
+  from { opacity: 0; transform: translate(-50%, -50%) rotate(4deg) scale(.82); }
+  55% { opacity: 1; }
+  to { opacity: 1; transform: translate(-50%, -52%) rotate(0deg); }
+}
+
+@keyframes cardDealC {
+  from { opacity: 0; transform: translate(-50%, -50%) rotate(8deg) scale(.82); }
+  55% { opacity: 1; }
+  to { opacity: 1; transform: translate(60%, -36%) rotate(18deg); }
 }
 
 @keyframes cardRevealGlow {
