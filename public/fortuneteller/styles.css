@@ -121,91 +121,502 @@ h1 {
   box-shadow: var(--shadow);
 }
 
+.ritual-scene::before {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  border: 1px solid rgba(232, 189, 97, .18);
+  border-radius: 50%;
+  opacity: .72;
+}
+
+.ritual-scene::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 52px;
+  width: 58%;
+  height: 32px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, .32), transparent 68%);
+  transform: translateX(-50%);
+}
+
+.ritual-aura {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(232, 189, 97, .16), transparent 30%),
+    radial-gradient(circle at 34% 62%, rgba(121, 215, 189, .1), transparent 28%);
+  opacity: .82;
+  animation: auraPulse 4.8s ease-in-out infinite;
+}
+
 .coin-set,
 .card-set {
   position: absolute;
   inset: 0;
 }
 
+.coin-orbit,
 .coin,
-.tarot-card {
+.tarot-card,
+.tarot-deck {
   position: absolute;
-  width: 112px;
-  filter: drop-shadow(0 22px 30px rgba(0, 0, 0, .35));
+  transform-style: preserve-3d;
+}
+
+.coin-orbit {
+  width: 116px;
+  height: 116px;
+  z-index: 2;
+}
+
+.coin {
+  inset: 0;
+  perspective: 900px;
+  filter: drop-shadow(0 22px 26px rgba(0, 0, 0, .34));
+}
+
+.coin__inner {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  transform-style: preserve-3d;
+  transition: transform 720ms cubic-bezier(.17, .84, .29, 1);
+}
+
+.coin[data-face="front"] .coin__inner {
+  transform: rotateY(0deg);
+}
+
+.coin[data-face="back"] .coin__inner {
+  transform: rotateY(180deg);
+}
+
+.coin__face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 5px solid rgba(255, 225, 153, .52);
+  border-radius: 50%;
+  backface-visibility: hidden;
+  overflow: hidden;
+}
+
+.coin__face::before,
+.coin__face::after {
+  content: "";
+  position: absolute;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.coin__face::before {
+  inset: 13px;
+  border: 2px solid rgba(80, 51, 18, .48);
+}
+
+.coin__face::after {
+  inset: 43px;
+  border-radius: 8px;
+  background: #15100b;
+  box-shadow: inset 0 0 0 3px rgba(246, 211, 109, .76);
+}
+
+.coin__face--front {
+  background:
+    radial-gradient(circle at 34% 25%, #fff3b5, transparent 22%),
+    radial-gradient(circle at 50% 50%, #d6a33c, #8b5b1b 68%, #4a3111);
+  color: #231607;
+}
+
+.coin__face--back {
+  background:
+    radial-gradient(circle at 30% 22%, rgba(214, 240, 216, .32), transparent 22%),
+    radial-gradient(circle at 50% 50%, #8aa47f, #5d6748 48%, #2f321f);
+  color: #f8e8b7;
+  transform: rotateY(180deg);
+}
+
+.coin__glyph,
+.coin__mark {
+  position: relative;
+  z-index: 1;
+  font-weight: 900;
+}
+
+.coin__glyph {
+  font-size: 1.55rem;
+}
+
+.coin__mark {
+  position: absolute;
+  right: 24px;
+  bottom: 23px;
+  font-size: .72rem;
+  opacity: .76;
+}
+
+.coin__shadow {
+  position: absolute;
+  left: 50%;
+  bottom: -18px;
+  width: 82%;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .36);
+  filter: blur(7px);
+  transform: translateX(-50%);
 }
 
 .coin-a {
-  left: 16%;
-  top: 25%;
+  left: 17%;
+  top: 27%;
   transform: rotate(-18deg);
+  animation: coinIdleFloat 4.2s ease-in-out infinite;
 }
 
 .coin-b {
   left: 44%;
-  top: 45%;
-  transform: rotate(15deg);
+  top: 47%;
+  transform: rotate(11deg);
+  animation: coinIdleFloat 4.2s ease-in-out .28s infinite;
 }
 
 .coin-c {
   right: 14%;
-  top: 22%;
-  transform: rotate(34deg);
+  top: 24%;
+  transform: rotate(30deg);
+  animation: coinIdleFloat 4.2s ease-in-out .56s infinite;
 }
 
-.tarot-card {
-  width: 118px;
+.trigram-result {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0 10px;
+  align-items: center;
+  min-width: 230px;
+  border: 1px solid rgba(232, 189, 97, .18);
+  border-radius: 8px;
+  background: rgba(13, 17, 24, .68);
+  padding: 10px 12px;
+  opacity: 0;
+  transform: translate(-50%, 12px);
+  transition: opacity 360ms ease, transform 360ms ease;
 }
 
-.card-a {
-  left: 18%;
-  top: 28%;
-  transform: rotate(-17deg);
+.trigram-result span {
+  grid-row: span 2;
+  color: var(--gold);
+  font-size: 2rem;
+  line-height: 1;
 }
 
-.card-b {
-  left: 39%;
-  top: 18%;
-  transform: rotate(4deg);
+.trigram-result strong {
+  font-size: .95rem;
 }
 
-.card-c {
-  right: 16%;
-  top: 32%;
-  transform: rotate(19deg);
+.trigram-result small {
+  color: var(--muted);
 }
 
-.is-casting .coin {
-  animation: coinFlip .78s ease-in-out infinite;
+.coin-set.is-settled .trigram-result {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
-.is-casting .coin-b {
-  animation-delay: .09s;
+.coin-set.is-casting .coin-a {
+  animation: coinGatherA .34s ease-in forwards, coinCastA 1.6s .34s cubic-bezier(.2, .8, .26, 1) forwards;
 }
 
-.is-casting .coin-c {
-  animation-delay: .18s;
+.coin-set.is-casting .coin-b {
+  animation: coinGatherB .34s ease-in forwards, coinCastB 1.6s .34s cubic-bezier(.2, .8, .26, 1) forwards;
 }
 
-.is-casting .tarot-card {
-  animation: cardShuffle .72s ease-in-out infinite;
+.coin-set.is-casting .coin-c {
+  animation: coinGatherC .34s ease-in forwards, coinCastC 1.6s .34s cubic-bezier(.2, .8, .26, 1) forwards;
 }
 
-.is-casting .card-b {
+.coin-set.is-casting .coin__inner {
+  animation: coinCastSpin .46s linear infinite;
+}
+
+.coin-set.is-settled .coin-orbit {
+  animation: coinDropSettle .64s cubic-bezier(.18, .89, .3, 1.18) both;
+}
+
+.coin-set.is-settled .coin-b {
   animation-delay: .08s;
 }
 
-.is-casting .card-c {
+.coin-set.is-settled .coin-c {
   animation-delay: .16s;
 }
 
-@keyframes coinFlip {
-  0%, 100% { transform: translateY(0) rotateY(0) rotate(var(--spin, 0deg)); }
-  50% { transform: translateY(-46px) rotateY(180deg) rotate(24deg); }
+.coin-set.is-settled .coin__face {
+  box-shadow: 0 0 26px rgba(232, 189, 97, .22);
 }
 
-@keyframes cardShuffle {
-  0%, 100% { transform: translateX(0) rotate(var(--tilt, 0deg)); }
-  50% { transform: translateX(34px) translateY(-18px) rotate(11deg); }
+.tarot-deck {
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: 126px;
+  height: 180px;
+  transform: translate(-50%, -50%) rotate(-3deg);
+  animation: deckIdlePulse 4s ease-in-out infinite;
+}
+
+.tarot-deck span {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(232, 189, 97, .5);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(232, 189, 97, .2), transparent 28%),
+    linear-gradient(145deg, #182941, #3d2a51 54%, #0d111f);
+  box-shadow: 0 22px 36px rgba(0, 0, 0, .28);
+}
+
+.tarot-deck span:nth-child(2) {
+  transform: translate(5px, 4px) rotate(3deg);
+}
+
+.tarot-deck span:nth-child(3) {
+  transform: translate(-4px, 7px) rotate(-5deg);
+}
+
+.tarot-card {
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: 118px;
+  height: 172px;
+  border-radius: 13px;
+  perspective: 1000px;
+  opacity: 0;
+  filter: drop-shadow(0 24px 32px rgba(0, 0, 0, .36));
+  transform: translate(-50%, -50%) rotate(0deg);
+  transition: opacity 360ms ease, transform 640ms cubic-bezier(.2, .84, .23, 1), filter 360ms ease;
+}
+
+.tarot-card__inner {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 720ms cubic-bezier(.2, .84, .23, 1);
+}
+
+.tarot-card__face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  backface-visibility: hidden;
+  overflow: hidden;
+}
+
+.tarot-card__back {
+  border: 2px solid rgba(232, 189, 97, .72);
+  background:
+    radial-gradient(circle at 50% 45%, rgba(232, 189, 97, .22), transparent 28%),
+    repeating-linear-gradient(35deg, transparent 0 13px, rgba(255, 255, 255, .04) 14px 15px),
+    linear-gradient(145deg, #1c3150, #4b315f 55%, #0d111f);
+}
+
+.tarot-card__back::before {
+  content: "☾";
+  color: rgba(246, 222, 159, .78);
+  font-size: 3rem;
+}
+
+.tarot-card__back::after {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  border: 1px solid rgba(255, 230, 170, .45);
+  border-radius: 9px;
+}
+
+.tarot-card__front {
+  gap: 8px;
+  border: 2px solid rgba(232, 189, 97, .78);
+  background:
+    radial-gradient(circle at 50% 32%, rgba(121, 215, 189, .18), transparent 24%),
+    linear-gradient(160deg, #f5ead4, #d7c19b 54%, #735f3c);
+  color: #24160b;
+  padding: 16px 10px;
+  text-align: center;
+  transform: rotateY(180deg);
+}
+
+.tarot-card__title {
+  align-self: end;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.tarot-card__symbol {
+  font-size: 3.4rem;
+  line-height: 1;
+}
+
+.tarot-card__keyword {
+  align-self: start;
+  max-width: 9em;
+  color: #4f3920;
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+.card-set.is-shuffling .tarot-deck {
+  animation: deckShuffle 1s ease-in-out infinite;
+}
+
+.card-set.is-cutting .tarot-deck {
+  animation: deckCut .72s ease-in-out both;
+}
+
+.card-set.is-spreading .tarot-deck,
+.card-set.is-drawing .tarot-deck,
+.card-set.is-revealed .tarot-deck {
+  opacity: .28;
+  transform: translate(-50%, -50%) scale(.88);
+}
+
+.card-set.is-spreading .tarot-card,
+.card-set.is-drawing .tarot-card,
+.card-set.is-revealed .tarot-card {
+  opacity: 1;
+}
+
+.card-set.is-spreading .card-a,
+.card-set.is-drawing .card-a,
+.card-set.is-revealed .card-a {
+  transform: translate(-160%, -36%) rotate(-18deg);
+}
+
+.card-set.is-spreading .card-b,
+.card-set.is-drawing .card-b,
+.card-set.is-revealed .card-b {
+  transform: translate(-50%, -52%) rotate(0deg);
+}
+
+.card-set.is-spreading .card-c,
+.card-set.is-drawing .card-c,
+.card-set.is-revealed .card-c {
+  transform: translate(60%, -36%) rotate(18deg);
+}
+
+.card-set.is-drawing .tarot-card:not(.is-selected),
+.card-set.is-revealed .tarot-card:not(.is-selected) {
+  opacity: .36;
+  filter: saturate(.7) drop-shadow(0 16px 24px rgba(0, 0, 0, .28));
+}
+
+.card-set.is-drawing .is-selected,
+.card-set.is-revealed .is-selected {
+  z-index: 4;
+  transform: translate(-50%, -68%) scale(1.16);
+}
+
+.card-set.is-revealed .is-selected .tarot-card__inner {
+  transform: rotateY(180deg);
+}
+
+.card-set.is-revealed .is-selected {
+  animation: cardRevealGlow 1.2s ease both;
+}
+
+@keyframes auraPulse {
+  0%, 100% { opacity: .58; transform: scale(1); }
+  50% { opacity: .96; transform: scale(1.04); }
+}
+
+@keyframes coinIdleFloat {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -13px; }
+}
+
+@keyframes coinGatherA {
+  to { left: calc(50% - 58px); top: 35%; transform: rotate(0deg); }
+}
+
+@keyframes coinGatherB {
+  to { left: calc(50% - 58px); top: 35%; transform: rotate(0deg); }
+}
+
+@keyframes coinGatherC {
+  to { right: auto; left: calc(50% - 58px); top: 35%; transform: rotate(0deg); }
+}
+
+@keyframes coinCastA {
+  35% { left: 20%; top: 16%; transform: rotate(-42deg) scale(1.08); }
+  72% { left: 14%; top: 42%; transform: rotate(-330deg) scale(.98); }
+  100% { left: 18%; top: 35%; transform: rotate(-16deg); }
+}
+
+@keyframes coinCastB {
+  35% { left: 48%; top: 13%; transform: rotate(28deg) scale(1.12); }
+  72% { left: 41%; top: 48%; transform: rotate(280deg) scale(.96); }
+  100% { left: 44%; top: 46%; transform: rotate(8deg); }
+}
+
+@keyframes coinCastC {
+  35% { left: 66%; top: 18%; transform: rotate(45deg) scale(1.05); }
+  72% { left: 65%; top: 43%; transform: rotate(320deg) scale(.96); }
+  100% { left: 65%; top: 34%; transform: rotate(22deg); }
+}
+
+@keyframes coinCastSpin {
+  to { transform: rotateY(360deg) rotateX(28deg); }
+}
+
+@keyframes coinDropSettle {
+  0% { translate: 0 -28px; }
+  68% { translate: 0 8px; }
+  100% { translate: 0 0; }
+}
+
+@keyframes deckIdlePulse {
+  0%, 100% { filter: drop-shadow(0 18px 24px rgba(0, 0, 0, .26)); }
+  50% { filter: drop-shadow(0 18px 34px rgba(232, 189, 97, .2)); }
+}
+
+@keyframes deckShuffle {
+  0%, 100% { transform: translate(-50%, -50%) rotate(-3deg); }
+  25% { transform: translate(-76%, -50%) rotate(-10deg); }
+  50% { transform: translate(-24%, -50%) rotate(9deg); }
+  75% { transform: translate(-58%, -48%) rotate(2deg); }
+}
+
+@keyframes deckCut {
+  0% { transform: translate(-50%, -50%) rotate(-3deg); }
+  42% { transform: translate(-14%, -66%) rotate(11deg); }
+  100% { transform: translate(-50%, -50%) rotate(0deg); }
+}
+
+@keyframes cardRevealGlow {
+  0% { filter: drop-shadow(0 20px 32px rgba(0, 0, 0, .35)); }
+  60% { filter: drop-shadow(0 0 34px rgba(232, 189, 97, .45)); }
+  100% { filter: drop-shadow(0 24px 34px rgba(0, 0, 0, .35)); }
+}
+
+@keyframes resultFadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.result-panel:not([hidden]) {
+  animation: resultFadeUp .42s ease both;
 }
 
 .fortune-form,
@@ -478,6 +889,39 @@ input[type="password"]:focus {
     min-height: 300px;
   }
 
+  .coin-orbit {
+    width: 92px;
+    height: 92px;
+  }
+
+  .coin__face::after {
+    inset: 34px;
+  }
+
+  .coin__glyph {
+    font-size: 1.25rem;
+  }
+
+  .coin__mark {
+    right: 19px;
+    bottom: 18px;
+  }
+
+  .tarot-card {
+    width: 96px;
+    height: 142px;
+  }
+
+  .tarot-deck {
+    width: 104px;
+    height: 150px;
+  }
+
+  .trigram-result {
+    min-width: min(250px, calc(100% - 28px));
+    bottom: 14px;
+  }
+
   .segmented,
   .method-grid,
   .admin-grid {
@@ -488,5 +932,24 @@ input[type="password"]:focus {
   .admin-topbar {
     align-items: stretch;
     flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+
+  .coin-a,
+  .coin-b,
+  .coin-c,
+  .tarot-deck,
+  .ritual-aura {
+    animation: none !important;
   }
 }
