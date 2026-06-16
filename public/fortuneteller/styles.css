@@ -282,8 +282,8 @@ body[data-step="result"] .status-message {
 }
 
 .coin-orbit {
-  width: 116px;
-  height: 116px;
+  width: 86px;
+  height: 86px;
   z-index: 2;
 }
 
@@ -389,25 +389,98 @@ body[data-step="result"] .status-message {
   transform: translateX(-50%);
 }
 
+.coin-a,
+.coin-b,
+.coin-c,
+.coin-d,
+.coin-e,
+.coin-f {
+  --coin-start-x: 50%;
+  --coin-start-y: 35%;
+  --coin-mid-x: 50%;
+  --coin-mid-y: 18%;
+  --coin-bounce-x: 50%;
+  --coin-bounce-y: 44%;
+  --coin-end-x: 50%;
+  --coin-end-y: 34%;
+  --coin-end-rotate: 0deg;
+  --coin-idle-delay: 0s;
+  --coin-cast-delay: .34s;
+  left: var(--coin-end-x);
+  top: var(--coin-end-y);
+  transform: rotate(var(--coin-end-rotate));
+  animation: coinIdleFloat 4.2s ease-in-out var(--coin-idle-delay) infinite;
+}
+
 .coin-a {
-  left: 17%;
-  top: 27%;
-  transform: rotate(-18deg);
-  animation: coinIdleFloat 4.2s ease-in-out infinite;
+  --coin-mid-x: 22%;
+  --coin-mid-y: 15%;
+  --coin-bounce-x: 16%;
+  --coin-bounce-y: 40%;
+  --coin-end-x: 19%;
+  --coin-end-y: 29%;
+  --coin-end-rotate: -18deg;
+  --coin-idle-delay: 0s;
 }
 
 .coin-b {
-  left: 44%;
-  top: 47%;
-  transform: rotate(11deg);
-  animation: coinIdleFloat 4.2s ease-in-out .28s infinite;
+  --coin-mid-x: 48%;
+  --coin-mid-y: 12%;
+  --coin-bounce-x: 41%;
+  --coin-bounce-y: 43%;
+  --coin-end-x: 43%;
+  --coin-end-y: 30%;
+  --coin-end-rotate: 8deg;
+  --coin-idle-delay: .18s;
+  --coin-cast-delay: .4s;
 }
 
 .coin-c {
-  right: 14%;
-  top: 24%;
-  transform: rotate(30deg);
-  animation: coinIdleFloat 4.2s ease-in-out .56s infinite;
+  --coin-mid-x: 70%;
+  --coin-mid-y: 16%;
+  --coin-bounce-x: 67%;
+  --coin-bounce-y: 41%;
+  --coin-end-x: 67%;
+  --coin-end-y: 29%;
+  --coin-end-rotate: 22deg;
+  --coin-idle-delay: .36s;
+  --coin-cast-delay: .46s;
+}
+
+.coin-d {
+  --coin-mid-x: 26%;
+  --coin-mid-y: 31%;
+  --coin-bounce-x: 17%;
+  --coin-bounce-y: 59%;
+  --coin-end-x: 20%;
+  --coin-end-y: 51%;
+  --coin-end-rotate: 13deg;
+  --coin-idle-delay: .54s;
+  --coin-cast-delay: .52s;
+}
+
+.coin-e {
+  --coin-mid-x: 52%;
+  --coin-mid-y: 28%;
+  --coin-bounce-x: 43%;
+  --coin-bounce-y: 62%;
+  --coin-end-x: 44%;
+  --coin-end-y: 52%;
+  --coin-end-rotate: -10deg;
+  --coin-idle-delay: .72s;
+  --coin-cast-delay: .58s;
+}
+
+.coin-f {
+  --coin-mid-x: 75%;
+  --coin-mid-y: 31%;
+  --coin-bounce-x: 66%;
+  --coin-bounce-y: 58%;
+  --coin-end-x: 66%;
+  --coin-end-y: 51%;
+  --coin-end-rotate: 18deg;
+  --coin-idle-delay: .9s;
+  --coin-cast-delay: .64s;
 }
 
 .trigram-result {
@@ -468,16 +541,8 @@ body[data-step="result"] .status-message {
   transform: translate(-50%, 0);
 }
 
-.coin-set.is-casting .coin-a {
-  animation: coinGatherA .34s ease-in forwards, coinCastA 1.6s .34s cubic-bezier(.2, .8, .26, 1) forwards;
-}
-
-.coin-set.is-casting .coin-b {
-  animation: coinGatherB .34s ease-in forwards, coinCastB 1.6s .34s cubic-bezier(.2, .8, .26, 1) forwards;
-}
-
-.coin-set.is-casting .coin-c {
-  animation: coinGatherC .34s ease-in forwards, coinCastC 1.6s .34s cubic-bezier(.2, .8, .26, 1) forwards;
+.coin-set.is-casting .coin-orbit {
+  animation: coinGather .34s ease-in forwards, coinCastArc 1.6s var(--coin-cast-delay) cubic-bezier(.2, .8, .26, 1) forwards;
 }
 
 .coin-set.is-casting .coin__inner {
@@ -494,6 +559,18 @@ body[data-step="result"] .status-message {
 
 .coin-set.is-settled .coin-c {
   animation-delay: .16s;
+}
+
+.coin-set.is-settled .coin-d {
+  animation-delay: .24s;
+}
+
+.coin-set.is-settled .coin-e {
+  animation-delay: .32s;
+}
+
+.coin-set.is-settled .coin-f {
+  animation-delay: .4s;
 }
 
 .coin-set.is-settled .coin__face {
@@ -737,34 +814,30 @@ body[data-step="result"] .status-message {
   50% { translate: 0 -13px; }
 }
 
-@keyframes coinGatherA {
-  to { left: calc(50% - 58px); top: 35%; transform: rotate(0deg); }
+@keyframes coinGather {
+  to {
+    left: calc(var(--coin-start-x) - 43px);
+    top: var(--coin-start-y);
+    transform: rotate(0deg) scale(.86);
+  }
 }
 
-@keyframes coinGatherB {
-  to { left: calc(50% - 58px); top: 35%; transform: rotate(0deg); }
-}
-
-@keyframes coinGatherC {
-  to { right: auto; left: calc(50% - 58px); top: 35%; transform: rotate(0deg); }
-}
-
-@keyframes coinCastA {
-  35% { left: 20%; top: 16%; transform: rotate(-42deg) scale(1.08); }
-  72% { left: 14%; top: 42%; transform: rotate(-330deg) scale(.98); }
-  100% { left: 18%; top: 35%; transform: rotate(-16deg); }
-}
-
-@keyframes coinCastB {
-  35% { left: 48%; top: 13%; transform: rotate(28deg) scale(1.12); }
-  72% { left: 41%; top: 48%; transform: rotate(280deg) scale(.96); }
-  100% { left: 44%; top: 46%; transform: rotate(8deg); }
-}
-
-@keyframes coinCastC {
-  35% { left: 66%; top: 18%; transform: rotate(45deg) scale(1.05); }
-  72% { left: 65%; top: 43%; transform: rotate(320deg) scale(.96); }
-  100% { left: 65%; top: 34%; transform: rotate(22deg); }
+@keyframes coinCastArc {
+  35% {
+    left: var(--coin-mid-x);
+    top: var(--coin-mid-y);
+    transform: rotate(-42deg) scale(1.08);
+  }
+  72% {
+    left: var(--coin-bounce-x);
+    top: var(--coin-bounce-y);
+    transform: rotate(300deg) scale(.98);
+  }
+  100% {
+    left: var(--coin-end-x);
+    top: var(--coin-end-y);
+    transform: rotate(var(--coin-end-rotate));
+  }
 }
 
 @keyframes coinCastSpin {
@@ -1432,6 +1505,9 @@ input[type="password"]:focus {
   .coin-a,
   .coin-b,
   .coin-c,
+  .coin-d,
+  .coin-e,
+  .coin-f,
   .tarot-deck,
   .ritual-aura {
     animation: none !important;

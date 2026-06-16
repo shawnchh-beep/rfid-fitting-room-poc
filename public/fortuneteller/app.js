@@ -172,18 +172,22 @@
     String(seedText || Date.now()).split('').forEach((char) => {
       seed = (seed * 31 + char.charCodeAt(0)) >>> 0;
     });
-    return Array.from({ length: 3 }, (_, index) => ((seed >> (index * 3)) & 1 ? 'front' : 'back'));
+    return Array.from({ length: 6 }, (_, index) => ((seed >> (index * 3)) & 1 ? 'front' : 'back'));
   }
 
   function applyCoinResult(reading) {
     const lines = Array.isArray(reading.result_lines) && reading.result_lines.length === 6 ? reading.result_lines : null;
-    const faces = lines?.slice(0, 3) || baguaFaceMap[reading.result_key] || generateCoinFaces(`${reading.id || ''}${reading.result_key || ''}`);
+    const faces = lines || generateCoinFaces(`${reading.id || ''}${reading.result_key || ''}`);
     const coins = coinSet.querySelectorAll('.coin');
     coins.forEach((coin, index) => {
-      coin.dataset.face = faces[index];
+      coin.dataset.face = faces[index] || 'front';
     });
 
-    const trigram = trigramMap[faces.join('-')] || trigramMap['front-front-front'];
+    const lowerTrigramFaces = faces.slice(0, 3);
+    const fallbackTrigramFaces = baguaFaceMap[reading.result_key];
+    const trigram = trigramMap[lowerTrigramFaces.join('-')]
+      || (fallbackTrigramFaces ? trigramMap[fallbackTrigramFaces.join('-')] : null)
+      || trigramMap['front-front-front'];
     trigramSymbol.textContent = trigram.symbol;
     trigramName.textContent = reading.result_title || trigram.name;
     trigramTone.textContent = reading.result_keywords || trigram.tone;
