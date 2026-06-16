@@ -18,6 +18,7 @@
 
   let lastReadingText = '';
   const MIN_RITUAL_TIME = 2800;
+  const VISUAL_REVEAL_PAUSE = 760;
   const ritualTimers = [];
 
   const trigramMap = {
@@ -25,10 +26,10 @@
     'back-back-back': { name: '坤象', symbol: '☷', tone: '先穩住，急著翻桌不會讓牌變好。' },
     'front-back-back': { name: '震象', symbol: '☳', tone: '變動來敲門，別忙著假裝沒人在家。' },
     'back-front-front': { name: '巽象', symbol: '☴', tone: '慢慢滲透，比硬撞人生的牆有用。' },
-    'back-front-back': { name: '坎象', symbol: '☵', tone: '有坑，先看路，少替煩惱加特效。' },
-    'front-back-front': { name: '離象', symbol: '☲', tone: '真相已打燈，裝沒看見就有點演了。' },
-    'back-back-front': { name: '艮象', symbol: '☶', tone: '停一下，不是輸，是別把油門當腦子。' },
-    'front-front-back': { name: '兌象', symbol: '☱', tone: '靠嘴可以，但記得講重點，別開脫口秀。' }
+    'front-back-front': { name: '坎象', symbol: '☵', tone: '有坑，先看路，少替煩惱加特效。' },
+    'back-front-back': { name: '離象', symbol: '☲', tone: '真相已打燈，裝沒看見就有點演了。' },
+    'front-front-back': { name: '艮象', symbol: '☶', tone: '停一下，不是輸，是別把油門當腦子。' },
+    'back-back-front': { name: '兌象', symbol: '☱', tone: '靠嘴可以，但記得講重點，別開脫口秀。' }
   };
 
   const baguaFaceMap = {
@@ -36,25 +37,25 @@
     bagua_kun: ['back', 'back', 'back'],
     bagua_zhen: ['front', 'back', 'back'],
     bagua_xun: ['back', 'front', 'front'],
-    bagua_kan: ['back', 'front', 'back'],
-    bagua_li: ['front', 'back', 'front'],
-    bagua_gen: ['back', 'back', 'front'],
-    bagua_dui: ['front', 'front', 'back']
+    bagua_kan: ['front', 'back', 'front'],
+    bagua_li: ['back', 'front', 'back'],
+    bagua_gen: ['front', 'front', 'back'],
+    bagua_dui: ['back', 'back', 'front']
   };
 
   const tarotVisuals = {
-    tarot_fool: ['THE FOOL', '◇', '新局 / 別裸衝'],
-    tarot_magician: ['MAGICIAN', '✦', '資源 / 動起來'],
-    tarot_high_priestess: ['PRIESTESS', '☾', '直覺 / 少裝傻'],
-    tarot_empress: ['EMPRESS', '✿', '滋養 / 別催熟'],
-    tarot_emperor: ['EMPEROR', '♜', '秩序 / 少控制'],
-    tarot_lovers: ['LOVERS', '♡', '選擇 / 別亂配'],
-    tarot_chariot: ['CHARIOT', '➤', '前進 / 看路'],
-    tarot_strength: ['STRENGTH', '∞', '耐心 / 別硬剛'],
-    tarot_hermit: ['HERMIT', '✧', '沉澱 / 別失聯'],
-    tarot_wheel: ['WHEEL', '◌', '轉機 / 接好球'],
-    tarot_star: ['THE STAR', '✦', '希望 / 別再拖'],
-    tarot_sun: ['THE SUN', '☀', '亮眼 / 少滑手機']
+    tarot_fool: ['愚者', '◇', '開始 / 先看路'],
+    tarot_magician: ['魔術師', '✦', '行動 / 別空想'],
+    tarot_high_priestess: ['女祭司', '☾', '直覺 / 少問廢話'],
+    tarot_empress: ['皇后', '✿', '成長 / 別催熟'],
+    tarot_emperor: ['皇帝', '♜', '規劃 / 別亂控'],
+    tarot_lovers: ['戀人', '♡', '選擇 / 別亂配'],
+    tarot_chariot: ['戰車', '➤', '推進 / 看路'],
+    tarot_strength: ['力量', '∞', '耐心 / 別硬剛'],
+    tarot_hermit: ['隱者', '✧', '沉澱 / 別失聯'],
+    tarot_wheel: ['命運之輪', '◌', '轉折 / 接好球'],
+    tarot_star: ['星星', '✦', '希望 / 別再拖'],
+    tarot_sun: ['太陽', '☀', '能量 / 少悲觀']
   };
 
   function getSelected(name) {
@@ -211,6 +212,8 @@
 
       await ritualPromise;
       revealRitual(payload.method, data.reading);
+      setStatus(payload.method === 'tarot' ? '牌面翻開了，宇宙正在組織吐槽。' : '卦象落定了，文字解讀正在補刀。');
+      await wait(VISUAL_REVEAL_PAUSE);
       renderResult(data);
       setStatus('占卜完成。');
     } catch (error) {
