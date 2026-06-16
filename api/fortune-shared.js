@@ -1,6 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
-const { BAGUA_RESULTS, FORTUNE_METHODS, FORTUNE_TOPICS, TAROT_RESULTS } = require('../../server/fortune-data.js');
-const { buildShareUrl } = require('../../server/fortune-share.js');
+const { BAGUA_RESULTS, FORTUNE_METHODS, FORTUNE_TOPICS, TAROT_RESULTS } = require('../server/fortune-data.js');
+const { buildShareUrl } = require('../server/fortune-share.js');
 
 let supabaseAdminClient = null;
 

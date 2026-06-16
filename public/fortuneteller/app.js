@@ -282,7 +282,7 @@
   async function recordShare(platform) {
     if (!lastReading?.id) return;
     try {
-      await fetch('/api/fortune/share', {
+      await fetch('/api/fortune-share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -367,7 +367,7 @@
     setWaitingForManual(false);
 
     try {
-      const response = await fetch(`/api/fortune/shared?token=${encodeURIComponent(token)}`);
+      const response = await fetch(`/api/fortune-shared?token=${encodeURIComponent(token)}`);
       const contentType = response.headers.get('content-type') || '';
       const data = contentType.includes('application/json') ? await response.json() : null;
       if (!response.ok) {

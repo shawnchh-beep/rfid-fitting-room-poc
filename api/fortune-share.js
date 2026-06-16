@@ -53,6 +53,11 @@ function hashIp(ip) {
   return crypto.createHash('sha256').update(`${salt}:${ip}`).digest('hex');
 }
 
+function isSchemaMissingError(error) {
+  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  return /share_events|schema cache|relation/i.test(message);
+}
+
 async function handler(req, res) {
   if (req.method !== 'POST') {
     return jsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Method Not Allowed');
@@ -84,6 +89,14 @@ async function handler(req, res) {
     ip_hash: hashIp(getClientIp(req)),
     user_agent: String(req.headers['user-agent'] || '').trim() || null
   }).select('id, created_at').single();
+
+  if (insert.error && isSchemaMissingError(insert.error)) {
+    return res.status(200).json({
+      ok: false,
+      skipped: true,
+      reason: 'share_events table is not ready'
+    });
+  }
 
   if (insert.error) {
     return jsonError(res, 500, 'SHARE_EVENT_SAVE_FAILED', insert.error.message || 'Unable to save share event');
