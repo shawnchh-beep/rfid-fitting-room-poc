@@ -24,7 +24,6 @@
   const copyButton = document.querySelector('#copyButton');
   const resetButton = document.querySelector('#resetButton');
 
-  let lastReadingText = '';
   let lastReading = null;
   let lastShareUrl = '';
   let pendingPayload = null;
@@ -32,6 +31,21 @@
   const MIN_RITUAL_TIME = 2800;
   const VISUAL_REVEAL_PAUSE = 760;
   const ritualTimers = [];
+
+  const SHARE_CTA_COPY_POOL = [
+    '換你抽一次，看看今天輪到誰被命運嘴。',
+    '不服可以自己抽，牌桌不會只針對我。',
+    '來試試看，看看你的卦有沒有比較會做人。',
+    '今天我被占卜嘴了，換你上去領號碼牌。',
+    '命運都開口了，你也來聽聽它想酸什麼。',
+    '這卦有點準到失禮，你也來感受一下。',
+    '人生很難懂，不如先讓牌幫你亂講幾句。',
+    '換你測看看，搞不好比我更像事故現場。',
+    '這不是答案，是命運委婉地翻白眼。',
+    '來抽一把，看看今天人生要演哪一齣。',
+    '我的結果先放這，你的八卦可能更精彩。',
+    '想知道自己今天會被怎麼嘴，自己來抽。'
+  ];
 
   const trigramMap = {
     'front-front-front': { name: '乾象', symbol: '☰', tone: '主動出擊，別再把勇敢放進草稿夾。' },
@@ -141,7 +155,6 @@
     resultText.textContent = '';
     sharePanel.hidden = true;
     shareLinkInput.value = '';
-    lastReadingText = '';
     lastReading = null;
     lastShareUrl = '';
   }
@@ -254,8 +267,21 @@
     return shareUrl.toString();
   }
 
+  function stableIndex(seedText, length) {
+    let seed = 0;
+    String(seedText || Date.now()).split('').forEach((char) => {
+      seed = (seed * 31 + char.charCodeAt(0)) >>> 0;
+    });
+    return seed % length;
+  }
+
+  function getShareCta(reading) {
+    const seed = `${reading?.id || ''}:${reading?.result_key || ''}:${reading?.topic || ''}`;
+    return SHARE_CTA_COPY_POOL[stableIndex(seed, SHARE_CTA_COPY_POOL.length)];
+  }
+
   function getShareText(reading, shareUrl) {
-    return `我抽到：${reading.result_title}\n${reading.result_text}\n${shareUrl}`;
+    return [reading.result_text, getShareCta(reading), shareUrl].filter(Boolean).join('\n');
   }
 
   function getDefaultShareUrl() {
@@ -279,7 +305,6 @@
     lastReading = reading;
     showSharePanel(reading);
     setFlowStep('result');
-    lastReadingText = `我的占卜結果：${reading.result_title}\n${reading.result_keywords || ''}\n${reading.result_text}`;
   }
 
   async function recordShare(platform) {
@@ -314,11 +339,11 @@
     const shareUrl = withShareSource(lastShareUrl, 'copy');
     await recordShare('copy');
     try {
-      await copyText(shareUrl, copyLinkButton, '已複製');
+      await copyText(getShareText(lastReading, shareUrl), copyLinkButton, '已複製');
       shareLinkInput.value = shareUrl;
-      setStatus('分享連結已複製。');
+      setStatus('分享文案已複製。');
     } catch {
-      setStatus('瀏覽器不允許自動複製，可以手動選取分享連結。', true);
+      setStatus('瀏覽器不允許自動複製，可以手動選取分享文案。', true);
     }
   }
 
@@ -535,10 +560,10 @@
   });
 
   copyButton.addEventListener('click', async () => {
-    if (!lastReadingText) return;
+    if (!lastReading) return;
     try {
       const shareUrl = lastShareUrl ? withShareSource(lastShareUrl, 'copy') : 'https://getrfid.link/fortuneteller';
-      await navigator.clipboard.writeText(`${lastReadingText}\n${shareUrl}`);
+      await navigator.clipboard.writeText(getShareText(lastReading, shareUrl));
       copyButton.textContent = '已複製';
       setTimeout(() => {
         copyButton.textContent = '複製結果';
