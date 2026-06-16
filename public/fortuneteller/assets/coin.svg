@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="銅錢">
+  <defs>
+    <radialGradient id="coinGold" cx="35%" cy="28%" r="72%">
+      <stop offset="0" stop-color="#fff0a8"/>
+      <stop offset="0.34" stop-color="#d9a634"/>
+      <stop offset="0.72" stop-color="#8b5b18"/>
+      <stop offset="1" stop-color="#47300f"/>
+    </radialGradient>
+  </defs>
+  <circle cx="80" cy="80" r="70" fill="url(#coinGold)" stroke="#f6d36d" stroke-width="6"/>
+  <circle cx="80" cy="80" r="50" fill="none" stroke="#6f4614" stroke-width="4" opacity=".7"/>
+  <rect x="58" y="58" width="44" height="44" rx="4" fill="#1e1710" stroke="#f5d16a" stroke-width="4"/>
+  <path d="M80 24v18M80 118v18M24 80h18M118 80h18" stroke="#ffe199" stroke-width="6" stroke-linecap="round"/>
+</svg>

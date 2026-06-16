@@ -40,6 +40,18 @@
       "destination": "/public/index.html"
     },
     {
+      "source": "/fortuneteller",
+      "destination": "/public/fortuneteller/index.html"
+    },
+    {
+      "source": "/fortuneteller/admin",
+      "destination": "/public/fortuneteller/admin/index.html"
+    },
+    {
+      "source": "/fortuneteller/:path*",
+      "destination": "/public/fortuneteller/:path*"
+    },
+    {
       "source": "/",
       "destination": "/public/index.html"
     },

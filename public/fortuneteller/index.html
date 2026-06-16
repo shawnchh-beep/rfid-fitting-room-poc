@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GET RFID Fortune Teller</title>
+  <meta name="description" content="輸入暱稱，選擇問題與占卜方式，抽一則今日占卜。" />
+  <link rel="stylesheet" href="/fortuneteller/styles.css" />
+</head>
+<body class="fortune-page">
+  <main class="fortune-shell">
+    <section class="fortune-stage" aria-labelledby="fortuneTitle">
+      <div class="brand-row">
+        <a href="/" class="brand-link">GET RFID</a>
+        <a href="/fortuneteller/admin" class="admin-link">Admin</a>
+      </div>
+
+      <div class="hero-grid">
+        <header class="hero-copy">
+          <p class="eyebrow">今日小占卜</p>
+          <h1 id="fortuneTitle">問一件事，抽一個方向</h1>
+          <p class="hero-note">不需要登入。每天每個 IP 可玩 3 次，名字只當暱稱使用。</p>
+        </header>
+
+        <div class="ritual-scene" id="ritualScene" aria-live="polite">
+          <div class="coin-set" id="coinSet">
+            <img src="/fortuneteller/assets/coin.svg" alt="" class="coin coin-a" />
+            <img src="/fortuneteller/assets/coin.svg" alt="" class="coin coin-b" />
+            <img src="/fortuneteller/assets/coin.svg" alt="" class="coin coin-c" />
+          </div>
+          <div class="card-set" id="cardSet" hidden>
+            <img src="/fortuneteller/assets/tarot-card.svg" alt="" class="tarot-card card-a" />
+            <img src="/fortuneteller/assets/tarot-card.svg" alt="" class="tarot-card card-b" />
+            <img src="/fortuneteller/assets/tarot-card.svg" alt="" class="tarot-card card-c" />
+          </div>
+        </div>
+      </div>
+
+      <form id="fortuneForm" class="fortune-form">
+        <label class="field-label" for="nameInput">你的名字或暱稱</label>
+        <input id="nameInput" name="name" type="text" maxlength="40" autocomplete="name" placeholder="例如：小林" required />
+
+        <fieldset class="choice-group">
+          <legend>問題類型</legend>
+          <div class="segmented">
+            <label><input type="radio" name="topic" value="love" checked /><span>姻緣</span></label>
+            <label><input type="radio" name="topic" value="study" /><span>學業</span></label>
+            <label><input type="radio" name="topic" value="career" /><span>事業</span></label>
+            <label><input type="radio" name="topic" value="random" /><span>隨便問</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="choice-group">
+          <legend>占卜方式</legend>
+          <div class="method-grid">
+            <label class="method-card">
+              <input type="radio" name="method" value="bagua" checked />
+              <span class="method-title">八卦占卜</span>
+              <span class="method-desc">銅錢起卦，抽八象方向</span>
+            </label>
+            <label class="method-card">
+              <input type="radio" name="method" value="tarot" />
+              <span class="method-title">塔羅牌</span>
+              <span class="method-desc">洗牌抽牌，讀今日訊息</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <button id="submitButton" class="primary-button" type="submit">開始占卜</button>
+        <p id="statusMessage" class="status-message" role="status"></p>
+      </form>
+
+      <section id="resultPanel" class="result-panel" aria-live="polite" hidden>
+        <p id="resultMeta" class="result-meta"></p>
+        <h2 id="resultTitle"></h2>
+        <p id="resultKeywords" class="keywords"></p>
+        <p id="resultText" class="result-text"></p>
+        <div class="result-actions">
+          <button id="copyButton" class="secondary-button" type="button">複製結果</button>
+          <button id="resetButton" class="secondary-button" type="button">再問一次</button>
+        </div>
+      </section>
+    </section>
+  </main>
+  <script src="/fortuneteller/app.js" defer></script>
+</body>
+</html>

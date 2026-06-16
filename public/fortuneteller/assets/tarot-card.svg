@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 260" role="img" aria-label="塔羅牌背面">
+  <defs>
+    <linearGradient id="cardBg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#1c3150"/>
+      <stop offset=".55" stop-color="#4b315f"/>
+      <stop offset="1" stop-color="#0d111f"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="160" height="240" rx="18" fill="url(#cardBg)" stroke="#e7c46a" stroke-width="5"/>
+  <rect x="27" y="27" width="126" height="206" rx="12" fill="none" stroke="#f1d68b" stroke-width="2" opacity=".75"/>
+  <path d="M90 56l14 42 44 1-35 26 13 42-36-25-36 25 13-42-35-26 44-1z" fill="#f1d68b" opacity=".86"/>
+  <circle cx="90" cy="130" r="34" fill="none" stroke="#f7e5a8" stroke-width="3"/>
+  <path d="M48 208c20-18 64-18 84 0" fill="none" stroke="#f7e5a8" stroke-width="3" stroke-linecap="round"/>
+</svg>

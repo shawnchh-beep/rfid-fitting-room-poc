@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fortune Teller Admin</title>
+  <link rel="stylesheet" href="/fortuneteller/styles.css" />
+</head>
+<body>
+  <main class="admin-shell">
+    <nav class="admin-topbar">
+      <a class="brand-link" href="/fortuneteller">GET RFID Fortune Teller</a>
+      <a class="admin-link" href="/">RFID Home</a>
+    </nav>
+
+    <header>
+      <p class="eyebrow">Admin report</p>
+      <h1 class="admin-title">每日占卜報表</h1>
+      <p class="hero-note">輸入管理密碼後載入今日與最近 7 天的使用統計。</p>
+    </header>
+
+    <form id="adminLogin" class="fortune-form">
+      <label class="field-label" for="passwordInput">管理密碼</label>
+      <input id="passwordInput" type="password" autocomplete="current-password" required />
+      <button class="primary-button" type="submit">載入報表</button>
+      <p id="adminStatus" class="status-message" role="status"></p>
+    </form>
+
+    <section id="adminReport" hidden>
+      <div class="admin-grid">
+        <article class="admin-card">
+          <p class="metric-label">今日占卜次數</p>
+          <p id="todayTotal" class="metric-value">0</p>
+        </article>
+        <article class="admin-card">
+          <p class="metric-label">今日使用人數</p>
+          <p id="todayUsers" class="metric-value">0</p>
+        </article>
+        <article class="admin-card">
+          <p class="metric-label">時區</p>
+          <p id="timezone" class="metric-value">UTC+08</p>
+        </article>
+        <article class="admin-card">
+          <p class="metric-label">產生時間</p>
+          <p id="generatedAt" class="metric-value">-</p>
+        </article>
+      </div>
+
+      <div class="report-grid">
+        <article class="admin-card">
+          <h2>問題類型比例</h2>
+          <div id="topicBreakdown"></div>
+        </article>
+        <article class="admin-card">
+          <h2>占卜方式比例</h2>
+          <div id="methodBreakdown"></div>
+        </article>
+      </div>
+
+      <div class="report-grid">
+        <article class="admin-card">
+          <h2>最近 7 天趨勢</h2>
+          <div id="trendList" class="trend-list"></div>
+        </article>
+        <article class="admin-card">
+          <h2>最近 20 筆紀錄</h2>
+          <div id="recentList" class="recent-list"></div>
+        </article>
+      </div>
+    </section>
+  </main>
+  <script src="/fortuneteller/admin/admin.js" defer></script>
+</body>
+</html>
