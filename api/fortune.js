@@ -2,7 +2,7 @@ const crypto = require('node:crypto');
 const { createClient } = require('@supabase/supabase-js');
 const { BAGUA_RESULTS, FORTUNE_METHODS, FORTUNE_TOPICS, TAROT_RESULTS } = require('../server/fortune-data.js');
 
-const DAILY_LIMIT = 3;
+const DAILY_LIMIT = null;
 const TIMEZONE_OFFSET_HOURS = 8;
 const MAX_NAME_LENGTH = 40;
 let supabaseAdminClient = null;
@@ -132,7 +132,7 @@ async function handler(req, res) {
   }
 
   const usedToday = usage.count || 0;
-  if (usedToday >= DAILY_LIMIT) {
+  if (Number.isFinite(DAILY_LIMIT) && usedToday >= DAILY_LIMIT) {
     return jsonError(res, 429, 'DAILY_LIMIT_REACHED', '今天的 3 次占卜額度已用完，明天再來抽一次。', {
       limit: DAILY_LIMIT,
       usedToday
@@ -173,7 +173,7 @@ async function handler(req, res) {
     usage: {
       limit: DAILY_LIMIT,
       usedToday: usedToday + 1,
-      remainingToday: Math.max(DAILY_LIMIT - usedToday - 1, 0)
+      remainingToday: Number.isFinite(DAILY_LIMIT) ? Math.max(DAILY_LIMIT - usedToday - 1, 0) : null
     }
   });
 }
