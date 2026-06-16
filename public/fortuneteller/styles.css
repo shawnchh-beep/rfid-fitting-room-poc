@@ -242,13 +242,16 @@ h1 {
 
 .coin__glyph,
 .coin__mark {
-  position: relative;
+  position: absolute;
   z-index: 1;
   font-weight: 900;
 }
 
 .coin__glyph {
-  font-size: 1.55rem;
+  left: 50%;
+  top: 14%;
+  font-size: 1.38rem;
+  transform: translateX(-50%);
 }
 
 .coin__mark {
@@ -899,7 +902,8 @@ input[type="password"]:focus {
   }
 
   .coin__glyph {
-    font-size: 1.25rem;
+    top: 13%;
+    font-size: 1.12rem;
   }
 
   .coin__mark {
