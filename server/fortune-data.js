@@ -1,8 +1,23 @@
 const FORTUNE_TOPICS = {
-  love: '姻緣',
-  study: '學業',
-  career: '事業',
-  random: '隨便問'
+  love: '這關係還有戲嗎',
+  career: '工作是不是有病',
+  money: '該不該衝',
+  study: '這題選什麼',
+  food: '要吃什麼',
+  travel: '去不去',
+  decision: '幫我決定',
+  roast: '隨便吐槽'
+};
+
+const FORTUNE_TOPIC_FALLBACKS = {
+  love: 'love',
+  career: 'career',
+  money: 'random',
+  study: 'study',
+  food: 'random',
+  travel: 'random',
+  decision: 'random',
+  roast: 'random'
 };
 
 const FORTUNE_METHODS = {
@@ -184,6 +199,7 @@ const TAROT_RESULTS = TAROT_CARDS.flatMap(([id, title, symbol, keywords, visualK
 module.exports = {
   BAGUA_RESULTS,
   FORTUNE_METHODS,
+  FORTUNE_TOPIC_FALLBACKS,
   FORTUNE_TOPICS,
   TAROT_RESULTS
 };

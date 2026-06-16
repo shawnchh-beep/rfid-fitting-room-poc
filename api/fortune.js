@@ -1,6 +1,6 @@
 const crypto = require('node:crypto');
 const { createClient } = require('@supabase/supabase-js');
-const { BAGUA_RESULTS, FORTUNE_METHODS, FORTUNE_TOPICS, TAROT_RESULTS } = require('../server/fortune-data.js');
+const { BAGUA_RESULTS, FORTUNE_METHODS, FORTUNE_TOPIC_FALLBACKS, FORTUNE_TOPICS, TAROT_RESULTS } = require('../server/fortune-data.js');
 
 const DAILY_LIMIT = null;
 const TIMEZONE_OFFSET_HOURS = 8;
@@ -91,11 +91,12 @@ function validateBody(body) {
 function pickResult(method, topic) {
   const pool = method === 'tarot' ? TAROT_RESULTS : BAGUA_RESULTS;
   const selected = pool[crypto.randomInt(pool.length)];
+  const textTopic = FORTUNE_TOPIC_FALLBACKS[topic] || topic;
   return {
     result_key: selected.key,
     result_title: selected.title,
     result_keywords: selected.keywords,
-    result_text: selected.text[topic] || selected.text.random,
+    result_text: selected.text[textTopic] || selected.text.random,
     result_lines: selected.lines || null,
     result_visual: selected.visual || null,
     result_orientation: selected.orientation || null,

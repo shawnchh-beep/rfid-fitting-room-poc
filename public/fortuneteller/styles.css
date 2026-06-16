@@ -36,11 +36,11 @@ input {
 .fortune-shell {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 18px 0 24px;
+  padding: 12px 0 14px;
 }
 
 .fortune-stage {
-  min-height: calc(100vh - 42px);
+  min-height: calc(100vh - 26px);
 }
 
 .brand-row,
@@ -71,7 +71,7 @@ input {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .flow-step {
@@ -100,7 +100,7 @@ body[data-step="result"] .flow-step--result {
   gap: 18px;
   align-items: stretch;
   min-height: min(650px, calc(100vh - 120px));
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .setup-panel,
@@ -915,11 +915,16 @@ input[type="password"]:focus {
   border: 0;
 }
 
+.topic-grid,
 .segmented,
 .method-grid {
   display: grid;
   gap: 8px;
   margin-top: 8px;
+}
+
+.topic-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .segmented {
@@ -937,6 +942,7 @@ input[type="password"]:focus {
   margin-top: 8px;
 }
 
+.topic-card,
 .segmented label,
 .method-card,
 .draw-card {
@@ -949,6 +955,14 @@ input[type="password"]:focus {
   border-radius: 8px;
   background: #111820;
   cursor: pointer;
+}
+
+.topic-card {
+  min-height: 66px;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 6px;
+  text-align: center;
 }
 
 .method-card {
@@ -965,6 +979,7 @@ input[type="password"]:focus {
   padding: 10px 12px;
 }
 
+.topic-card input,
 .segmented input,
 .method-card input,
 .draw-card input {
@@ -972,11 +987,44 @@ input[type="password"]:focus {
   opacity: 0;
 }
 
+.topic-card:has(input:checked),
 .segmented label:has(input:checked),
 .method-card:has(input:checked),
 .draw-card:has(input:checked) {
   border-color: var(--gold);
   background: rgba(232, 189, 97, .12);
+}
+
+.topic-icon {
+  display: grid;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .08);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.topic-copy {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.topic-title {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: .78rem;
+  font-weight: 800;
+  line-height: 1.18;
+}
+
+.topic-type {
+  color: var(--muted);
+  font-size: .66rem;
+  font-weight: 750;
 }
 
 .method-title {
@@ -1158,10 +1206,34 @@ input[type="password"]:focus {
     font-size: clamp(2.6rem, 13vw, 4.6rem);
   }
 
+  .topic-grid,
   .segmented,
   .method-grid,
   .admin-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .topic-card {
+    min-height: 50px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 7px 9px;
+    text-align: left;
+  }
+
+  .topic-icon {
+    flex-basis: 28px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .topic-title {
+    font-size: .86rem;
+  }
+
+  .topic-type {
+    font-size: .7rem;
   }
 }
 
@@ -1248,10 +1320,32 @@ input[type="password"]:focus {
     bottom: 14px;
   }
 
+  .topic-grid,
   .segmented,
   .method-grid,
   .draw-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .topic-card {
+    min-height: 48px;
+    gap: 7px;
+    padding: 7px 8px;
+  }
+
+  .topic-icon {
+    flex-basis: 27px;
+    width: 27px;
+    height: 27px;
+    font-size: .9rem;
+  }
+
+  .topic-title {
+    font-size: .82rem;
+  }
+
+  .topic-type {
+    font-size: .68rem;
   }
 
   .method-card,
