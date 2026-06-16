@@ -3,10 +3,11 @@ const { createClient } = require('@supabase/supabase-js');
 const { BAGUA_RESULTS, FORTUNE_METHODS, FORTUNE_TOPIC_FALLBACKS, FORTUNE_TOPICS, TAROT_RESULTS } = require('../server/fortune-data.js');
 const { buildShareUrl, createShareToken, pickTracking } = require('../server/fortune-share.js');
 
-const DAILY_LIMIT = null;
+const HOURLY_LIMIT = 5;
+const DAILY_LIMIT = 20;
 const TIMEZONE_OFFSET_HOURS = 8;
 const MAX_NAME_LENGTH = 40;
-const ALLOWED_SHARE_PLATFORMS = new Set(['copy', 'native', 'facebook', 'threads', 'line', 'x']);
+const ALLOWED_SHARE_PLATFORMS = new Set(['copy', 'native', 'facebook', 'threads', 'line', 'x', 'image_native', 'image_download']);
 let supabaseAdminClient = null;
 
 function requireEnv(name) {
@@ -68,6 +69,20 @@ function getLocalDayRange(date = new Date()) {
     startIso: new Date(startUtcMs).toISOString(),
     endIso: new Date(endUtcMs).toISOString()
   };
+}
+
+function getRollingHourRange(date = new Date()) {
+  return {
+    startIso: new Date(date.getTime() - 60 * 60 * 1000).toISOString(),
+    endIso: date.toISOString()
+  };
+}
+
+function getRateLimitMessage(scope) {
+  if (scope === 'hour') {
+    return '先停。你這小時已經戳了 5 次，命運都被你點到開始翻白眼了。晚點再來，讓宇宙也喝口水。';
+  }
+  return '今天 20 次已滿，命運不是客服，不提供無限重抽。明天再來，被嘴的額度會自動補滿。';
 }
 
 function validateBody(body) {
@@ -224,22 +239,40 @@ async function handleCreateReading(req, res, body) {
   const ipHash = hashIp(getClientIp(req));
   const shareToken = createShareToken();
   const tracking = pickTracking(body, req);
-  const { startIso, endIso } = getLocalDayRange();
+  const dayRange = getLocalDayRange();
+  const hourRange = getRollingHourRange();
 
-  const usage = await supabase
-    .from('readings')
-    .select('id', { head: true, count: 'exact' })
-    .eq('ip_hash', ipHash)
-    .gte('created_at', startIso)
-    .lt('created_at', endIso);
+  const [hourlyUsage, dailyUsage] = await Promise.all([
+    supabase
+      .from('readings')
+      .select('id', { head: true, count: 'exact' })
+      .eq('ip_hash', ipHash)
+      .gte('created_at', hourRange.startIso)
+      .lt('created_at', hourRange.endIso),
+    supabase
+      .from('readings')
+      .select('id', { head: true, count: 'exact' })
+      .eq('ip_hash', ipHash)
+      .gte('created_at', dayRange.startIso)
+      .lt('created_at', dayRange.endIso)
+  ]);
 
-  if (usage.error) {
-    return jsonError(res, 500, 'USAGE_LOOKUP_FAILED', usage.error.message || 'Unable to check daily usage');
+  if (hourlyUsage.error || dailyUsage.error) {
+    const error = hourlyUsage.error || dailyUsage.error;
+    return jsonError(res, 500, 'USAGE_LOOKUP_FAILED', error.message || 'Unable to check usage');
   }
 
-  const usedToday = usage.count || 0;
-  if (Number.isFinite(DAILY_LIMIT) && usedToday >= DAILY_LIMIT) {
-    return jsonError(res, 429, 'DAILY_LIMIT_REACHED', '今天的 3 次占卜額度已用完，明天再來抽一次。', {
+  const usedThisHour = hourlyUsage.count || 0;
+  const usedToday = dailyUsage.count || 0;
+  if (usedThisHour >= HOURLY_LIMIT) {
+    return jsonError(res, 429, 'HOURLY_LIMIT_REACHED', getRateLimitMessage('hour'), {
+      limit: HOURLY_LIMIT,
+      usedThisHour
+    });
+  }
+
+  if (usedToday >= DAILY_LIMIT) {
+    return jsonError(res, 429, 'DAILY_LIMIT_REACHED', getRateLimitMessage('day'), {
       limit: DAILY_LIMIT,
       usedToday
     });
@@ -294,9 +327,12 @@ async function handleCreateReading(req, res, body) {
     },
     share_url: shareUrl,
     usage: {
-      limit: DAILY_LIMIT,
+      hourlyLimit: HOURLY_LIMIT,
+      dailyLimit: DAILY_LIMIT,
+      usedThisHour: usedThisHour + 1,
       usedToday: usedToday + 1,
-      remainingToday: Number.isFinite(DAILY_LIMIT) ? Math.max(DAILY_LIMIT - usedToday - 1, 0) : null
+      remainingThisHour: Math.max(HOURLY_LIMIT - usedThisHour - 1, 0),
+      remainingToday: Math.max(DAILY_LIMIT - usedToday - 1, 0)
     }
   });
 }

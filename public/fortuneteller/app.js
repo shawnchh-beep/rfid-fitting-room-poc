@@ -487,7 +487,9 @@
 
   function renderResult(data) {
     const reading = data.reading;
-    const usageText = Number.isFinite(data.usage?.remainingToday) ? `｜今日剩餘 ${data.usage.remainingToday} 次` : '';
+    const hourlyText = Number.isFinite(data.usage?.remainingThisHour) ? `｜本小時剩餘 ${data.usage.remainingThisHour} 次` : '';
+    const dailyText = Number.isFinite(data.usage?.remainingToday) ? `｜今日剩餘 ${data.usage.remainingToday} 次` : '';
+    const usageText = `${hourlyText}${dailyText}`;
     resultMeta.textContent = `${reading.name}｜${reading.topic_label}｜${reading.method_label}${usageText}`;
     resultTitle.textContent = reading.result_title;
     resultKeywords.textContent = reading.result_keywords || '';
