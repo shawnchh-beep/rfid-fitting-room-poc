@@ -1,5 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/demo-data/daily-seed",
+      "schedule": "10 16 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/product.html",

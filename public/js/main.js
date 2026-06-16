@@ -1805,8 +1805,27 @@ async function handleSeedTodayData() {
       el.seedTodayData.disabled = true;
       el.seedTodayData.textContent = t('demo.button.seeding');
     }
-    await runScenario('normal');
-    await runScenario('purchase');
+
+    const session = getSession();
+    const isAdmin = String(session?.profile?.role || '').trim() === 'admin';
+
+    if (isAdmin) {
+      const response = await fetch('/api/demo-data/daily-seed', {
+        method: 'POST',
+        headers: buildJsonHeaders(),
+        body: JSON.stringify({
+          timezone: 'Asia/Shanghai'
+        })
+      });
+      const { data } = await parseApiResponse(response, 'daily-demo-seed');
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(data, t('demo.toast.generateFailed', { message: 'api failed' })));
+      }
+    } else {
+      await runScenario('normal');
+      await runScenario('purchase');
+    }
+
     showToast(t('demo.toast.generated'), 'ok');
     await fetchAndRenderDashboard();
   } catch (error) {
