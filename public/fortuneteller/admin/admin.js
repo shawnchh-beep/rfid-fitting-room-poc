@@ -53,14 +53,29 @@
     `).join('') : '<p class="status-message">尚無紀錄。</p>';
   }
 
+  function renderRecentShares(items) {
+    document.querySelector('#recentShareList').innerHTML = items.length ? items.map((item) => `
+      <div class="recent-item">
+        <span>${item.platform}｜${item.action}</span>
+        <span>${formatTime(item.created_at)}</span>
+      </div>
+    `).join('') : '<p class="status-message">尚無分享紀錄。</p>';
+  }
+
   function renderReport(data) {
     document.querySelector('#todayTotal').textContent = data.today.total_readings;
     document.querySelector('#todayUsers').textContent = data.today.unique_users;
+    document.querySelector('#todayShares').textContent = data.shares?.today_shares || 0;
+    document.querySelector('#maxStreak').textContent = `${data.streaks?.max_current_streak || 0} 天`;
     document.querySelector('#timezone').textContent = data.timezone;
     document.querySelector('#generatedAt').textContent = formatTime(data.generated_at);
     renderBreakdown('#topicBreakdown', data.topics || []);
     renderBreakdown('#methodBreakdown', data.methods || []);
+    renderBreakdown('#shareBreakdown', data.shares?.platforms || []);
+    renderBreakdown('#referrerBreakdown', data.referrers || []);
+    renderBreakdown('#streakBreakdown', data.streaks?.buckets || []);
     renderTrend(data.trend || []);
+    renderRecentShares(data.recent_shares || []);
     renderRecent(data.recent || []);
     report.hidden = false;
   }

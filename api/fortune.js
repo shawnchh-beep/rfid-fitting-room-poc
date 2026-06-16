@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
 const { createClient } = require('@supabase/supabase-js');
 const { BAGUA_RESULTS, FORTUNE_METHODS, FORTUNE_TOPIC_FALLBACKS, FORTUNE_TOPICS, TAROT_RESULTS } = require('../server/fortune-data.js');
+const { buildShareUrl, createShareToken, pickTracking } = require('../server/fortune-share.js');
 
 const DAILY_LIMIT = null;
 const TIMEZONE_OFFSET_HOURS = 8;
@@ -104,6 +105,11 @@ function pickResult(method, topic) {
   };
 }
 
+function isSchemaMissingError(error) {
+  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  return /share_token|ref_source|ref_medium|ref_campaign|referrer|schema cache|column/i.test(message);
+}
+
 async function handler(req, res) {
   if (req.method !== 'POST') {
     return jsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Method Not Allowed');
@@ -116,13 +122,16 @@ async function handler(req, res) {
     return jsonError(res, 500, 'CONFIG_ERROR', error?.message || 'Supabase config error');
   }
 
-  const validated = validateBody(normalizeBody(req.body));
+  const body = normalizeBody(req.body);
+  const validated = validateBody(body);
   if (!validated.ok) {
     return jsonError(res, 400, 'VALIDATION_ERROR', validated.message);
   }
 
   const { name, topic, method } = validated.value;
   const ipHash = hashIp(getClientIp(req));
+  const shareToken = createShareToken();
+  const tracking = pickTracking(body, req);
   const { startIso, endIso } = getLocalDayRange();
 
   const usage = await supabase
@@ -152,18 +161,30 @@ async function handler(req, res) {
     result_key: result.result_key,
     result_title: result.result_title,
     result_text: result.result_text,
+    share_token: shareToken,
+    ...tracking,
     ip_hash: ipHash,
     user_agent: String(req.headers['user-agent'] || '').trim() || null
   };
 
-  const insert = await supabase.from('readings').insert(payload).select('id, created_at').single();
+  let insert = await supabase.from('readings').insert(payload).select('id, share_token, created_at').single();
+  let shareEnabled = true;
+  if (insert.error && isSchemaMissingError(insert.error)) {
+    shareEnabled = false;
+    const { share_token, ref_source, ref_medium, ref_campaign, referrer, ...legacyPayload } = payload;
+    insert = await supabase.from('readings').insert(legacyPayload).select('id, created_at').single();
+  }
+
   if (insert.error) {
     return jsonError(res, 500, 'READING_SAVE_FAILED', insert.error.message || 'Unable to save reading');
   }
 
+  const shareUrl = shareEnabled ? buildShareUrl(req, insert.data.share_token || shareToken) : null;
   return res.status(200).json({
     reading: {
       id: insert.data.id,
+      share_token: shareEnabled ? insert.data.share_token || shareToken : null,
+      share_url: shareUrl,
       name,
       topic,
       topic_label: FORTUNE_TOPICS[topic],
@@ -179,6 +200,7 @@ async function handler(req, res) {
       result_base_key: result.result_base_key,
       created_at: insert.data.created_at
     },
+    share_url: shareUrl,
     usage: {
       limit: DAILY_LIMIT,
       usedToday: usedToday + 1,

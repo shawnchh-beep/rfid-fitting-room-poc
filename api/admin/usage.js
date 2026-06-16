@@ -56,6 +56,11 @@ function makeBuckets(keys) {
   return Object.fromEntries(keys.map((key) => [key, 0]));
 }
 
+function isSchemaMissingError(error) {
+  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  return /share_events|share_token|ref_source|ref_medium|ref_campaign|referrer|schema cache|column|relation/i.test(message);
+}
+
 function summarizeRows(rows) {
   const todayRange = getLocalDayRange(0);
   const topicCounts = makeBuckets(Object.keys(FORTUNE_TOPICS));
@@ -90,6 +95,81 @@ function summarizeRows(rows) {
       label: FORTUNE_METHODS[key],
       count
     }))
+  };
+}
+
+function summarizeShares(rows) {
+  const todayRange = getLocalDayRange(0);
+  const platformCounts = {};
+  let todayTotal = 0;
+
+  for (const row of rows) {
+    const createdAt = new Date(row.created_at).getTime();
+    const isToday = createdAt >= Date.parse(todayRange.startIso) && createdAt < Date.parse(todayRange.endIso);
+    if (!isToday) continue;
+
+    todayTotal += 1;
+    platformCounts[row.platform] = (platformCounts[row.platform] || 0) + 1;
+  }
+
+  return {
+    today_shares: todayTotal,
+    platforms: Object.entries(platformCounts).map(([key, count]) => ({
+      key,
+      label: key,
+      count
+    }))
+  };
+}
+
+function summarizeReferrers(rows) {
+  const sourceCounts = {};
+  for (const row of rows) {
+    const key = row.ref_source || (row.referrer ? 'referrer' : 'direct');
+    sourceCounts[key] = (sourceCounts[key] || 0) + 1;
+  }
+
+  return Object.entries(sourceCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([key, count]) => ({
+      key,
+      label: key,
+      count
+    }));
+}
+
+function summarizeStreaks(rows) {
+  const today = getLocalDayRange(0).day;
+  const byIp = new Map();
+
+  for (const row of rows) {
+    if (!row.ip_hash) continue;
+    const day = getLocalDayRange(0, new Date(row.created_at)).day;
+    if (!byIp.has(row.ip_hash)) byIp.set(row.ip_hash, new Set());
+    byIp.get(row.ip_hash).add(day);
+  }
+
+  const currentStreaks = [];
+  for (const days of byIp.values()) {
+    let streak = 0;
+    for (let offset = 0; offset < 30; offset += 1) {
+      const day = getLocalDayRange(offset).day;
+      if (!days.has(day)) break;
+      streak += 1;
+    }
+    if (streak > 0) currentStreaks.push(streak);
+  }
+
+  return {
+    active_today: currentStreaks.length,
+    max_current_streak: currentStreaks.length ? Math.max(...currentStreaks) : 0,
+    buckets: [
+      { key: '1', label: '1 天', count: currentStreaks.filter((value) => value === 1).length },
+      { key: '2-3', label: '2-3 天', count: currentStreaks.filter((value) => value >= 2 && value <= 3).length },
+      { key: '4-7', label: '4-7 天', count: currentStreaks.filter((value) => value >= 4 && value <= 7).length },
+      { key: '8+', label: '8 天以上', count: currentStreaks.filter((value) => value >= 8).length }
+    ]
   };
 }
 
@@ -134,13 +214,22 @@ async function handler(req, res) {
     return jsonError(res, 500, 'CONFIG_ERROR', error?.message || 'Supabase config error');
   }
 
-  const sevenDaysAgo = getLocalDayRange(6);
-  const rowsResult = await supabase
+  const thirtyDaysAgo = getLocalDayRange(29);
+  let rowsResult = await supabase
     .from('readings')
-    .select('id, name, topic, method, result_title, ip_hash, user_agent, created_at')
-    .gte('created_at', sevenDaysAgo.startIso)
+    .select('id, name, topic, method, result_title, ip_hash, ref_source, ref_medium, ref_campaign, referrer, user_agent, created_at')
+    .gte('created_at', thirtyDaysAgo.startIso)
     .order('created_at', { ascending: false })
-    .limit(1000);
+    .limit(3000);
+
+  if (rowsResult.error && isSchemaMissingError(rowsResult.error)) {
+    rowsResult = await supabase
+      .from('readings')
+      .select('id, name, topic, method, result_title, ip_hash, user_agent, created_at')
+      .gte('created_at', thirtyDaysAgo.startIso)
+      .order('created_at', { ascending: false })
+      .limit(3000);
+  }
 
   if (rowsResult.error) {
     return jsonError(res, 500, 'USAGE_QUERY_FAILED', rowsResult.error.message || 'Unable to load usage');
@@ -158,12 +247,34 @@ async function handler(req, res) {
 
   const rows = rowsResult.data || [];
   const summary = summarizeRows(rows);
+  const shareResult = await supabase
+    .from('share_events')
+    .select('id, reading_id, platform, action, ip_hash, user_agent, created_at')
+    .gte('created_at', thirtyDaysAgo.startIso)
+    .order('created_at', { ascending: false })
+    .limit(1000);
+
+  if (shareResult.error && !isSchemaMissingError(shareResult.error)) {
+    return jsonError(res, 500, 'SHARE_QUERY_FAILED', shareResult.error.message || 'Unable to load share events');
+  }
+
+  const shareRows = shareResult.error ? [] : shareResult.data || [];
 
   return res.status(200).json({
     generated_at: new Date().toISOString(),
     timezone: 'UTC+08:00',
     ...summary,
+    shares: summarizeShares(shareRows),
+    referrers: summarizeReferrers(rows),
+    streaks: summarizeStreaks(rows),
     trend: buildTrend(rows),
+    recent_shares: shareRows.slice(0, 20).map((row) => ({
+      id: row.id,
+      reading_id: row.reading_id,
+      platform: row.platform,
+      action: row.action,
+      created_at: row.created_at
+    })),
     recent: (recentResult.data || []).map((row) => ({
       id: row.id,
       name: row.name,

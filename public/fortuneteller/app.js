@@ -17,10 +17,16 @@
   const resultTitle = document.querySelector('#resultTitle');
   const resultKeywords = document.querySelector('#resultKeywords');
   const resultText = document.querySelector('#resultText');
+  const sharePanel = document.querySelector('#sharePanel');
+  const shareLinkInput = document.querySelector('#shareLinkInput');
+  const copyLinkButton = document.querySelector('#copyLinkButton');
+  const nativeShareButton = document.querySelector('#nativeShareButton');
   const copyButton = document.querySelector('#copyButton');
   const resetButton = document.querySelector('#resetButton');
 
   let lastReadingText = '';
+  let lastReading = null;
+  let lastShareUrl = '';
   let pendingPayload = null;
   let pendingManualMethod = null;
   const MIN_RITUAL_TIME = 2800;
@@ -66,6 +72,20 @@
 
   function getSelected(name) {
     return form.querySelector(`input[name="${name}"]:checked`)?.value;
+  }
+
+  function getShareToken() {
+    return new URLSearchParams(window.location.search).get('share');
+  }
+
+  function getTrackingParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      utm_source: params.get('utm_source') || null,
+      utm_medium: params.get('utm_medium') || null,
+      utm_campaign: params.get('utm_campaign') || null,
+      referrer: document.referrer || null
+    };
   }
 
   function setStatus(message, isError) {
@@ -119,7 +139,11 @@
     resultTitle.textContent = '';
     resultKeywords.textContent = '';
     resultText.textContent = '';
+    sharePanel.hidden = true;
+    shareLinkInput.value = '';
     lastReadingText = '';
+    lastReading = null;
+    lastShareUrl = '';
   }
 
   function setMethodVisual(method) {
@@ -213,8 +237,32 @@
       name: String(new FormData(form).get('name') || '').trim(),
       topic: getSelected('topic'),
       method: getSelected('method'),
-      drawMode: getSelected('drawMode') || 'auto'
+      drawMode: getSelected('drawMode') || 'auto',
+      ...getTrackingParams()
     };
+  }
+
+  function withShareSource(url, platform) {
+    if (!url) return '';
+    const shareUrl = new URL(url, window.location.origin);
+    shareUrl.searchParams.set('utm_source', platform);
+    shareUrl.searchParams.set('utm_medium', 'share');
+    return shareUrl.toString();
+  }
+
+  function getShareText(reading, shareUrl) {
+    return `我抽到：${reading.result_title}\n${reading.result_text}\n${shareUrl}`;
+  }
+
+  function showSharePanel(reading) {
+    lastShareUrl = reading.share_url || '';
+    if (!lastShareUrl) {
+      sharePanel.hidden = true;
+      return;
+    }
+
+    shareLinkInput.value = withShareSource(lastShareUrl, 'copy');
+    sharePanel.hidden = false;
   }
 
   function renderResult(data) {
@@ -222,11 +270,117 @@
     const usageText = Number.isFinite(data.usage?.remainingToday) ? `｜今日剩餘 ${data.usage.remainingToday} 次` : '';
     resultMeta.textContent = `${reading.name}｜${reading.topic_label}｜${reading.method_label}${usageText}`;
     resultTitle.textContent = reading.result_title;
-    resultKeywords.textContent = reading.result_keywords;
+    resultKeywords.textContent = reading.result_keywords || '';
     resultText.textContent = reading.result_text;
     resultPanel.hidden = false;
+    lastReading = reading;
+    showSharePanel(reading);
     setFlowStep('result');
-    lastReadingText = `我的占卜結果：${reading.result_title}\n${reading.result_keywords}\n${reading.result_text}`;
+    lastReadingText = `我的占卜結果：${reading.result_title}\n${reading.result_keywords || ''}\n${reading.result_text}`;
+  }
+
+  async function recordShare(platform) {
+    if (!lastReading?.id) return;
+    try {
+      await fetch('/api/fortune/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reading_id: lastReading.id,
+          platform,
+          action: 'click'
+        })
+      });
+    } catch {
+      // Sharing should still work even if analytics is temporarily unavailable.
+    }
+  }
+
+  async function copyText(text, button, doneText) {
+    await navigator.clipboard.writeText(text);
+    const originalText = button.textContent;
+    button.textContent = doneText;
+    setTimeout(() => {
+      button.textContent = originalText;
+    }, 1200);
+  }
+
+  async function copyShareLink() {
+    if (!lastShareUrl) return;
+    const shareUrl = withShareSource(lastShareUrl, 'copy');
+    await recordShare('copy');
+    try {
+      await copyText(shareUrl, copyLinkButton, '已複製');
+      shareLinkInput.value = shareUrl;
+      setStatus('分享連結已複製。');
+    } catch {
+      setStatus('瀏覽器不允許自動複製，可以手動選取分享連結。', true);
+    }
+  }
+
+  async function shareNative() {
+    if (!lastReading || !lastShareUrl) return;
+    const shareUrl = withShareSource(lastShareUrl, 'native');
+    await recordShare('native');
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `我的占卜結果：${lastReading.result_title}`,
+          text: getShareText(lastReading, ''),
+          url: shareUrl
+        });
+        return;
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+      }
+    }
+
+    try {
+      await copyText(shareUrl, nativeShareButton, '已複製');
+      setStatus('這個瀏覽器沒有系統分享，已幫你複製連結。');
+    } catch {
+      setStatus('這個瀏覽器不支援系統分享，請改用複製連結。', true);
+    }
+  }
+
+  async function shareToPlatform(platform) {
+    if (!lastReading || !lastShareUrl) return;
+    const shareUrl = withShareSource(lastShareUrl, platform);
+    const encodedUrl = encodeURIComponent(shareUrl);
+    const encodedText = encodeURIComponent(getShareText(lastReading, shareUrl));
+    const urls = {
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      threads: `https://www.threads.net/intent/post?text=${encodedText}`,
+      line: `https://social-plugins.line.me/lineit/share?url=${encodedUrl}`,
+      x: `https://twitter.com/intent/tweet?text=${encodedText}`
+    };
+
+    await recordShare(platform);
+    window.open(urls[platform], '_blank', 'noopener,noreferrer');
+  }
+
+  async function loadSharedReading(token) {
+    setStatus('正在讀取分享結果。');
+    clearResult();
+    clearPendingManual();
+    setWaitingForManual(false);
+
+    try {
+      const response = await fetch(`/api/fortune/shared?token=${encodeURIComponent(token)}`);
+      const contentType = response.headers.get('content-type') || '';
+      const data = contentType.includes('application/json') ? await response.json() : null;
+      if (!response.ok) {
+        throw new Error(data?.error?.message || '分享結果讀取失敗。');
+      }
+
+      setMethodVisual(data.reading.method);
+      renderResult(data);
+      setStatus('這是分享來的占卜結果。');
+    } catch (error) {
+      setStatus(error.message || '分享結果讀取失敗。', true);
+      setFlowStep('setup');
+    }
   }
 
   async function performReading(payload, options = {}) {
@@ -379,7 +533,8 @@
   copyButton.addEventListener('click', async () => {
     if (!lastReadingText) return;
     try {
-      await navigator.clipboard.writeText(`${lastReadingText}\nhttps://getrfid.link/fortuneteller`);
+      const shareUrl = lastShareUrl ? withShareSource(lastShareUrl, 'copy') : 'https://getrfid.link/fortuneteller';
+      await navigator.clipboard.writeText(`${lastReadingText}\n${shareUrl}`);
       copyButton.textContent = '已複製';
       setTimeout(() => {
         copyButton.textContent = '複製結果';
@@ -389,15 +544,24 @@
     }
   });
 
+  copyLinkButton.addEventListener('click', copyShareLink);
+  nativeShareButton.addEventListener('click', shareNative);
+  sharePanel.querySelectorAll('[data-share-platform]').forEach((button) => {
+    button.addEventListener('click', () => shareToPlatform(button.dataset.sharePlatform));
+  });
+
   resetButton.addEventListener('click', () => {
     clearResult();
     setStatus('');
     clearPendingManual();
     setWaitingForManual(false);
     resetRitual();
+    window.history.replaceState({}, '', '/fortuneteller');
     setFlowStep('setup');
   });
 
   setFlowStep('setup');
   setMethodVisual(getSelected('method'));
+  const shareToken = getShareToken();
+  if (shareToken) loadSharedReading(shareToken);
 })();
