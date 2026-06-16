@@ -294,6 +294,7 @@
               </div>
             </div>
             <div class="result-actions">
+              <button id="share-image-btn" class="secondary-button" type="button">下載占卜結果圖</button>
               <button id="copyButton" class="secondary-button" type="button">複製結果</button>
               <button id="resetButton" class="secondary-button" type="button">再問一次</button>
             </div>
@@ -302,6 +303,19 @@
       </div>
     </section>
   </main>
+  <div id="fortune-share-card" class="fortune-share-card" aria-hidden="true">
+    <div class="share-card-bg"></div>
+    <div class="share-card-content">
+      <div class="share-card-kicker">今日小占卜</div>
+      <div class="share-card-symbol">☰</div>
+      <div class="share-card-title">地天泰</div>
+      <div class="share-card-divider"></div>
+      <div class="share-card-result">對方目前不像要跑，只是也沒有衝過來的意思，慢到像在下載更新。</div>
+      <div class="share-card-cta">不服可以自己抽，牌桌不會只針對我。</div>
+      <div class="share-card-url">getrfid.link/fortuneteller</div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js" defer></script>
   <script src="/fortuneteller/app.js" defer></script>
 </body>
 </html>

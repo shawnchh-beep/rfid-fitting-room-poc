@@ -21,6 +21,8 @@
   const shareLinkInput = document.querySelector('#shareLinkInput');
   const copyLinkButton = document.querySelector('#copyLinkButton');
   const nativeShareButton = document.querySelector('#nativeShareButton');
+  const shareImageButton = document.querySelector('#share-image-btn');
+  const fortuneShareCard = document.querySelector('#fortune-share-card');
   const copyButton = document.querySelector('#copyButton');
   const resetButton = document.querySelector('#resetButton');
 
@@ -46,6 +48,17 @@
     '我的結果先放這，你的八卦可能更精彩。',
     '想知道自己今天會被怎麼嘴，自己來抽。'
   ];
+
+  const SHARE_CARD_GRADIENTS = [
+    ['#0f172a', '#312e81'],
+    ['#111827', '#7c3aed'],
+    ['#1e293b', '#0f766e'],
+    ['#27272a', '#b45309'],
+    ['#18181b', '#be123c'],
+    ['#020617', '#0369a1']
+  ];
+
+  const SHARE_IMAGE_FILE_NAME = 'fortune-result.png';
 
   const trigramMap = {
     'front-front-front': { name: '乾象', symbol: '☰', tone: '主動出擊，別再把勇敢放進草稿夾。' },
@@ -286,6 +299,184 @@
 
   function getDefaultShareUrl() {
     return new URL('/fortuneteller', window.location.origin).toString();
+  }
+
+  function getRandomShareCta() {
+    return SHARE_CTA_COPY_POOL[Math.floor(Math.random() * SHARE_CTA_COPY_POOL.length)];
+  }
+
+  function getRandomShareGradient() {
+    return SHARE_CARD_GRADIENTS[Math.floor(Math.random() * SHARE_CARD_GRADIENTS.length)];
+  }
+
+  function truncateShareText(text, maxLength = 108) {
+    const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+    if (normalized.length <= maxLength) return normalized;
+    return `${normalized.slice(0, maxLength - 1)}…`;
+  }
+
+  function getDisplayShareUrl(url) {
+    try {
+      const shareUrl = new URL(url || getDefaultShareUrl(), window.location.origin);
+      return `${shareUrl.host}${shareUrl.pathname}`.replace(/\/$/, '');
+    } catch {
+      return 'getrfid.link/fortuneteller';
+    }
+  }
+
+  function getCurrentFortuneShareData() {
+    if (!lastReading) return null;
+    const resultVisual = Array.isArray(lastReading.result_visual) ? lastReading.result_visual : null;
+    const resultSymbol = resultVisual?.[1] || trigramSymbol.textContent || '☰';
+    const url = lastShareUrl || getDefaultShareUrl();
+    return {
+      resultTitle: lastReading.result_title || resultTitle.textContent || '今日小占卜',
+      resultSymbol,
+      resultText: truncateShareText(lastReading.result_text || resultText.textContent || ''),
+      methodLabel: lastReading.method_label || '',
+      url,
+      displayUrl: getDisplayShareUrl(url),
+      cta: getRandomShareCta(),
+      gradient: getRandomShareGradient()
+    };
+  }
+
+  function setShareCardText(selector, value) {
+    const target = fortuneShareCard?.querySelector(selector);
+    if (target) target.textContent = value || '';
+  }
+
+  function prepareShareCard(data) {
+    if (!fortuneShareCard || !data) return;
+    setShareCardText('.share-card-kicker', data.methodLabel ? `今日小占卜 · ${data.methodLabel}` : '今日小占卜');
+    setShareCardText('.share-card-symbol', data.resultSymbol);
+    setShareCardText('.share-card-title', data.resultTitle);
+    setShareCardText('.share-card-result', data.resultText);
+    setShareCardText('.share-card-cta', data.cta);
+    setShareCardText('.share-card-url', data.displayUrl);
+    fortuneShareCard.style.setProperty('--share-card-from', data.gradient[0]);
+    fortuneShareCard.style.setProperty('--share-card-to', data.gradient[1]);
+  }
+
+  async function dataUrlToBlob(dataUrl) {
+    const response = await fetch(dataUrl);
+    return response.blob();
+  }
+
+  async function generateShareImageBlob() {
+    if (!fortuneShareCard || !window.htmlToImage) {
+      throw new Error('圖片產生工具尚未載入。');
+    }
+    const options = {
+      width: 1080,
+      height: 1350,
+      pixelRatio: 1,
+      cacheBust: true,
+      backgroundColor: '#020617'
+    };
+    if (window.htmlToImage.toBlob) {
+      const blob = await window.htmlToImage.toBlob(fortuneShareCard, options);
+      if (blob) return blob;
+    }
+    const dataUrl = await window.htmlToImage.toPng(fortuneShareCard, options);
+    return dataUrlToBlob(dataUrl);
+  }
+
+  function downloadBlob(blob, filename) {
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1200);
+  }
+
+  function supportsImageShare() {
+    try {
+      if (!navigator.share || !navigator.canShare || typeof File === 'undefined') return false;
+      const file = new File(['fortune'], SHARE_IMAGE_FILE_NAME, { type: 'image/png' });
+      return navigator.canShare({ files: [file] });
+    } catch {
+      return false;
+    }
+  }
+
+  function updateShareImageButtonLabel() {
+    if (!shareImageButton) return;
+    shareImageButton.textContent = supportsImageShare() ? '分享占卜結果圖' : '下載占卜結果圖';
+  }
+
+  async function fallbackTextShare(data) {
+    const text = [data?.resultText, data?.cta, data?.url].filter(Boolean).join('\n');
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `我的占卜結果：${data?.resultTitle || '今日小占卜'}`,
+          text,
+          url: data?.url || getDefaultShareUrl()
+        });
+        return '已改用文字分享。';
+      } catch (error) {
+        if (error?.name === 'AbortError') return '已取消分享。';
+      }
+    }
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text || getDefaultShareUrl());
+      return '圖片產生失敗，已改複製文字分享。';
+    }
+    return '圖片產生失敗，請改用複製分享文案。';
+  }
+
+  async function shareOrDownloadImage() {
+    const data = getCurrentFortuneShareData();
+    if (!data) {
+      setStatus('請先完成占卜，再產生結果圖。', true);
+      return;
+    }
+
+    const originalText = shareImageButton.textContent;
+    shareImageButton.disabled = true;
+    shareImageButton.textContent = '產圖中...';
+    prepareShareCard(data);
+
+    try {
+      if (document.fonts?.ready) await document.fonts.ready;
+      const blob = await generateShareImageBlob();
+      const file = new File([blob], SHARE_IMAGE_FILE_NAME, { type: 'image/png' });
+
+      if (supportsImageShare() && navigator.canShare({ files: [file] })) {
+        await recordShare('image_native');
+        await navigator.share({
+          files: [file],
+          title: `我的占卜結果：${data.resultTitle}`,
+          text: data.cta
+        });
+        setStatus('占卜結果圖已送出分享。');
+        return;
+      }
+
+      await recordShare('image_download');
+      downloadBlob(blob, SHARE_IMAGE_FILE_NAME);
+      setStatus('占卜結果圖已下載。');
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        setStatus('已取消分享。');
+        return;
+      }
+      console.error('Failed to generate or share fortune image', error);
+      try {
+        const fallbackMessage = await fallbackTextShare(data);
+        setStatus(fallbackMessage, fallbackMessage.includes('失敗'));
+      } catch {
+        setStatus('圖片產生失敗，請改用複製分享文案。', true);
+      }
+    } finally {
+      shareImageButton.disabled = false;
+      shareImageButton.textContent = originalText;
+      updateShareImageButtonLabel();
+    }
   }
 
   function showSharePanel(reading) {
@@ -575,6 +766,9 @@
 
   copyLinkButton.addEventListener('click', copyShareLink);
   nativeShareButton.addEventListener('click', shareNative);
+  if (shareImageButton) {
+    shareImageButton.addEventListener('click', shareOrDownloadImage);
+  }
   sharePanel.querySelectorAll('[data-share-platform]').forEach((button) => {
     button.addEventListener('click', () => shareToPlatform(button.dataset.sharePlatform));
   });
@@ -591,6 +785,7 @@
 
   setFlowStep('setup');
   setMethodVisual(getSelected('method'));
+  updateShareImageButtonLabel();
   const shareToken = getShareToken();
   if (shareToken) loadSharedReading(shareToken);
 })();
