@@ -112,6 +112,7 @@ body[data-step="result"] .flow-step--result {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  height: clamp(60px, 9vh, 92px);
   min-height: auto;
 }
 
@@ -128,9 +129,9 @@ body[data-step="result"] .flow-step--result {
 
 h1 {
   max-width: none;
-  margin: 8px 0 8px;
-  font-size: clamp(2.35rem, 4.3vw, 4.9rem);
-  line-height: .95;
+  margin: 0;
+  font-size: clamp(1.85rem, 2.7vw, 2.85rem);
+  line-height: 1.08;
   letter-spacing: 0;
 }
 
@@ -156,8 +157,11 @@ h1 {
 }
 
 body[data-step="result"] .ritual-scene {
-  height: min(260px, calc(100vh - 470px));
-  min-height: 230px;
+  display: none;
+}
+
+body[data-step="result"] .status-message {
+  display: none;
 }
 
 .ritual-scene::before {
@@ -770,6 +774,10 @@ body[data-step="result"] .ritual-scene {
   animation: resultFadeUp .42s ease both;
 }
 
+.result-panel[hidden] {
+  display: none;
+}
+
 .ritual-action {
   position: absolute;
   left: 50%;
@@ -949,8 +957,11 @@ input[type="password"]:focus {
 }
 
 .result-panel {
-  margin-top: 14px;
-  padding: 18px;
+  display: grid;
+  min-height: min(430px, calc(100vh - 222px));
+  margin-top: 0;
+  padding: clamp(22px, 4vw, 42px);
+  align-content: center;
 }
 
 .result-panel h2 {
@@ -1111,7 +1122,7 @@ input[type="password"]:focus {
   }
 
   h1 {
-    font-size: 2.55rem;
+    font-size: 1.95rem;
   }
 
   .hero-note {

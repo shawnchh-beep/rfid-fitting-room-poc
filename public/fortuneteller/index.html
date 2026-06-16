@@ -24,9 +24,7 @@
       <div class="experience-grid">
         <section class="setup-panel" aria-label="占卜設定">
           <header class="hero-copy">
-            <p class="eyebrow">今日小占卜</p>
-            <h1 id="fortuneTitle">問一件事，抽一個方向</h1>
-            <p class="hero-note">不需要登入。測試期間不限次，名字只當暱稱使用。</p>
+            <h1 id="fortuneTitle">今日小占卜 · 抽個方向</h1>
           </header>
 
           <form id="fortuneForm" class="fortune-form">
@@ -80,104 +78,104 @@
         </section>
 
         <section class="ritual-panel" aria-label="占卜與結果">
-        <div class="ritual-scene method--bagua" id="ritualScene" aria-label="占卜動畫區">
-          <div class="ritual-aura"></div>
-          <div class="coin-set is-idle" id="coinSet">
-            <button class="turtle-shell" id="turtleShell" type="button" aria-label="丟銅板">
-              <span class="turtle-shell__ridge"></span>
-              <span class="turtle-shell__label">龜殼</span>
-            </button>
-            <div class="coin-orbit coin-a">
-              <div class="coin" data-face="front">
-                <div class="coin__inner">
-                  <div class="coin__face coin__face--front">
-                    <span class="coin__glyph">陽</span>
-                    <span class="coin__mark">乾</span>
+          <div class="ritual-scene method--bagua" id="ritualScene" aria-label="占卜動畫區">
+            <div class="ritual-aura"></div>
+            <div class="coin-set is-idle" id="coinSet">
+              <button class="turtle-shell" id="turtleShell" type="button" aria-label="丟銅板">
+                <span class="turtle-shell__ridge"></span>
+                <span class="turtle-shell__label">龜殼</span>
+              </button>
+              <div class="coin-orbit coin-a">
+                <div class="coin" data-face="front">
+                  <div class="coin__inner">
+                    <div class="coin__face coin__face--front">
+                      <span class="coin__glyph">陽</span>
+                      <span class="coin__mark">乾</span>
+                    </div>
+                    <div class="coin__face coin__face--back">
+                      <span class="coin__glyph">陰</span>
+                      <span class="coin__mark">坤</span>
+                    </div>
                   </div>
-                  <div class="coin__face coin__face--back">
-                    <span class="coin__glyph">陰</span>
-                    <span class="coin__mark">坤</span>
-                  </div>
+                  <span class="coin__shadow"></span>
                 </div>
-                <span class="coin__shadow"></span>
+              </div>
+              <div class="coin-orbit coin-b">
+                <div class="coin" data-face="back">
+                  <div class="coin__inner">
+                    <div class="coin__face coin__face--front">
+                      <span class="coin__glyph">陽</span>
+                      <span class="coin__mark">乾</span>
+                    </div>
+                    <div class="coin__face coin__face--back">
+                      <span class="coin__glyph">陰</span>
+                      <span class="coin__mark">坤</span>
+                    </div>
+                  </div>
+                  <span class="coin__shadow"></span>
+                </div>
+              </div>
+              <div class="coin-orbit coin-c">
+                <div class="coin" data-face="front">
+                  <div class="coin__inner">
+                    <div class="coin__face coin__face--front">
+                      <span class="coin__glyph">陽</span>
+                      <span class="coin__mark">乾</span>
+                    </div>
+                    <div class="coin__face coin__face--back">
+                      <span class="coin__glyph">陰</span>
+                      <span class="coin__mark">坤</span>
+                    </div>
+                  </div>
+                  <span class="coin__shadow"></span>
+                </div>
+              </div>
+              <div class="trigram-result" id="trigramResult">
+                <span id="trigramSymbol">☰</span>
+                <strong id="trigramName">乾象</strong>
+                <small id="trigramTone">先別腦補，卦會自己招。</small>
               </div>
             </div>
-            <div class="coin-orbit coin-b">
-              <div class="coin" data-face="back">
-                <div class="coin__inner">
-                  <div class="coin__face coin__face--front">
-                    <span class="coin__glyph">陽</span>
-                    <span class="coin__mark">乾</span>
-                  </div>
-                  <div class="coin__face coin__face--back">
-                    <span class="coin__glyph">陰</span>
-                    <span class="coin__mark">坤</span>
+            <div class="card-set is-idle" id="cardSet" hidden>
+              <div class="tarot-deck" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <div class="tarot-card card-a" data-card="star">
+                <div class="tarot-card__inner">
+                  <div class="tarot-card__face tarot-card__back"></div>
+                  <div class="tarot-card__face tarot-card__front">
+                    <span class="tarot-card__title">星星</span>
+                    <span class="tarot-card__symbol">✦</span>
+                    <span class="tarot-card__keyword">希望 / 別再拖</span>
                   </div>
                 </div>
-                <span class="coin__shadow"></span>
               </div>
-            </div>
-            <div class="coin-orbit coin-c">
-              <div class="coin" data-face="front">
-                <div class="coin__inner">
-                  <div class="coin__face coin__face--front">
-                    <span class="coin__glyph">陽</span>
-                    <span class="coin__mark">乾</span>
-                  </div>
-                  <div class="coin__face coin__face--back">
-                    <span class="coin__glyph">陰</span>
-                    <span class="coin__mark">坤</span>
+              <div class="tarot-card card-b is-selected" data-card="moon">
+                <div class="tarot-card__inner">
+                  <div class="tarot-card__face tarot-card__back"></div>
+                  <div class="tarot-card__face tarot-card__front">
+                    <span class="tarot-card__title">待抽</span>
+                    <span class="tarot-card__symbol">☾</span>
+                    <span class="tarot-card__keyword">宇宙想嘴你</span>
                   </div>
                 </div>
-                <span class="coin__shadow"></span>
+              </div>
+              <div class="tarot-card card-c" data-card="sun">
+                <div class="tarot-card__inner">
+                  <div class="tarot-card__face tarot-card__back"></div>
+                  <div class="tarot-card__face tarot-card__front">
+                    <span class="tarot-card__title">太陽</span>
+                    <span class="tarot-card__symbol">☀</span>
+                    <span class="tarot-card__keyword">亮起來 / 少裝忙</span>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="trigram-result" id="trigramResult">
-              <span id="trigramSymbol">☰</span>
-              <strong id="trigramName">乾象</strong>
-              <small id="trigramTone">先別腦補，卦會自己招。</small>
-            </div>
+            <button class="ritual-action" id="ritualAction" type="button" hidden>點龜殼丟銅板</button>
           </div>
-          <div class="card-set is-idle" id="cardSet" hidden>
-            <div class="tarot-deck" aria-hidden="true">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <div class="tarot-card card-a" data-card="star">
-              <div class="tarot-card__inner">
-                <div class="tarot-card__face tarot-card__back"></div>
-                <div class="tarot-card__face tarot-card__front">
-                  <span class="tarot-card__title">星星</span>
-                  <span class="tarot-card__symbol">✦</span>
-                  <span class="tarot-card__keyword">希望 / 別再拖</span>
-                </div>
-              </div>
-            </div>
-            <div class="tarot-card card-b is-selected" data-card="moon">
-              <div class="tarot-card__inner">
-                <div class="tarot-card__face tarot-card__back"></div>
-                <div class="tarot-card__face tarot-card__front">
-                  <span class="tarot-card__title">待抽</span>
-                  <span class="tarot-card__symbol">☾</span>
-                  <span class="tarot-card__keyword">宇宙想嘴你</span>
-                </div>
-              </div>
-            </div>
-            <div class="tarot-card card-c" data-card="sun">
-              <div class="tarot-card__inner">
-                <div class="tarot-card__face tarot-card__back"></div>
-                <div class="tarot-card__face tarot-card__front">
-                  <span class="tarot-card__title">太陽</span>
-                  <span class="tarot-card__symbol">☀</span>
-                  <span class="tarot-card__keyword">亮起來 / 少裝忙</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <button class="ritual-action" id="ritualAction" type="button" hidden>點龜殼丟銅板</button>
-        </div>
-        <p id="statusMessage" class="status-message" role="status"></p>
+          <p id="statusMessage" class="status-message" role="status"></p>
 
           <section id="resultPanel" class="result-panel" aria-live="polite" hidden>
             <p id="resultMeta" class="result-meta"></p>
