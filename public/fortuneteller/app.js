@@ -112,6 +112,15 @@
     ritualAction.hidden = true;
   }
 
+  function clearResult() {
+    resultPanel.hidden = true;
+    resultMeta.textContent = '';
+    resultTitle.textContent = '';
+    resultKeywords.textContent = '';
+    resultText.textContent = '';
+    lastReadingText = '';
+  }
+
   function setMethodVisual(method) {
     const isTarot = method === 'tarot';
     resetRitual();
@@ -305,7 +314,7 @@
   function submitReading(event) {
     event.preventDefault();
     setStatus('');
-    resultPanel.hidden = true;
+    clearResult();
     clearPendingManual();
 
     const payload = buildPayload();
@@ -325,12 +334,23 @@
 
   form.addEventListener('change', (event) => {
     if (event.target?.name === 'method') {
+      clearResult();
       clearPendingManual();
       setWaitingForManual(false);
       setMethodVisual(event.target.value);
+      setStatus('');
       setFlowStep('setup');
     }
     if (event.target?.name === 'drawMode') {
+      clearResult();
+      clearPendingManual();
+      setWaitingForManual(false);
+      resetRitual();
+      setStatus('');
+      setFlowStep('setup');
+    }
+    if (event.target?.name === 'topic') {
+      clearResult();
       clearPendingManual();
       setWaitingForManual(false);
       resetRitual();
@@ -361,7 +381,7 @@
   });
 
   resetButton.addEventListener('click', () => {
-    resultPanel.hidden = true;
+    clearResult();
     setStatus('');
     clearPendingManual();
     setWaitingForManual(false);
