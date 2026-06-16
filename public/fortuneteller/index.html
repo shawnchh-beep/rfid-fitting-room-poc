@@ -22,9 +22,13 @@
           <p class="hero-note">不需要登入。測試期間不限次，名字只當暱稱使用。</p>
         </header>
 
-        <div class="ritual-scene method--bagua" id="ritualScene" aria-hidden="true">
+        <div class="ritual-scene method--bagua" id="ritualScene" aria-label="占卜動畫區">
           <div class="ritual-aura"></div>
           <div class="coin-set is-idle" id="coinSet">
+            <button class="turtle-shell" id="turtleShell" type="button" aria-label="丟銅板">
+              <span class="turtle-shell__ridge"></span>
+              <span class="turtle-shell__label">龜殼</span>
+            </button>
             <div class="coin-orbit coin-a">
               <div class="coin" data-face="front">
                 <div class="coin__inner">
@@ -113,6 +117,7 @@
               </div>
             </div>
           </div>
+          <button class="ritual-action" id="ritualAction" type="button" hidden>點龜殼丟銅板</button>
         </div>
       </div>
 
@@ -136,12 +141,28 @@
             <label class="method-card">
               <input type="radio" name="method" value="bagua" checked />
               <span class="method-title">八卦占卜</span>
-              <span class="method-desc">三枚銅錢，翻出你今天躲不掉的方向</span>
+              <span class="method-desc">銅錢起卦，抽八象方向</span>
             </label>
             <label class="method-card">
               <input type="radio" name="method" value="tarot" />
               <span class="method-title">塔羅牌</span>
-              <span class="method-desc">洗牌抽牌，看看宇宙今天想嘴你什麼</span>
+              <span class="method-desc">洗牌抽牌，讀今日訊息</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="choice-group">
+          <legend>誰來動手</legend>
+          <div class="draw-grid">
+            <label class="draw-card">
+              <input type="radio" name="drawMode" value="auto" checked />
+              <span class="method-title">系統代抽</span>
+              <span class="method-desc">你負責問，系統負責裝神祕</span>
+            </label>
+            <label class="draw-card">
+              <input type="radio" name="drawMode" value="manual" />
+              <span class="method-title">自己來</span>
+              <span class="method-desc">點龜殼或抽牌，自己把命運叫醒</span>
             </label>
           </div>
         </fieldset>

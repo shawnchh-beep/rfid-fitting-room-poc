@@ -161,9 +161,81 @@ h1 {
 .coin-orbit,
 .coin,
 .tarot-card,
-.tarot-deck {
+.tarot-deck,
+.turtle-shell {
   position: absolute;
   transform-style: preserve-3d;
+}
+
+.turtle-shell {
+  left: 50%;
+  top: 50%;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 136px;
+  height: 98px;
+  border: 1px solid rgba(232, 189, 97, .42);
+  border-radius: 52% 52% 46% 46%;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 238, 168, .18), transparent 31%),
+    repeating-linear-gradient(38deg, transparent 0 18px, rgba(255, 255, 255, .05) 19px 20px),
+    linear-gradient(145deg, #7f7046, #3f4128 58%, #202315);
+  box-shadow: 0 24px 34px rgba(0, 0, 0, .28), inset 0 0 0 7px rgba(20, 22, 14, .24);
+  color: #f7e4a7;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -52%) rotate(-3deg);
+  transition: opacity 280ms ease, transform 280ms ease, box-shadow 280ms ease;
+}
+
+.turtle-shell__ridge {
+  position: absolute;
+  inset: 18px 28px;
+  border: 1px solid rgba(255, 230, 150, .26);
+  border-radius: 50%;
+}
+
+.turtle-shell__ridge::before,
+.turtle-shell__ridge::after {
+  content: "";
+  position: absolute;
+  inset: 11px;
+  border-left: 1px solid rgba(255, 230, 150, .22);
+  border-right: 1px solid rgba(255, 230, 150, .18);
+  transform: rotate(25deg);
+}
+
+.turtle-shell__ridge::after {
+  transform: rotate(-25deg);
+}
+
+.turtle-shell__label {
+  position: relative;
+  z-index: 1;
+  font-size: .78rem;
+  font-weight: 900;
+  letter-spacing: .18em;
+}
+
+.coin-set.is-awaiting .turtle-shell {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.coin-set.is-awaiting .coin-orbit {
+  opacity: .22;
+  transform: scale(.82);
+}
+
+.coin-set.is-awaiting .trigram-result {
+  opacity: 0;
+}
+
+.coin-set.is-casting .turtle-shell {
+  opacity: 1;
+  animation: shellShake .48s ease-in-out 2 forwards, shellPour .54s .96s ease forwards;
 }
 
 .coin-orbit {
@@ -484,6 +556,32 @@ h1 {
   animation: deckShuffle 1s ease-in-out infinite;
 }
 
+.card-set.is-pickable .tarot-deck {
+  opacity: .42;
+  transform: translate(-50%, -50%) scale(.9);
+}
+
+.card-set.is-pickable .tarot-card {
+  cursor: pointer;
+  opacity: 1;
+}
+
+.card-set.is-pickable .tarot-card:hover {
+  filter: drop-shadow(0 0 28px rgba(232, 189, 97, .34));
+}
+
+.card-set.is-pickable .card-a {
+  transform: translate(-160%, -36%) rotate(-18deg);
+}
+
+.card-set.is-pickable .card-b {
+  transform: translate(-50%, -52%) rotate(0deg);
+}
+
+.card-set.is-pickable .card-c {
+  transform: translate(60%, -36%) rotate(18deg);
+}
+
 .card-set.is-cutting .tarot-deck {
   animation: deckCut .72s ease-in-out both;
 }
@@ -607,6 +705,17 @@ h1 {
   100% { transform: translate(-50%, -50%) rotate(0deg); }
 }
 
+@keyframes shellShake {
+  0%, 100% { transform: translate(-50%, -52%) rotate(-3deg); }
+  25% { transform: translate(-54%, -53%) rotate(-11deg); }
+  50% { transform: translate(-47%, -50%) rotate(9deg); }
+  75% { transform: translate(-52%, -55%) rotate(-7deg); }
+}
+
+@keyframes shellPour {
+  to { opacity: .18; transform: translate(-50%, -58%) rotate(-18deg) scale(.88); }
+}
+
 @keyframes cardRevealGlow {
   0% { filter: drop-shadow(0 20px 32px rgba(0, 0, 0, .35)); }
   60% { filter: drop-shadow(0 0 34px rgba(232, 189, 97, .45)); }
@@ -620,6 +729,22 @@ h1 {
 
 .result-panel:not([hidden]) {
   animation: resultFadeUp .42s ease both;
+}
+
+.ritual-action {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  z-index: 6;
+  min-height: 40px;
+  border: 1px solid rgba(232, 189, 97, .54);
+  border-radius: 8px;
+  background: rgba(13, 17, 24, .82);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 850;
+  padding: 0 16px;
+  transform: translateX(-50%);
 }
 
 .fortune-form,
@@ -684,8 +809,16 @@ input[type="password"]:focus {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.draw-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
 .segmented label,
-.method-card {
+.method-card,
+.draw-card {
   position: relative;
   display: flex;
   min-height: 54px;
@@ -704,14 +837,23 @@ input[type="password"]:focus {
   padding: 14px;
 }
 
+.draw-card {
+  min-height: 76px;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 14px;
+}
+
 .segmented input,
-.method-card input {
+.method-card input,
+.draw-card input {
   position: absolute;
   opacity: 0;
 }
 
 .segmented label:has(input:checked),
-.method-card:has(input:checked) {
+.method-card:has(input:checked),
+.draw-card:has(input:checked) {
   border-color: var(--gold);
   background: rgba(232, 189, 97, .12);
 }
@@ -928,6 +1070,7 @@ input[type="password"]:focus {
 
   .segmented,
   .method-grid,
+  .draw-grid,
   .admin-grid {
     grid-template-columns: 1fr;
   }

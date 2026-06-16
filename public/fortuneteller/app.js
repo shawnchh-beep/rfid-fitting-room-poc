@@ -5,6 +5,8 @@
   const ritualScene = document.querySelector('#ritualScene');
   const coinSet = document.querySelector('#coinSet');
   const cardSet = document.querySelector('#cardSet');
+  const turtleShell = document.querySelector('#turtleShell');
+  const ritualAction = document.querySelector('#ritualAction');
   const trigramSymbol = document.querySelector('#trigramSymbol');
   const trigramName = document.querySelector('#trigramName');
   const trigramTone = document.querySelector('#trigramTone');
@@ -17,6 +19,8 @@
   const resetButton = document.querySelector('#resetButton');
 
   let lastReadingText = '';
+  let pendingPayload = null;
+  let pendingManualMethod = null;
   const MIN_RITUAL_TIME = 2800;
   const VISUAL_REVEAL_PAUSE = 760;
   const ritualTimers = [];
@@ -85,11 +89,19 @@
     ritualScene.classList.remove('is-casting');
     coinSet.className = 'coin-set is-idle';
     cardSet.className = 'card-set is-idle';
+    ritualAction.hidden = true;
     cardSet.querySelectorAll('.tarot-card').forEach((card) => {
       card.classList.toggle('is-selected', card.classList.contains('card-b'));
       const inner = card.querySelector('.tarot-card__inner');
       if (inner) inner.style.transform = '';
     });
+  }
+
+  function clearPendingManual() {
+    pendingPayload = null;
+    pendingManualMethod = null;
+    cardSet.classList.remove('is-pickable');
+    ritualAction.hidden = true;
   }
 
   function setMethodVisual(method) {
@@ -105,6 +117,12 @@
     submitButton.disabled = isBusy;
     submitButton.setAttribute('aria-busy', String(isBusy));
     submitButton.textContent = isBusy ? '占卜中...' : '開始占卜';
+  }
+
+  function setWaitingForManual(isWaiting) {
+    submitButton.disabled = isWaiting;
+    submitButton.setAttribute('aria-busy', String(isWaiting));
+    submitButton.textContent = isWaiting ? '等待你出手...' : '開始占卜';
   }
 
   function generateCoinFaces(seedText) {
@@ -163,6 +181,15 @@
     applyCoinResult(reading);
   }
 
+  function buildPayload() {
+    return {
+      name: String(new FormData(form).get('name') || '').trim(),
+      topic: getSelected('topic'),
+      method: getSelected('method'),
+      drawMode: getSelected('drawMode') || 'auto'
+    };
+  }
+
   function renderResult(data) {
     const reading = data.reading;
     const usageText = Number.isFinite(data.usage?.remainingToday) ? `｜今日剩餘 ${data.usage.remainingToday} 次` : '';
@@ -175,25 +202,19 @@
     lastReadingText = `我的占卜結果：${reading.result_title}\n${reading.result_keywords}\n${reading.result_text}`;
   }
 
-  async function submitReading(event) {
-    event.preventDefault();
-    setStatus('');
-    resultPanel.hidden = true;
-
-    const payload = {
-      name: String(new FormData(form).get('name') || '').trim(),
-      topic: getSelected('topic'),
-      method: getSelected('method')
-    };
-
-    if (!payload.name) {
-      setStatus('請先輸入名字或暱稱。', true);
-      return;
-    }
-
+  async function performReading(payload, options = {}) {
+    const isManualTarot = options.manual && payload.method === 'tarot';
     setBusy(true);
-    startRitual(payload.method);
-    setStatus(payload.method === 'tarot' ? '正在洗牌，請等牌面停下來。' : '正在擲銅錢，請等卦象落定。');
+    clearPendingManual();
+
+    if (isManualTarot) {
+      ritualScene.classList.add('is-casting');
+      cardSet.className = 'card-set is-drawing';
+      setStatus('你抽的牌正在翻面，宇宙準備開始嘴。');
+    } else {
+      startRitual(payload.method);
+      setStatus(payload.method === 'tarot' ? '正在洗牌，請等牌面停下來。' : '正在搖龜殼丟銅錢，請等卦象落定。');
+    }
 
     try {
       const ritualPromise = wait(MIN_RITUAL_TIME);
@@ -224,13 +245,80 @@
     }
   }
 
+  function prepareManualReading(payload) {
+    pendingPayload = payload;
+    pendingManualMethod = payload.method;
+    setWaitingForManual(true);
+    resetRitual();
+
+    if (payload.method === 'tarot') {
+      cardSet.className = 'card-set is-pickable';
+      ritualAction.hidden = true;
+      setStatus('請從牌背裡抽一張。放心，抽歪了宇宙也會自己圓。');
+      return;
+    }
+
+    coinSet.className = 'coin-set is-awaiting';
+    ritualAction.textContent = '點龜殼丟銅板';
+    ritualAction.hidden = false;
+    setStatus('請點龜殼丟銅板。命運已經坐好，等你開場。');
+  }
+
+  function beginManualBagua() {
+    if (!pendingPayload || pendingManualMethod !== 'bagua') return;
+    performReading(pendingPayload, { manual: true });
+  }
+
+  function beginManualTarot(card) {
+    if (!pendingPayload || pendingManualMethod !== 'tarot') return;
+    cardSet.querySelectorAll('.tarot-card').forEach((item) => {
+      item.classList.toggle('is-selected', item === card);
+    });
+    performReading(pendingPayload, { manual: true });
+  }
+
+  function submitReading(event) {
+    event.preventDefault();
+    setStatus('');
+    resultPanel.hidden = true;
+    clearPendingManual();
+
+    const payload = buildPayload();
+
+    if (!payload.name) {
+      setStatus('請先輸入名字或暱稱。', true);
+      return;
+    }
+
+    if (payload.drawMode === 'manual') {
+      prepareManualReading(payload);
+      return;
+    }
+
+    performReading(payload);
+  }
+
   form.addEventListener('change', (event) => {
     if (event.target?.name === 'method') {
+      clearPendingManual();
+      setWaitingForManual(false);
       setMethodVisual(event.target.value);
+    }
+    if (event.target?.name === 'drawMode') {
+      clearPendingManual();
+      setWaitingForManual(false);
+      resetRitual();
+      setStatus('');
     }
   });
 
   form.addEventListener('submit', submitReading);
+
+  ritualAction.addEventListener('click', beginManualBagua);
+  turtleShell.addEventListener('click', beginManualBagua);
+  cardSet.querySelectorAll('.tarot-card').forEach((card) => {
+    card.addEventListener('click', () => beginManualTarot(card));
+  });
 
   copyButton.addEventListener('click', async () => {
     if (!lastReadingText) return;
@@ -248,6 +336,8 @@
   resetButton.addEventListener('click', () => {
     resultPanel.hidden = true;
     setStatus('');
+    clearPendingManual();
+    setWaitingForManual(false);
     resetRitual();
     form.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
