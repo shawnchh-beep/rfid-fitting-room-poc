@@ -1002,7 +1002,7 @@ input[type="password"]:focus {
 }
 
 .topic-card {
-  min-height: 66px;
+  min-height: 56px;
   flex-direction: column;
   gap: 5px;
   padding: 7px 6px;
@@ -1063,12 +1063,6 @@ input[type="password"]:focus {
   font-size: .78rem;
   font-weight: 800;
   line-height: 1.18;
-}
-
-.topic-type {
-  color: var(--muted);
-  font-size: .66rem;
-  font-weight: 750;
 }
 
 .method-title {
@@ -1258,7 +1252,7 @@ input[type="password"]:focus {
   }
 
   .topic-card {
-    min-height: 50px;
+    min-height: 46px;
     flex-direction: row;
     justify-content: flex-start;
     gap: 8px;
@@ -1276,9 +1270,6 @@ input[type="password"]:focus {
     font-size: .86rem;
   }
 
-  .topic-type {
-    font-size: .7rem;
-  }
 }
 
 @media (max-width: 560px) {
@@ -1372,7 +1363,7 @@ input[type="password"]:focus {
   }
 
   .topic-card {
-    min-height: 48px;
+    min-height: 44px;
     gap: 7px;
     padding: 7px 8px;
   }
@@ -1386,10 +1377,6 @@ input[type="password"]:focus {
 
   .topic-title {
     font-size: .82rem;
-  }
-
-  .topic-type {
-    font-size: .68rem;
   }
 
   .method-card,
