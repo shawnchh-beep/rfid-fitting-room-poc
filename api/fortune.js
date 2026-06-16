@@ -6,6 +6,7 @@ const { buildShareUrl, createShareToken, pickTracking } = require('../server/for
 const DAILY_LIMIT = null;
 const TIMEZONE_OFFSET_HOURS = 8;
 const MAX_NAME_LENGTH = 40;
+const ALLOWED_SHARE_PLATFORMS = new Set(['copy', 'native', 'facebook', 'threads', 'line', 'x']);
 let supabaseAdminClient = null;
 
 function requireEnv(name) {
@@ -107,22 +108,113 @@ function pickResult(method, topic) {
 
 function isSchemaMissingError(error) {
   const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
-  return /share_token|ref_source|ref_medium|ref_campaign|referrer|schema cache|column/i.test(message);
+  return /share_events|share_token|ref_source|ref_medium|ref_campaign|referrer|schema cache|column|relation/i.test(message);
 }
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return jsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Method Not Allowed');
-  }
+function findResult(resultKey) {
+  return [...BAGUA_RESULTS, ...TAROT_RESULTS].find((item) => item.key === resultKey);
+}
 
+async function getSupabaseOrError(req, res) {
   let supabase;
   try {
     supabase = getSupabaseAdminClient();
   } catch (error) {
-    return jsonError(res, 500, 'CONFIG_ERROR', error?.message || 'Supabase config error');
+    jsonError(res, 500, 'CONFIG_ERROR', error?.message || 'Supabase config error');
+    return null;
+  }
+  return supabase;
+}
+
+async function handleSharedReading(req, res) {
+  const token = String(req.query?.share || req.query?.token || '').trim();
+  if (!/^[A-Za-z0-9_-]{12,64}$/.test(token)) {
+    return jsonError(res, 400, 'INVALID_SHARE_TOKEN', '分享連結格式不正確');
   }
 
-  const body = normalizeBody(req.body);
+  const supabase = await getSupabaseOrError(req, res);
+  if (!supabase) return;
+
+  const result = await supabase
+    .from('readings')
+    .select('id, name, topic, method, result_key, result_title, result_text, share_token, created_at')
+    .eq('share_token', token)
+    .single();
+
+  if (result.error || !result.data) {
+    return jsonError(res, 404, 'SHARED_READING_NOT_FOUND', '找不到這則分享結果');
+  }
+
+  const row = result.data;
+  const fortuneResult = findResult(row.result_key);
+  return res.status(200).json({
+    reading: {
+      id: row.id,
+      share_token: row.share_token,
+      share_url: buildShareUrl(req, row.share_token),
+      name: row.name,
+      topic: row.topic,
+      topic_label: FORTUNE_TOPICS[row.topic] || row.topic,
+      method: row.method,
+      method_label: FORTUNE_METHODS[row.method] || row.method,
+      result_key: row.result_key,
+      result_title: row.result_title,
+      result_keywords: fortuneResult?.keywords || '',
+      result_text: row.result_text,
+      result_lines: fortuneResult?.lines || null,
+      result_visual: fortuneResult?.visual || null,
+      result_orientation: fortuneResult?.orientation || null,
+      result_base_key: fortuneResult?.base_key || null,
+      created_at: row.created_at
+    }
+  });
+}
+
+async function handleShareEvent(req, res, body) {
+  const readingId = String(body.reading_id || '').trim();
+  const platform = String(body.platform || '').trim().toLowerCase();
+
+  if (!/^[0-9a-fA-F-]{36}$/.test(readingId)) {
+    return jsonError(res, 400, 'INVALID_READING_ID', 'reading_id 格式不正確');
+  }
+
+  if (!ALLOWED_SHARE_PLATFORMS.has(platform)) {
+    return jsonError(res, 400, 'INVALID_PLATFORM', '分享平台不支援');
+  }
+
+  const supabase = await getSupabaseOrError(req, res);
+  if (!supabase) return;
+
+  const insert = await supabase.from('share_events').insert({
+    reading_id: readingId,
+    platform,
+    action: String(body.action || 'click').trim().slice(0, 40) || 'click',
+    ip_hash: hashIp(getClientIp(req)),
+    user_agent: String(req.headers['user-agent'] || '').trim() || null
+  }).select('id, created_at').single();
+
+  if (insert.error && isSchemaMissingError(insert.error)) {
+    return res.status(200).json({
+      ok: false,
+      skipped: true,
+      reason: 'share_events table is not ready'
+    });
+  }
+
+  if (insert.error) {
+    return jsonError(res, 500, 'SHARE_EVENT_SAVE_FAILED', insert.error.message || 'Unable to save share event');
+  }
+
+  return res.status(200).json({
+    ok: true,
+    event: insert.data
+  });
+}
+
+async function handleCreateReading(req, res, body) {
+  const supabase = await getSupabaseOrError(req, res);
+  if (!supabase) return;
+
   const validated = validateBody(body);
   if (!validated.ok) {
     return jsonError(res, 400, 'VALIDATION_ERROR', validated.message);
@@ -207,6 +299,23 @@ async function handler(req, res) {
       remainingToday: Number.isFinite(DAILY_LIMIT) ? Math.max(DAILY_LIMIT - usedToday - 1, 0) : null
     }
   });
+}
+
+async function handler(req, res) {
+  if (req.method === 'GET') {
+    return handleSharedReading(req, res);
+  }
+
+  if (req.method !== 'POST') {
+    return jsonError(res, 405, 'METHOD_NOT_ALLOWED', 'Method Not Allowed');
+  }
+
+  const body = normalizeBody(req.body);
+  if (body.event_type === 'share') {
+    return handleShareEvent(req, res, body);
+  }
+
+  return handleCreateReading(req, res, body);
 }
 
 module.exports = handler;
