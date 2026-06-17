@@ -517,34 +517,7 @@
   }
 
   async function generateShareImageBlob(data) {
-    if (!fortuneShareCard) {
-      throw new Error('分享卡片尚未載入。');
-    }
-    if (!window.htmlToImage) {
-      return generateCanvasShareImageBlob(data);
-    }
-    const options = {
-      width: 1080,
-      height: 1350,
-      pixelRatio: 1,
-      cacheBust: true,
-      backgroundColor: '#020617'
-    };
-    const captureNode = createShareCaptureNode();
-    try {
-      await waitForNextPaint();
-      if (window.htmlToImage.toBlob) {
-        const blob = await window.htmlToImage.toBlob(captureNode, options);
-        if (blob && blob.size > 15000) return blob;
-      }
-      const dataUrl = await window.htmlToImage.toPng(captureNode, options);
-      const blob = await dataUrlToBlob(dataUrl);
-      if (blob && blob.size > 15000) return blob;
-      console.warn('Share image DOM capture looked blank; falling back to canvas renderer.');
-      return generateCanvasShareImageBlob(data);
-    } finally {
-      captureNode.remove();
-    }
+    return generateCanvasShareImageBlob(data);
   }
 
   function downloadBlob(blob, filename) {
@@ -560,6 +533,9 @@
 
   function supportsImageShare() {
     try {
+      const isTouchDevice = window.matchMedia?.('(pointer: coarse)').matches;
+      const isMobileUA = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+      if (!isTouchDevice && !isMobileUA) return false;
       if (!navigator.share || !navigator.canShare || typeof File === 'undefined') return false;
       const file = new File(['fortune'], SHARE_IMAGE_FILE_NAME, { type: 'image/png' });
       return navigator.canShare({ files: [file] });
