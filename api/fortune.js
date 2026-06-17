@@ -7,7 +7,20 @@ const HOURLY_LIMIT = 5;
 const DAILY_LIMIT = 20;
 const TIMEZONE_OFFSET_HOURS = 8;
 const MAX_NAME_LENGTH = 40;
-const ALLOWED_SHARE_PLATFORMS = new Set(['copy', 'native', 'facebook', 'threads', 'line', 'x', 'image_native', 'image_download']);
+const ALLOWED_SHARE_PLATFORMS = new Set([
+  'copy',
+  'native',
+  'facebook',
+  'threads',
+  'line',
+  'x',
+  'text_native',
+  'image_native',
+  'image_facebook',
+  'image_threads',
+  'image_instagram',
+  'image_download'
+]);
 let supabaseAdminClient = null;
 
 function requireEnv(name) {

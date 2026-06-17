@@ -21,6 +21,7 @@
   const shareLinkInput = document.querySelector('#shareLinkInput');
   const copyLinkButton = document.querySelector('#copyLinkButton');
   const nativeShareButton = document.querySelector('#nativeShareButton');
+  const textShareButton = document.querySelector('#textShareButton');
   const shareImageButton = document.querySelector('#share-image-btn');
   const fortuneShareCard = document.querySelector('#fortune-share-card');
   const copyButton = document.querySelector('#copyButton');
@@ -59,6 +60,12 @@
   ];
 
   const SHARE_IMAGE_FILE_NAME = 'fortune-result.png';
+  const IMAGE_SHARE_PLATFORM_LABELS = {
+    native: '系統分享',
+    facebook: 'Facebook',
+    threads: 'Threads',
+    instagram: 'Instagram'
+  };
 
   const trigramMap = {
     'front-front-front': { name: '乾象', symbol: '☰', tone: '主動出擊，別再把勇敢放進草稿夾。' },
@@ -561,8 +568,9 @@
   }
 
   function updateShareImageButtonLabel() {
-    if (!shareImageButton) return;
-    shareImageButton.textContent = supportsImageShare() ? '分享占卜結果圖' : '下載占卜結果圖';
+    const text = supportsImageShare() ? '分享占卜結果圖' : '下載占卜結果圖';
+    if (shareImageButton) shareImageButton.textContent = text;
+    if (nativeShareButton) nativeShareButton.textContent = supportsImageShare() ? '分享圖片' : '下載圖片';
   }
 
   async function fallbackTextShare(data) {
@@ -586,37 +594,93 @@
     return '圖片產生失敗，請改用複製分享文案。';
   }
 
-  async function shareOrDownloadImage() {
+  function getTextShareData(platform = 'text') {
+    if (!lastReading) return null;
+    const shareUrl = lastShareUrl ? withShareSource(lastShareUrl, platform) : getDefaultShareUrl();
+    return {
+      title: `我的占卜結果：${lastReading.result_title}`,
+      text: getShareText(lastReading, ''),
+      url: shareUrl,
+      clipboardText: getShareText(lastReading, shareUrl)
+    };
+  }
+
+  async function shareTextOnly() {
+    const data = getTextShareData('text');
+    if (!data) {
+      setStatus('請先完成占卜，再分享文字。', true);
+      return;
+    }
+
+    const originalText = textShareButton.textContent;
+    textShareButton.disabled = true;
+    textShareButton.textContent = '分享中...';
+    await recordShare('text_native');
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: data.title,
+          text: data.text,
+          url: data.url
+        });
+        setStatus('文字分享已送出。');
+        return;
+      }
+
+      await navigator.clipboard.writeText(data.clipboardText);
+      setStatus('這個瀏覽器沒有系統分享，已幫你複製文字。');
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        setStatus('已取消分享。');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(data.clipboardText);
+        setStatus('分享面板打不開，已改複製文字。');
+      } catch {
+        setStatus('這個瀏覽器不支援文字分享，請改用複製分享文案。', true);
+      }
+    } finally {
+      textShareButton.disabled = false;
+      textShareButton.textContent = originalText;
+    }
+  }
+
+  async function shareOrDownloadImage(platform = 'native', button = shareImageButton) {
     const data = getCurrentFortuneShareData();
     if (!data) {
       setStatus('請先完成占卜，再產生結果圖。', true);
       return;
     }
 
-    const originalText = shareImageButton.textContent;
-    shareImageButton.disabled = true;
-    shareImageButton.textContent = '產圖中...';
+    const originalText = button?.textContent || '';
+    if (button) {
+      button.disabled = true;
+      button.textContent = '產圖中...';
+    }
     prepareShareCard(data);
 
     try {
       if (document.fonts?.ready) await document.fonts.ready;
       const blob = await generateShareImageBlob(data);
       const file = new File([blob], SHARE_IMAGE_FILE_NAME, { type: 'image/png' });
+      const platformLabel = IMAGE_SHARE_PLATFORM_LABELS[platform] || '平台';
 
       if (supportsImageShare() && navigator.canShare({ files: [file] })) {
-        await recordShare('image_native');
+        await recordShare(`image_${platform}`);
         await navigator.share({
           files: [file],
           title: `我的占卜結果：${data.resultTitle}`,
           text: data.cta
         });
-        setStatus('占卜結果圖已送出分享。');
+        setStatus(platform === 'native' ? '占卜結果圖已送出分享。' : `圖片已交給系統分享，請選 ${platformLabel}。`);
         return;
       }
 
       await recordShare('image_download');
       downloadBlob(blob, SHARE_IMAGE_FILE_NAME);
-      setStatus('占卜結果圖已下載。');
+      setStatus(`這個瀏覽器不能直接分享圖片到 ${platformLabel}，已先下載圖片。`);
     } catch (error) {
       if (error?.name === 'AbortError') {
         setStatus('已取消分享。');
@@ -630,8 +694,10 @@
         setStatus('圖片產生失敗，請改用複製分享文案。', true);
       }
     } finally {
-      shareImageButton.disabled = false;
-      shareImageButton.textContent = originalText;
+      if (button) {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
       updateShareImageButtonLabel();
     }
   }
@@ -924,12 +990,15 @@
   });
 
   copyLinkButton.addEventListener('click', copyShareLink);
-  nativeShareButton.addEventListener('click', shareNative);
-  if (shareImageButton) {
-    shareImageButton.addEventListener('click', shareOrDownloadImage);
+  nativeShareButton.addEventListener('click', () => shareOrDownloadImage('native', nativeShareButton));
+  if (textShareButton) {
+    textShareButton.addEventListener('click', shareTextOnly);
   }
-  sharePanel.querySelectorAll('[data-share-platform]').forEach((button) => {
-    button.addEventListener('click', () => shareToPlatform(button.dataset.sharePlatform));
+  if (shareImageButton) {
+    shareImageButton.addEventListener('click', () => shareOrDownloadImage('native', shareImageButton));
+  }
+  sharePanel.querySelectorAll('[data-image-share-platform]').forEach((button) => {
+    button.addEventListener('click', () => shareOrDownloadImage(button.dataset.imageSharePlatform, button));
   });
 
   resetButton.addEventListener('click', () => {
