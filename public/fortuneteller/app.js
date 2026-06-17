@@ -18,14 +18,14 @@
   const resultKeywords = document.querySelector('#resultKeywords');
   const resultText = document.querySelector('#resultText');
   const sharePanel = document.querySelector('#sharePanel');
-  const shareLinkInput = document.querySelector('#shareLinkInput');
-  const copyLinkButton = document.querySelector('#copyLinkButton');
+  const moreSharePanel = document.querySelector('#more-share-panel');
+  const toggleMoreShareButton = document.querySelector('#toggle-more-share');
   const nativeShareButton = document.querySelector('#nativeShareButton');
   const textShareButton = document.querySelector('#textShareButton');
   const shareImageButton = document.querySelector('#share-image-btn');
   const fortuneShareCard = document.querySelector('#fortune-share-card');
-  const copyButton = document.querySelector('#copyButton');
-  const resetButton = document.querySelector('#resetButton');
+  const copyShareCopyButton = document.querySelector('#copy-share-copy-btn');
+  const resetButton = document.querySelector('#restart-btn');
 
   let lastReading = null;
   let lastShareUrl = '';
@@ -174,7 +174,8 @@
     resultKeywords.textContent = '';
     resultText.textContent = '';
     sharePanel.hidden = true;
-    shareLinkInput.value = '';
+    if (moreSharePanel) moreSharePanel.hidden = true;
+    if (toggleMoreShareButton) toggleMoreShareButton.textContent = '更多分享方式';
     lastReading = null;
     lastShareUrl = '';
   }
@@ -568,9 +569,8 @@
   }
 
   function updateShareImageButtonLabel() {
-    const text = supportsImageShare() ? '分享占卜結果圖' : '下載占卜結果圖';
-    if (shareImageButton) shareImageButton.textContent = text;
-    if (nativeShareButton) nativeShareButton.textContent = supportsImageShare() ? '分享圖片' : '下載圖片';
+    if (shareImageButton) shareImageButton.textContent = '分享結果圖';
+    if (nativeShareButton) nativeShareButton.textContent = supportsImageShare() ? '系統分享' : '下載結果圖';
   }
 
   async function fallbackTextShare(data) {
@@ -657,7 +657,7 @@
     const originalText = button?.textContent || '';
     if (button) {
       button.disabled = true;
-      button.textContent = '產圖中...';
+      button.textContent = '產圖中⋯';
     }
     prepareShareCard(data);
 
@@ -688,10 +688,10 @@
       }
       console.error('Failed to generate or share fortune image', error);
       try {
-        const fallbackMessage = await fallbackTextShare(data);
-        setStatus(fallbackMessage, fallbackMessage.includes('失敗'));
+        await fallbackTextShare(data);
+        setStatus('圖片產生失敗，改用複製文案。');
       } catch {
-        setStatus('圖片產生失敗，請改用複製分享文案。', true);
+        setStatus('圖片產生失敗，改用複製文案。', true);
       }
     } finally {
       if (button) {
@@ -704,8 +704,9 @@
 
   function showSharePanel(reading) {
     lastShareUrl = reading.share_url || getDefaultShareUrl();
-    shareLinkInput.value = withShareSource(lastShareUrl, 'copy');
     sharePanel.hidden = false;
+    if (moreSharePanel) moreSharePanel.hidden = true;
+    if (toggleMoreShareButton) toggleMoreShareButton.textContent = '更多分享方式';
   }
 
   function renderResult(data) {
@@ -747,16 +748,15 @@
     button.textContent = doneText;
     setTimeout(() => {
       button.textContent = originalText;
-    }, 1200);
+    }, 1500);
   }
 
-  async function copyShareLink() {
+  async function copyShareCopy() {
     if (!lastShareUrl) return;
     const shareUrl = withShareSource(lastShareUrl, 'copy');
     await recordShare('copy');
     try {
-      await copyText(getShareText(lastReading, shareUrl), copyLinkButton, '已複製');
-      shareLinkInput.value = shareUrl;
+      await copyText(getShareText(lastReading, shareUrl), copyShareCopyButton, '已複製');
       setStatus('分享文案已複製。');
     } catch {
       setStatus('瀏覽器不允許自動複製，可以手動選取分享文案。', true);
@@ -975,21 +975,13 @@
     card.addEventListener('click', () => beginManualTarot(card));
   });
 
-  copyButton.addEventListener('click', async () => {
-    if (!lastReading) return;
-    try {
-      const shareUrl = lastShareUrl ? withShareSource(lastShareUrl, 'copy') : 'https://getrfid.link/fortuneteller';
-      await navigator.clipboard.writeText(getShareText(lastReading, shareUrl));
-      copyButton.textContent = '已複製';
-      setTimeout(() => {
-        copyButton.textContent = '複製結果';
-      }, 1200);
-    } catch {
-      setStatus('瀏覽器不允許自動複製，可以手動選取結果分享。', true);
-    }
-  });
-
-  copyLinkButton.addEventListener('click', copyShareLink);
+  copyShareCopyButton.addEventListener('click', copyShareCopy);
+  if (toggleMoreShareButton && moreSharePanel) {
+    toggleMoreShareButton.addEventListener('click', () => {
+      moreSharePanel.hidden = !moreSharePanel.hidden;
+      toggleMoreShareButton.textContent = moreSharePanel.hidden ? '更多分享方式' : '收起分享方式';
+    });
+  }
   nativeShareButton.addEventListener('click', () => shareOrDownloadImage('native', nativeShareButton));
   if (textShareButton) {
     textShareButton.addEventListener('click', shareTextOnly);

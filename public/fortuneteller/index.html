@@ -280,24 +280,21 @@
             <h2 id="resultTitle"></h2>
             <p id="resultKeywords" class="keywords"></p>
             <p id="resultText" class="result-text"></p>
-            <div id="sharePanel" class="share-panel" hidden>
-              <label class="share-link-label" for="shareLinkInput">分享連結</label>
-              <div class="share-link-row">
-                <input id="shareLinkInput" class="share-link-input" type="text" readonly />
-                <button id="copyLinkButton" class="secondary-button" type="button">複製分享文案</button>
-              </div>
-              <div class="share-actions" aria-label="分享平台">
-                <button id="nativeShareButton" class="secondary-button" type="button">分享圖片</button>
-                <button class="secondary-button" data-image-share-platform="facebook" type="button">Facebook</button>
-                <button class="secondary-button" data-image-share-platform="threads" type="button">Threads</button>
-                <button class="secondary-button" data-image-share-platform="instagram" type="button">Instagram</button>
-                <button id="textShareButton" class="secondary-button" type="button">只分享文字</button>
-              </div>
-            </div>
             <div class="result-actions">
-              <button id="share-image-btn" class="secondary-button" type="button">下載占卜結果圖</button>
-              <button id="copyButton" class="secondary-button" type="button">複製結果</button>
-              <button id="resetButton" class="secondary-button" type="button">再問一次</button>
+              <button id="share-image-btn" class="primary-action" type="button">分享結果圖</button>
+              <button id="copy-share-copy-btn" class="secondary-action" type="button">複製分享文案</button>
+              <button id="restart-btn" class="ghost-action" type="button">再問一次</button>
+            </div>
+            <div id="sharePanel" class="share-panel" hidden>
+              <p class="share-hint">會自動帶上占卜結果、邀請文案與連結</p>
+              <button id="toggle-more-share" class="text-link-button" type="button">更多分享方式</button>
+              <div id="more-share-panel" class="more-share-panel" hidden>
+                <button id="nativeShareButton" class="secondary-action" type="button">系統分享</button>
+                <button class="secondary-action" data-image-share-platform="facebook" type="button">Facebook</button>
+                <button class="secondary-action" data-image-share-platform="threads" type="button">Threads</button>
+                <button class="secondary-action" data-image-share-platform="instagram" type="button">Instagram</button>
+                <button id="textShareButton" class="secondary-action" type="button">文字分享</button>
+              </div>
             </div>
           </section>
         </section>
