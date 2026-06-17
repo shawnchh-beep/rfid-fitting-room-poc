@@ -363,9 +363,157 @@
     return response.blob();
   }
 
-  async function generateShareImageBlob() {
-    if (!fortuneShareCard || !window.htmlToImage) {
-      throw new Error('圖片產生工具尚未載入。');
+  function waitForNextPaint() {
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+  }
+
+  function createShareCaptureNode() {
+    const captureNode = fortuneShareCard.cloneNode(true);
+    captureNode.removeAttribute('id');
+    captureNode.setAttribute('aria-hidden', 'true');
+    captureNode.style.left = `${window.innerWidth + 32}px`;
+    captureNode.style.top = '0';
+    captureNode.style.zIndex = '1';
+    document.body.appendChild(captureNode);
+    return captureNode;
+  }
+
+  function drawRoundedRect(ctx, x, y, width, height, radius) {
+    const safeRadius = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + safeRadius, y);
+    ctx.lineTo(x + width - safeRadius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+    ctx.lineTo(x + width, y + height - safeRadius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+    ctx.lineTo(x + safeRadius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+    ctx.lineTo(x, y + safeRadius);
+    ctx.quadraticCurveTo(x, y, x + safeRadius, y);
+    ctx.closePath();
+  }
+
+  function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+    const chars = Array.from(String(text || ''));
+    const lines = [];
+    let currentLine = '';
+
+    chars.forEach((char) => {
+      const nextLine = `${currentLine}${char}`;
+      if (ctx.measureText(nextLine).width > maxWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = char;
+        return;
+      }
+      currentLine = nextLine;
+    });
+    if (currentLine) lines.push(currentLine);
+
+    const visibleLines = lines.slice(0, maxLines);
+    if (lines.length > maxLines) {
+      visibleLines[visibleLines.length - 1] = `${visibleLines[visibleLines.length - 1].slice(0, -1)}…`;
+    }
+
+    visibleLines.forEach((line, index) => {
+      ctx.fillText(line, x, y + index * lineHeight);
+    });
+    return y + visibleLines.length * lineHeight;
+  }
+
+  async function generateCanvasShareImageBlob(data) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1350;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas is not available.');
+
+    const gradient = ctx.createLinearGradient(0, 0, 1080, 1350);
+    gradient.addColorStop(0, data.gradient[0]);
+    gradient.addColorStop(1, data.gradient[1]);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 1080, 1350);
+
+    const glowA = ctx.createRadialGradient(240, 240, 20, 240, 240, 360);
+    glowA.addColorStop(0, 'rgba(255,255,255,.18)');
+    glowA.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = glowA;
+    ctx.fillRect(0, 0, 1080, 1350);
+
+    const glowB = ctx.createRadialGradient(850, 1050, 20, 850, 1050, 360);
+    glowB.addColorStop(0, 'rgba(121,215,189,.16)');
+    glowB.addColorStop(1, 'rgba(121,215,189,0)');
+    ctx.fillStyle = glowB;
+    ctx.fillRect(0, 0, 1080, 1350);
+
+    ctx.strokeStyle = 'rgba(255,255,255,.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(540, 560, 410, 410, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    drawRoundedRect(ctx, 86, 86, 908, 1178, 44);
+    ctx.fillStyle = 'rgba(255,255,255,.14)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.24)';
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(255,248,237,.78)';
+    ctx.font = '800 34px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    ctx.fillText(data.methodLabel ? `今日小占卜 · ${data.methodLabel}` : '今日小占卜', 540, 160);
+
+    ctx.beginPath();
+    ctx.arc(540, 410, 140, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,.11)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.2)';
+    ctx.stroke();
+
+    ctx.fillStyle = '#fff8ed';
+    ctx.font = '900 154px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Symbol", sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(data.resultSymbol || '☰', 540, 410);
+
+    ctx.textBaseline = 'top';
+    ctx.font = '900 68px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    ctx.fillText(data.resultTitle || '今日小占卜', 540, 586, 820);
+
+    const divider = ctx.createLinearGradient(474, 718, 606, 718);
+    divider.addColorStop(0, 'rgba(255,248,237,0)');
+    divider.addColorStop(.5, 'rgba(255,248,237,.82)');
+    divider.addColorStop(1, 'rgba(255,248,237,0)');
+    ctx.fillStyle = divider;
+    ctx.fillRect(474, 718, 132, 2);
+
+    ctx.fillStyle = 'rgba(255,248,237,.94)';
+    ctx.font = '700 42px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    drawWrappedText(ctx, data.resultText, 540, 780, 820, 60, 5);
+
+    ctx.fillStyle = 'rgba(255,248,237,.86)';
+    ctx.font = '800 38px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    drawWrappedText(ctx, data.cta, 540, 1085, 820, 52, 2);
+
+    ctx.fillStyle = 'rgba(255,248,237,.58)';
+    ctx.font = '700 30px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    ctx.fillText(data.displayUrl || 'getrfid.link/fortuneteller', 540, 1204, 820);
+
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Canvas export failed.'));
+      }, 'image/png');
+    });
+  }
+
+  async function generateShareImageBlob(data) {
+    if (!fortuneShareCard) {
+      throw new Error('分享卡片尚未載入。');
+    }
+    if (!window.htmlToImage) {
+      return generateCanvasShareImageBlob(data);
     }
     const options = {
       width: 1080,
@@ -374,12 +522,21 @@
       cacheBust: true,
       backgroundColor: '#020617'
     };
-    if (window.htmlToImage.toBlob) {
-      const blob = await window.htmlToImage.toBlob(fortuneShareCard, options);
-      if (blob) return blob;
+    const captureNode = createShareCaptureNode();
+    try {
+      await waitForNextPaint();
+      if (window.htmlToImage.toBlob) {
+        const blob = await window.htmlToImage.toBlob(captureNode, options);
+        if (blob && blob.size > 15000) return blob;
+      }
+      const dataUrl = await window.htmlToImage.toPng(captureNode, options);
+      const blob = await dataUrlToBlob(dataUrl);
+      if (blob && blob.size > 15000) return blob;
+      console.warn('Share image DOM capture looked blank; falling back to canvas renderer.');
+      return generateCanvasShareImageBlob(data);
+    } finally {
+      captureNode.remove();
     }
-    const dataUrl = await window.htmlToImage.toPng(fortuneShareCard, options);
-    return dataUrlToBlob(dataUrl);
   }
 
   function downloadBlob(blob, filename) {
@@ -443,7 +600,7 @@
 
     try {
       if (document.fonts?.ready) await document.fonts.ready;
-      const blob = await generateShareImageBlob();
+      const blob = await generateShareImageBlob(data);
       const file = new File([blob], SHARE_IMAGE_FILE_NAME, { type: 'image/png' });
 
       if (supportsImageShare() && navigator.canShare({ files: [file] })) {
