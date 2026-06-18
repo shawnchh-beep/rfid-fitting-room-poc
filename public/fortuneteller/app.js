@@ -17,6 +17,17 @@
   const resultTitle = document.querySelector('#resultTitle');
   const resultKeywords = document.querySelector('#resultKeywords');
   const resultText = document.querySelector('#resultText');
+  const resultVisual = document.querySelector('#resultVisual');
+  const resultTarotVisual = document.querySelector('#resultTarotVisual');
+  const resultTarotCard = document.querySelector('#resultTarotCard');
+  const resultTarotOrientation = document.querySelector('#resultTarotOrientation');
+  const resultTarotImage = document.querySelector('#resultTarotImage');
+  const resultTarotSymbol = document.querySelector('#resultTarotSymbol');
+  const resultTarotName = document.querySelector('#resultTarotName');
+  const resultBaguaVisual = document.querySelector('#resultBaguaVisual');
+  const resultBaguaSymbol = document.querySelector('#resultBaguaSymbol');
+  const resultHexagramLines = document.querySelector('#resultHexagramLines');
+  const resultBaguaName = document.querySelector('#resultBaguaName');
   const sharePanel = document.querySelector('#sharePanel');
   const moreSharePanel = document.querySelector('#more-share-panel');
   const toggleMoreShareButton = document.querySelector('#toggle-more-share');
@@ -103,6 +114,37 @@
     tarot_sun: ['太陽', '☀', '能量 / 少悲觀']
   };
 
+  const tarotCardImageIds = new Set([
+    'fool',
+    'magician',
+    'high_priestess',
+    'empress',
+    'emperor',
+    'hierophant',
+    'lovers',
+    'chariot',
+    'strength',
+    'hermit',
+    'wheel',
+    'justice',
+    'hanged_man',
+    'death',
+    'temperance',
+    'devil',
+    'tower',
+    'star',
+    'moon',
+    'sun',
+    'judgement',
+    'world'
+  ]);
+
+  resultTarotImage.addEventListener('error', () => {
+    resultTarotCard.classList.remove('has-card-image');
+    resultTarotImage.removeAttribute('src');
+    resultTarotImage.alt = '';
+  });
+
   function getSelected(name) {
     return form.querySelector(`input[name="${name}"]:checked`)?.value;
   }
@@ -172,6 +214,12 @@
     resultTitle.textContent = '';
     resultKeywords.textContent = '';
     resultText.textContent = '';
+    resultVisual.dataset.method = getSelected('method') === 'tarot' ? 'tarot' : 'bagua';
+    resultTarotImage.removeAttribute('src');
+    resultTarotImage.alt = '';
+    resultTarotCard.classList.remove('has-card-image');
+    resultTarotCard.dataset.orientation = 'upright';
+    resultHexagramLines.replaceChildren();
     sharePanel.hidden = true;
     if (moreSharePanel) moreSharePanel.hidden = true;
     if (toggleMoreShareButton) toggleMoreShareButton.textContent = '更多分享方式';
@@ -644,6 +692,51 @@
     if (toggleMoreShareButton) toggleMoreShareButton.textContent = '更多分享方式';
   }
 
+  function renderResultVisual(reading) {
+    const isTarot = reading.method === 'tarot';
+    resultVisual.dataset.method = isTarot ? 'tarot' : 'bagua';
+
+    if (isTarot) {
+      resultHexagramLines.replaceChildren();
+      const visual = Array.isArray(reading.result_visual)
+        ? reading.result_visual
+        : tarotVisuals[reading.result_key] || [reading.result_title, '☾', reading.result_keywords];
+      const orientation = reading.result_orientation === 'reversed' ? 'reversed' : 'upright';
+      const cardId = String(reading.result_base_key || reading.result_key || '').replace(/^tarot_/, '').replace(/_(upright|reversed)$/, '');
+      resultTarotCard.dataset.orientation = orientation;
+      resultTarotOrientation.textContent = orientation === 'reversed' ? '逆位' : '正位';
+      resultTarotSymbol.textContent = visual[1] || '☾';
+      resultTarotName.textContent = visual[0] || reading.result_title;
+      resultTarotCard.classList.toggle('has-card-image', tarotCardImageIds.has(cardId));
+      if (tarotCardImageIds.has(cardId)) {
+        resultTarotImage.src = `/fortuneteller/assets/tarot/${cardId}.webp`;
+        resultTarotImage.alt = `${visual[0] || reading.result_title}${orientation === 'reversed' ? '逆位' : '正位'}牌面`;
+        resultTarotImage.decode?.().catch(() => {});
+      } else {
+        resultTarotImage.removeAttribute('src');
+        resultTarotImage.alt = '';
+      }
+      return;
+    }
+
+    resultTarotImage.removeAttribute('src');
+    resultTarotImage.alt = '';
+    resultTarotCard.classList.remove('has-card-image');
+    resultTarotCard.dataset.orientation = 'upright';
+    const lines = Array.isArray(reading.result_lines) && reading.result_lines.length === 6
+      ? reading.result_lines
+      : generateCoinFaces(`${reading.id || ''}${reading.result_key || ''}`);
+    const lowerTrigram = trigramMap[lines.slice(0, 3).join('-')] || trigramMap['front-front-front'];
+    resultBaguaSymbol.textContent = lowerTrigram.symbol;
+    resultBaguaName.textContent = reading.result_title;
+    resultHexagramLines.replaceChildren();
+    lines.slice().reverse().forEach((line) => {
+      const item = document.createElement('span');
+      item.className = `result-hexagram-line result-hexagram-line--${line === 'front' ? 'yang' : 'yin'}`;
+      resultHexagramLines.appendChild(item);
+    });
+  }
+
   function renderResult(data) {
     const reading = data.reading;
     const hourlyText = Number.isFinite(data.usage?.remainingThisHour) ? `｜本小時剩餘 ${data.usage.remainingThisHour} 次` : '';
@@ -653,6 +746,7 @@
     resultTitle.textContent = reading.result_title;
     resultKeywords.textContent = reading.result_keywords || '';
     resultText.textContent = reading.result_text;
+    renderResultVisual(reading);
     resultPanel.hidden = false;
     lastReading = reading;
     showSharePanel(reading);

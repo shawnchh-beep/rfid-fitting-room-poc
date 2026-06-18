@@ -164,6 +164,14 @@ body[data-step="result"] .status-message {
   display: none;
 }
 
+body[data-step="result"] .setup-panel {
+  display: none;
+}
+
+body[data-step="result"] .experience-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .ritual-scene::before {
   content: "";
   position: absolute;
@@ -1336,15 +1344,15 @@ input[type="password"]:focus {
   justify-content: flex-start;
   gap: 12px;
   max-width: 720px;
-  margin-top: 28px;
+  margin-top: 20px;
 }
 
 .result-actions button,
 .more-share-panel button {
-  min-height: 56px;
+  min-height: 50px;
   border-radius: 14px;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 760;
 }
 
@@ -1391,23 +1399,223 @@ input[type="password"]:focus {
 
 .result-panel {
   display: grid;
-  min-height: min(430px, calc(100vh - 222px));
+  min-height: min(390px, calc(100vh - 138px));
+  max-height: calc(100vh - 122px);
   margin-top: 0;
-  padding: clamp(22px, 4vw, 42px);
+  padding: clamp(18px, 2.4vw, 28px);
   align-content: center;
 }
 
+.result-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr);
+  gap: clamp(24px, 4vw, 52px);
+  align-items: center;
+}
+
+.result-info {
+  min-width: 0;
+}
+
 .result-panel h2 {
-  margin: 6px 0;
-  font-size: clamp(2rem, 4vw, 3.4rem);
+  margin: 8px 0 14px;
+  font-size: clamp(2.5rem, 4.8vw, 4.3rem);
+  line-height: .98;
   letter-spacing: 0;
 }
 
+.result-panel .keywords {
+  margin: 0;
+  font-size: clamp(1rem, 1.5vw, 1.25rem);
+  line-height: 1.45;
+}
+
 .result-text {
-  max-width: 56em;
+  max-width: 42em;
+  margin: clamp(18px, 2.8vh, 28px) 0 0;
   color: #eee7dd;
+  font-size: clamp(.98rem, 1.25vw, 1.1rem);
+  line-height: 1.58;
+}
+
+.result-visual {
+  position: relative;
+  display: grid;
+  min-height: 300px;
+  place-items: center;
+  isolation: isolate;
+}
+
+.result-visual::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: min(100%, 320px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(232, 189, 97, .16);
+  border-radius: 50%;
+  box-shadow:
+    0 0 90px rgba(232, 189, 97, .1),
+    inset 0 0 80px rgba(232, 189, 97, .05);
+}
+
+.result-tarot-visual {
+  display: grid;
+  width: 100%;
+  place-items: center;
+  perspective: 1000px;
+}
+
+.result-visual[data-method="bagua"] .result-tarot-visual {
+  display: none;
+}
+
+.result-tarot-card {
+  position: relative;
+  display: grid;
+  width: min(215px, 68%);
+  aspect-ratio: 2 / 3.2;
+  place-items: center;
+  border: 1px solid rgba(232, 189, 97, .7);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(232, 189, 97, .18), transparent 34%),
+    linear-gradient(155deg, #263143, #10151e 68%);
+  box-shadow:
+    0 30px 70px rgba(0, 0, 0, .5),
+    0 0 36px rgba(232, 189, 97, .17),
+    inset 0 0 0 8px rgba(12, 17, 24, .72);
+  padding: 12px;
+  transform: rotate(2deg);
+}
+
+.result-tarot-card[data-orientation="reversed"] {
+  transform: rotate(-2deg);
+}
+
+.result-tarot-image {
+  display: none;
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  object-fit: contain;
+  transform: rotate(0);
+  transition: transform 320ms ease;
+}
+
+.result-tarot-card.has-card-image {
+  aspect-ratio: 2 / 3;
+  padding: 5px;
+  background: #15120d;
+  box-shadow:
+    0 30px 70px rgba(0, 0, 0, .5),
+    0 0 42px rgba(232, 189, 97, .24);
+}
+
+.result-tarot-card.has-card-image .result-tarot-image {
+  display: block;
+}
+
+.result-tarot-card.has-card-image .result-tarot-card__frame {
+  display: none;
+}
+
+.result-tarot-card[data-orientation="reversed"] .result-tarot-image {
+  transform: rotate(180deg);
+}
+
+.result-tarot-card__frame {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  grid-template-rows: auto 1fr auto;
+  place-items: center;
+  border: 1px solid rgba(232, 189, 97, .42);
+  border-radius: 4px;
+  padding: 18px 14px;
+  background:
+    linear-gradient(rgba(255, 255, 255, .025), rgba(255, 255, 255, 0)),
+    repeating-linear-gradient(45deg, transparent 0 18px, rgba(232, 189, 97, .035) 18px 19px);
+}
+
+.result-tarot-card[data-orientation="reversed"] .result-tarot-symbol {
+  transform: rotate(180deg);
+}
+
+.result-visual-status {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  border: 1px solid rgba(232, 189, 97, .38);
+  border-radius: 999px;
+  background: rgba(10, 13, 18, .82);
+  color: var(--gold);
+  font-size: .76rem;
+  font-weight: 850;
+  letter-spacing: .14em;
+  line-height: 1;
+  padding: 7px 8px 7px 10px;
+}
+
+.result-tarot-symbol {
+  color: var(--gold);
+  font-size: clamp(4.5rem, 8vw, 6.6rem);
+  line-height: 1;
+  text-shadow: 0 0 28px rgba(232, 189, 97, .35);
+}
+
+.result-tarot-name {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--text);
   font-size: 1rem;
-  line-height: 1.72;
+  font-weight: 850;
+  text-align: center;
+}
+
+.result-bagua-visual {
+  display: grid;
+  width: min(360px, 100%);
+  place-items: center;
+}
+
+.result-visual[data-method="tarot"] .result-bagua-visual {
+  display: none;
+}
+
+.result-bagua-symbol {
+  color: var(--gold);
+  font-size: clamp(4.2rem, 8vw, 6.5rem);
+  line-height: 1;
+  text-shadow: 0 0 28px rgba(232, 189, 97, .28);
+}
+
+.result-hexagram-lines {
+  display: grid;
+  width: min(190px, 68%);
+  gap: 9px;
+  margin: 14px 0 18px;
+}
+
+.result-hexagram-line {
+  display: block;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--gold);
+  box-shadow: 0 0 16px rgba(232, 189, 97, .16);
+}
+
+.result-hexagram-line--yin {
+  background: linear-gradient(90deg, var(--gold) 0 40%, transparent 40% 60%, var(--gold) 60% 100%);
+}
+
+.result-bagua-name {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: clamp(1.35rem, 2.5vw, 2rem);
+  line-height: 1.2;
+  text-align: center;
 }
 
 .admin-shell {
@@ -1668,15 +1876,49 @@ input[type="password"]:focus {
 
   .result-panel {
     min-height: calc(100svh - 112px);
+    max-height: none;
     margin-top: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     padding: 18px;
   }
 
+  .result-layout {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .result-visual {
+    min-height: 290px;
+    grid-row: 1;
+  }
+
+  .result-info {
+    grid-row: 2;
+  }
+
+  .result-tarot-card {
+    width: min(210px, 62vw);
+  }
+
+  .result-bagua-symbol {
+    font-size: 5rem;
+  }
+
+  .result-hexagram-lines {
+    width: min(190px, 58vw);
+    gap: 9px;
+    margin: 14px 0 18px;
+  }
+
+  .result-hexagram-line {
+    height: 10px;
+  }
+
   .result-panel h2 {
-    font-size: 2.7rem;
+    margin: 8px 0 14px;
+    font-size: clamp(2.5rem, 13vw, 4rem);
   }
 
   .result-actions,

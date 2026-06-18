@@ -276,10 +276,31 @@
           <p id="statusMessage" class="status-message" role="status"></p>
 
           <section id="resultPanel" class="result-panel" aria-live="polite" hidden>
-            <p id="resultMeta" class="result-meta"></p>
-            <h2 id="resultTitle"></h2>
-            <p id="resultKeywords" class="keywords"></p>
-            <p id="resultText" class="result-text"></p>
+            <div class="result-layout">
+              <div class="result-info">
+                <p id="resultMeta" class="result-meta"></p>
+                <h2 id="resultTitle"></h2>
+                <p id="resultKeywords" class="keywords"></p>
+                <p id="resultText" class="result-text"></p>
+              </div>
+              <div id="resultVisual" class="result-visual" data-method="tarot">
+                <div id="resultTarotVisual" class="result-tarot-visual">
+                  <div id="resultTarotCard" class="result-tarot-card" data-orientation="upright">
+                    <span id="resultTarotOrientation" class="result-visual-status">正位</span>
+                    <img id="resultTarotImage" class="result-tarot-image" src="" alt="" decoding="async" loading="eager" />
+                    <div class="result-tarot-card__frame">
+                      <span id="resultTarotSymbol" class="result-tarot-symbol">☾</span>
+                      <span id="resultTarotName" class="result-tarot-name">塔羅牌</span>
+                    </div>
+                  </div>
+                </div>
+                <div id="resultBaguaVisual" class="result-bagua-visual">
+                  <span id="resultBaguaSymbol" class="result-bagua-symbol">☰</span>
+                  <div id="resultHexagramLines" class="result-hexagram-lines" aria-hidden="true"></div>
+                  <strong id="resultBaguaName" class="result-bagua-name">乾</strong>
+                </div>
+              </div>
+            </div>
             <div class="result-actions">
               <button id="share-image-btn" class="primary-action" type="button">分享結果圖</button>
               <button id="copy-share-copy-btn" class="secondary-action" type="button">複製分享文案</button>
