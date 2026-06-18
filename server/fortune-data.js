@@ -1,3 +1,5 @@
+const COPY_POOLS = require('../public/data/copy-pools.json');
+
 const FORTUNE_TOPICS = {
   love: '這關係還有戲嗎',
   career: '工作是不是有病',
@@ -24,6 +26,14 @@ const FORTUNE_METHODS = {
   bagua: '八卦占卜',
   tarot: '塔羅牌'
 };
+
+const EXTERNAL_COPY_TOPICS = ['love', 'career', 'money', 'decision', 'roast'];
+
+for (const topic of EXTERNAL_COPY_TOPICS) {
+  if (!Array.isArray(COPY_POOLS[topic]) || COPY_POOLS[topic].length === 0) {
+    throw new Error(`copy-pools.json must provide a non-empty "${topic}" array`);
+  }
+}
 
 const FOOD_CHOICES = [
   ['鹹酥雞', '今天別假裝養生，快樂先裹粉下鍋。'],
@@ -425,14 +435,14 @@ function baguaText(title, keywords) {
   const food = pickFood(`${title}:${keywords}`);
   const values = { title };
   return {
-    love: pickTopicCopy(BAGUA_TOPIC_COPY_POOLS.love, `${title}:love`, values, title),
+    love: pickTopicCopy(COPY_POOLS.love, `${title}:love`, values, title),
     study: pickTopicCopy(BAGUA_TOPIC_COPY_POOLS.study, `${title}:study`, values, title),
-    career: pickTopicCopy(BAGUA_TOPIC_COPY_POOLS.career, `${title}:career`, values, title),
-    money: pickTopicCopy(BAGUA_TOPIC_COPY_POOLS.money, `${title}:money`, values, title),
+    career: pickTopicCopy(COPY_POOLS.career, `${title}:career`, values, title),
+    money: pickTopicCopy(COPY_POOLS.money, `${title}:money`, values, title),
     food: `${title}點名${food.name}。${food.line}`,
     travel: pickTopicCopy(BAGUA_TOPIC_COPY_POOLS.travel, `${title}:travel`, values, title),
-    decision: pickTopicCopy(BAGUA_TOPIC_COPY_POOLS.decision, `${title}:decision`, values, title),
-    roast: pickTopicCopy(BAGUA_TOPIC_COPY_POOLS.roast, `${title}:roast`, values, title),
+    decision: pickTopicCopy(COPY_POOLS.decision, `${title}:decision`, values, title),
+    roast: pickTopicCopy(COPY_POOLS.roast, `${title}:roast`, values, title),
     random: `${title}今天主打${keywords}；運勢不差，但拖延症若上線，宇宙也救不了你的進度條。`
   };
 }
@@ -481,14 +491,14 @@ function tarotText(card, orientation) {
   const food = pickFood(`${card}:${state}`);
   const values = { card, state };
   return {
-    love: pickTopicCopy(TAROT_TOPIC_COPY_POOLS.love, `${card}:${state}:love`, values, `${card}${state}`),
+    love: pickTopicCopy(COPY_POOLS.love, `${card}:${state}:love`, values, `${card}${state}`),
     study: pickTopicCopy(TAROT_TOPIC_COPY_POOLS.study, `${card}:${state}:study`, values, `${card}${state}`),
-    career: pickTopicCopy(TAROT_TOPIC_COPY_POOLS.career, `${card}:${state}:career`, values, `${card}${state}`),
-    money: pickTopicCopy(TAROT_TOPIC_COPY_POOLS.money, `${card}:${state}:money`, values, `${card}${state}`),
+    career: pickTopicCopy(COPY_POOLS.career, `${card}:${state}:career`, values, `${card}${state}`),
+    money: pickTopicCopy(COPY_POOLS.money, `${card}:${state}:money`, values, `${card}${state}`),
     food: `${card}${state}叫你吃${food.name}。${food.line}`,
     travel: pickTopicCopy(TAROT_TOPIC_COPY_POOLS.travel, `${card}:${state}:travel`, values, `${card}${state}`),
-    decision: pickTopicCopy(TAROT_TOPIC_COPY_POOLS.decision, `${card}:${state}:decision`, values, `${card}${state}`),
-    roast: pickTopicCopy(TAROT_TOPIC_COPY_POOLS.roast, `${card}:${state}:roast`, values, `${card}${state}`),
+    decision: pickTopicCopy(COPY_POOLS.decision, `${card}:${state}:decision`, values, `${card}${state}`),
+    roast: pickTopicCopy(COPY_POOLS.roast, `${card}:${state}:roast`, values, `${card}${state}`),
     random: `${card}${state}今天來吐槽你：方向不是沒有，是你常常先跟拖延症私奔。`
   };
 }
