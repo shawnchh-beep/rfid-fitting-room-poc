@@ -23,7 +23,6 @@
   const nativeShareButton = document.querySelector('#nativeShareButton');
   const textShareButton = document.querySelector('#textShareButton');
   const shareImageButton = document.querySelector('#share-image-btn');
-  const fortuneShareCard = document.querySelector('#fortune-share-card');
   const copyShareCopyButton = document.querySelector('#copy-share-copy-btn');
   const resetButton = document.querySelector('#restart-btn');
 
@@ -349,45 +348,6 @@
     };
   }
 
-  function setShareCardText(selector, value) {
-    const target = fortuneShareCard?.querySelector(selector);
-    if (target) target.textContent = value || '';
-  }
-
-  function prepareShareCard(data) {
-    if (!fortuneShareCard || !data) return;
-    setShareCardText('.share-card-kicker', data.methodLabel ? `今日小占卜 · ${data.methodLabel}` : '今日小占卜');
-    setShareCardText('.share-card-symbol', data.resultSymbol);
-    setShareCardText('.share-card-title', data.resultTitle);
-    setShareCardText('.share-card-result', data.resultText);
-    setShareCardText('.share-card-cta', data.cta);
-    setShareCardText('.share-card-url', data.displayUrl);
-    fortuneShareCard.style.setProperty('--share-card-from', data.gradient[0]);
-    fortuneShareCard.style.setProperty('--share-card-to', data.gradient[1]);
-  }
-
-  async function dataUrlToBlob(dataUrl) {
-    const response = await fetch(dataUrl);
-    return response.blob();
-  }
-
-  function waitForNextPaint() {
-    return new Promise((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(resolve));
-    });
-  }
-
-  function createShareCaptureNode() {
-    const captureNode = fortuneShareCard.cloneNode(true);
-    captureNode.removeAttribute('id');
-    captureNode.setAttribute('aria-hidden', 'true');
-    captureNode.style.left = `${window.innerWidth + 32}px`;
-    captureNode.style.top = '0';
-    captureNode.style.zIndex = '1';
-    document.body.appendChild(captureNode);
-    return captureNode;
-  }
-
   function drawRoundedRect(ctx, x, y, width, height, radius) {
     const safeRadius = Math.min(radius, width / 2, height / 2);
     ctx.beginPath();
@@ -635,7 +595,6 @@
       button.disabled = true;
       button.textContent = '產圖中⋯';
     }
-    prepareShareCard(data);
 
     try {
       if (document.fonts?.ready) await document.fonts.ready;
