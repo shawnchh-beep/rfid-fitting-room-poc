@@ -387,6 +387,17 @@ function stableIndex(seed, length) {
   return hash % length;
 }
 
+function getTodayKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 function fillCopy(template, values) {
   return template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? '');
 }
@@ -407,6 +418,10 @@ function pickTopicCopy(pool, seed, values, subject) {
   }
   const prefix = fillCopy(SUBJECT_PREFIXES[stableIndex(`${seed}:prefix`, SUBJECT_PREFIXES.length)], { subject });
   return `${prefix}${text}`;
+}
+
+function pickDailyTopicCopy(pool, subject, topic, values) {
+  return pickTopicCopy(pool, `${subject}:${topic}:${getTodayKey()}`, values, subject);
 }
 
 const BAGUA_TOPIC_COPY_POOLS = {
@@ -750,16 +765,26 @@ const HEXAGRAM_MATRIX = {
 function baguaText(title, keywords, foodGroup) {
   const values = { title };
   return {
-    love: pickTopicCopy(COPY_POOLS.love, `${title}:love`, values, title),
+    get love() {
+      return pickDailyTopicCopy(COPY_POOLS.love, title, 'love', values);
+    },
     study: pickTopicCopy(BAGUA_TOPIC_COPY_POOLS.study, `${title}:study`, values, title),
-    career: pickTopicCopy(COPY_POOLS.career, `${title}:career`, values, title),
-    money: pickTopicCopy(COPY_POOLS.money, `${title}:money`, values, title),
+    get career() {
+      return pickDailyTopicCopy(COPY_POOLS.career, title, 'career', values);
+    },
+    get money() {
+      return pickDailyTopicCopy(COPY_POOLS.money, title, 'money', values);
+    },
     get food() {
       return buildFoodReading(title, foodGroup);
     },
     travel: pickTopicCopy(BAGUA_TOPIC_COPY_POOLS.travel, `${title}:travel`, values, title),
-    decision: pickTopicCopy(COPY_POOLS.decision, `${title}:decision`, values, title),
-    roast: pickTopicCopy(COPY_POOLS.roast, `${title}:roast`, values, title),
+    get decision() {
+      return pickDailyTopicCopy(COPY_POOLS.decision, title, 'decision', values);
+    },
+    get roast() {
+      return pickDailyTopicCopy(COPY_POOLS.roast, title, 'roast', values);
+    },
     random: `${title}今天主打${keywords}；運勢不差，但拖延症若上線，宇宙也救不了你的進度條。`
   };
 }
@@ -806,17 +831,28 @@ function tarotText(card, orientation, foodGroup) {
   const isReversed = orientation === 'reversed';
   const state = isReversed ? '逆位' : '正位';
   const values = { card, state };
+  const subject = `${card}${state}`;
   return {
-    love: pickTopicCopy(COPY_POOLS.love, `${card}:${state}:love`, values, `${card}${state}`),
+    get love() {
+      return pickDailyTopicCopy(COPY_POOLS.love, subject, 'love', values);
+    },
     study: pickTopicCopy(TAROT_TOPIC_COPY_POOLS.study, `${card}:${state}:study`, values, `${card}${state}`),
-    career: pickTopicCopy(COPY_POOLS.career, `${card}:${state}:career`, values, `${card}${state}`),
-    money: pickTopicCopy(COPY_POOLS.money, `${card}:${state}:money`, values, `${card}${state}`),
+    get career() {
+      return pickDailyTopicCopy(COPY_POOLS.career, subject, 'career', values);
+    },
+    get money() {
+      return pickDailyTopicCopy(COPY_POOLS.money, subject, 'money', values);
+    },
     get food() {
       return buildFoodReading(`${card}${state}`, foodGroup);
     },
     travel: pickTopicCopy(TAROT_TOPIC_COPY_POOLS.travel, `${card}:${state}:travel`, values, `${card}${state}`),
-    decision: pickTopicCopy(COPY_POOLS.decision, `${card}:${state}:decision`, values, `${card}${state}`),
-    roast: pickTopicCopy(COPY_POOLS.roast, `${card}:${state}:roast`, values, `${card}${state}`),
+    get decision() {
+      return pickDailyTopicCopy(COPY_POOLS.decision, subject, 'decision', values);
+    },
+    get roast() {
+      return pickDailyTopicCopy(COPY_POOLS.roast, subject, 'roast', values);
+    },
     random: `${card}${state}今天來吐槽你：方向不是沒有，是你常常先跟拖延症私奔。`
   };
 }
